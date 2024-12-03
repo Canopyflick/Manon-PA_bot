@@ -1,10 +1,9 @@
 ﻿from datetime import timedelta, datetime
 from pydantic import BaseModel
-from TelegramBot_Takentovenaar import client, get_first_name, get_database_connection
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
-import asyncio, re
+import asyncio, re, logging
 
 
 

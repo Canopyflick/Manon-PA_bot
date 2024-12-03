@@ -1,16 +1,4 @@
-﻿from pydantic import BaseModel, Field
-from TelegramBot_Takentovenaar import client, get_database_connection
-from telegram.constants import ChatAction
-from datetime import datetime, time, timedelta, timezone
-from typing import List, Literal, Optional
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from utils import handle_goal_completion
-import pytz
-import asyncio, random
-
-from utils import check_chat_owner, fetch_goal_text
-
-cet = pytz.timezone('Europe/Berlin')  # Automatically adjusts for CET/CEST based on the date
+﻿
 
 
 

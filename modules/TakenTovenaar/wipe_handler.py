@@ -1,5 +1,5 @@
 ﻿from telegram.ext import CommandHandler, MessageHandler, ConversationHandler, filters
-from TelegramBot_Takentovenaar import get_database_connection
+import logging
 
 
 

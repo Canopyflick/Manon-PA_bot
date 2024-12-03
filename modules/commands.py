@@ -1,17 +1,13 @@
-﻿from TelegramBot_Takentovenaar import get_first_name, get_database_connection
-from utils import add_special, escape_markdown_v2, get_random_philosophical_message, show_inventory, check_chat_owner, check_use_of_special, fetch_live_engagements, fetch_goal_text, has_goal_today, send_openai_request, prepare_openai_messages, fetch_goal_status
+﻿from modules.TakenTovenaar.utils import add_special, escape_markdown_v2, get_random_philosophical_message, show_inventory, check_chat_owner, check_use_of_special, fetch_live_engagements, fetch_goal_text, has_goal_today, send_openai_request, prepare_openai_messages, fetch_goal_status
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
-import asyncio, random, re
+import asyncio, random, re, logging
+from utils.helpers import get_database_connection
 
 
 # Asynchronous command functions
 async def start_command(update, context):
-    chat_type = update.effective_chat.type
-    if chat_type == 'private':
-        await update.message.reply_text("Uhh, hoi... 👋🧙‍♂️ Stiekem ben ik een beetje verlegen. Praat met me in een chat waar Ben bij zit, pas dan voel ik me op mijn gemak.\n\n\nPS: je kunt hier wel allerhande boodschappen ter feedback achterlaten, dan geef ik die door aan Ben (#privacy). Denk bijvoorbeeld aan feature requests, kwinkslagen, knuffelbedreigingen, valsspeelbiechten, slaapzakberichten etc.\n\nPPS: Die laatste verzon ChatGPT. En ik citeer: 'Een heel lang bericht, waarin je jezelf zou kunnen verliezen alsof je in een slaapzak kruipt.'")
-    else:
-        await update.message.reply_text('Hoi! 👋🧙‍♂️\n\nIk ben Taeke Toekema Takentovenaar. Stuur mij berichtjes, bijvoorbeeld om je dagdoel in te stellen of te voltooien, of me te vragen waarom bananen krom zijn. Antwoord op mijn berichten of tag me, bijvoorbeeld zo:\n\n"@TakenTovenaar_bot ik wil vandaag 420 gram groenten eten" \n\nDruk op >> /help << voor meer opties.')
+    await update.message.reply_text('Hoi! 👋👩‍🦱\n\nIk ben Manon. Jij bent als het goed is Ben, dus je weet alles al. De groeten.')
 
 
 async def help_command(update, context):
@@ -19,12 +15,6 @@ async def help_command(update, context):
         '*Ziehier de commando\'s* 🧙‍♂️\n'
         '👋 /start - Uitleg om te beginnen\n'
         '❓/help - Dit lijstje\n'
-        '📊 /stats - Je persoonlijke stats\n'
-        '🤔 /reset - Pas je doel aan\n'
-        '🗑️ /wipe - Wis je gegevens\n'
-        '🎒 /inventaris - Bekijk je acties\n'
-        '🏹 /acties - Uitleg over acties\n'
-        '🤬 /fittie - Maak bezwaar\n'
         '💭 /filosofie - Laat je inspireren'
     )
     chat_type = update.effective_chat.type
@@ -37,11 +27,6 @@ async def help_command(update, context):
     
 
 async def stats_command(update: Update, context):
-    chat_type = update.effective_chat.type
-    # Check if the chat is private or group/supergroup
-    if chat_type == 'private':
-        await update.message.reply_text("Hihi hoi. Ik werk liever in een groepssetting 🧙‍♂️\n\n/start")
-        return
         
     message = update.message
     user_id = None
@@ -262,7 +247,7 @@ async def reset_command(update, context):
                            ''', (user_id, chat_id))
             conn.commit()
         except Exception as e:
-            print(f"Error resetting goal in database: {e}")
+            logging.error(f"Error resetting goal in database: {e}")
             conn.rollback()
         finally:
             cursor.close()
@@ -308,7 +293,7 @@ async def filosofie_command(update, context):
             philosophical_message = get_random_philosophical_message(normal_only=True)
             await update.message.reply_text(f'_{philosophical_message}_', parse_mode="Markdown")
     except Exception as e:
-        print(f"Error in filosofie_command: {e}")
+        logging.error(f"Error in filosofie_command: {e}")
 
 
 async def inventory_command(update, context):
@@ -406,11 +391,11 @@ async def revert_goal_completion_command(update, context):
         
 
 async def handle_admin(update, context, type, amount=None):
-    print(f"entering handle_admin_command")
+    logging.error(f"entering handle_admin_command")
     try:
         user_id = update.message.reply_to_message.from_user.id
     except Exception as e:
-        print(f"Error. Uitdelen/reverten kan alleen als reply: {e}")
+        logging.error(f"Error. Uitdelen/reverten kan alleen als reply: {e}")
         return False
     first_name = update.message.reply_to_message.from_user.first_name
     chat_id = update.effective_chat.id
@@ -428,7 +413,7 @@ async def handle_admin(update, context, type, amount=None):
             await update.message.reply_text(f"Taeke Takentovenaar deelt uit 🎁🧙‍♂️\n_+{amount} punt{'en' if amount != 1 else ''} voor {first_name}_", parse_mode = "Markdown")
             return
         except Exception as e:
-            print(f"Error updating user score handling admin: {e}")
+            logging.error(f"Error updating user score handling admin: {e}")
             conn.rollback()
     elif type == 'steal':
         try:
@@ -441,7 +426,7 @@ async def handle_admin(update, context, type, amount=None):
             await update.message.reply_text(f"Taeke Takentovenaar grist weg 🥷\n_-{amount} punt{'en' if amount != 1 else ''} van {first_name}_", parse_mode = "Markdown")
             return
         except Exception as e:
-            print(f"Error updating user score handling admin: {e}")
+            logging.error(f"Error updating user score handling admin: {e}")
             conn.rollback()
     elif type == 'revert':
         try:
@@ -456,12 +441,12 @@ async def handle_admin(update, context, type, amount=None):
             await update.message.reply_text(f"Whoops ❌ \nTaeke Takentovenaar draait voltooiing van {first_name} terug 🧙‍♂️\n_-4 punten, doelstatus weer: 'ingesteld'_"
                                     , parse_mode="Markdown")
         except Exception as e:
-            print(f"Error updating user score handling admin: {e}")    
+            logging.error(f"Error updating user score handling admin: {e}")    
             conn.rollback()
     else:
        special_type = type
        if special_type not in valid_special_types:
-           print(f"Invalid special_type gift: {special_type}")
+           logging.error(f"Invalid special_type gift: {special_type}")
            return
        else:
             try:

@@ -1,7 +1,6 @@
 ﻿from pydantic import BaseModel
-from TelegramBot_Takentovenaar import client, get_database_connection
 from telegram.constants import ChatAction
-import asyncio, random
+import asyncio, random, logging
 
 
 

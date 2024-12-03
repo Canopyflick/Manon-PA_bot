@@ -1,33 +1,11 @@
-﻿from TelegramBot_Takentovenaar import client, notify_ben, get_first_name, global_bot, is_ben_in_chat, notify_ben, get_database_connection
-from datetime import datetime, timezone
-import json, asyncio, re, random
+﻿from datetime import datetime, timezone
 from telegram import Update
 from telegram.ext import CallbackContext, ContextTypes
 from typing import Literal
 from pydantic import BaseModel
-from handlers.weekly_poll import retrieve_poll_results
+from modules.TakenTovenaar.weekly_poll import retrieve_poll_results
+import json, asyncio, re, random, logging
 
-
-# First orchestration: function to analyze any chat message, and check whether it replies to the bot, mentions it, or neither
-async def analyze_message(update, context):
-    if await is_ben_in_chat(update, context):
-        try:
-            if update.message.reply_to_message and update.message.reply_to_message.from_user.is_bot:
-                print("analyze_message > analyze_bot_reply")
-                await analyze_bot_reply(update, context)          
-            elif update.message and '@TakenTovenaar_bot' in update.message.text:
-                print("analyze_message > analyze_bot_mention")
-                await analyze_bot_mention(update, context)           
-            else:
-                print("analyze_message > analyze_regular_message")
-                await analyze_regular_message(update, context)
-        except Exception as e:
-            await update.message.reply_text("Er ging iets mis in analyze_message(), probeer het later opnieuw.")
-            print(f"Error in analyze_message(): {e}")   
-    else: 
-        await update.message.reply_text("Uhh, hoi... Stiekem ben ik een beetje verlegen. Praat met me in een chat waar Ben bij zit, pas dan voel ik me op mijn gemak 🧙‍♂️\n\n\nPS: je kunt hier wel allerhande boodschappen ter feedback achterlaten, dan geef ik die door aan Ben (#privacy). Denk bijvoorbeeld aan feature requests, kwinkslagen, knuffelbedreigingen, valsspeelbiechten, slaapzakberichten etc.\nPPS: Die laatste verzon ChatGPT. En ik quote: 'Een heel lang bericht, waarin je jezelf zou kunnen verliezen alsof je in een slaapzak kruipt.'")
-        await notify_ben(update, context)
-        return
 
 # nightly or catch-up reset        
 async def reset_goal_status(bot, chat_id):
@@ -56,7 +34,7 @@ async def reset_goal_status(bot, chat_id):
         # Process each engager for each type separately
         for engager_id_tuple in live_engagers:
             engager_id = engager_id_tuple[0]
-            print('UHHH 🐛🐛🐛🐛🐛🐛🐛🐛🐛🐛')
+            logging.error('UHHH 🐛🐛🐛🐛🐛🐛🐛🐛🐛🐛')
             print(dir(bot))
             engager_name = await get_first_name(bot, user_id=engager_id)
             escaped_engager_name = escape_markdown_v2(engager_name)
@@ -96,12 +74,12 @@ async def reset_goal_status(bot, chat_id):
                         ''', (amount, engager_id, chat_id,))
                         conn.commit()
                     except Exception as e:
-                        print(f"Error subtracting points for pending and live links for {chat_id}: {e}")
+                        logging.error(f"Error subtracting points for pending and live links for {chat_id}: {e}")
                         conn.rollback()
                     print("! ! ! live links upon nightly reset\n\nwerken ze ?!???!")
                 
     except Exception as e:
-        print(f"Error resetting goal for {chat_id} status: {e}")
+        logging.error(f"Error resetting goal for {chat_id} status: {e}")
         conn.rollback()   
     try:
         cursor.execute('''
@@ -111,7 +89,7 @@ async def reset_goal_status(bot, chat_id):
         ''', (chat_id,))
         conn.commit()
     except Exception as e:
-        print(f"Error archiving engagements for {chat_id}: {e}")
+        logging.error(f"Error archiving engagements for {chat_id}: {e}")
         conn.rollback()
     finally:
         cursor.close()
@@ -144,7 +122,7 @@ def update_last_reset_time():
         conn.commit()
         print(f"last_reset_time updated to: {current_time}")
     except Exception as e:
-        print(f"Error updating last reset time: {e}")
+        logging.error(f"Error updating last reset time: {e}")
         conn.rollback()
     finally:
         cursor.close()
@@ -166,7 +144,7 @@ def get_last_reset_time():
             return default_time
         return result[0]
     except Exception as e:
-        print(f"Error getting last reset time: {e}")
+        logging.error(f"Error getting last reset time: {e}")
         return None
     finally:
         cursor.close()
@@ -217,7 +195,7 @@ async def check_use_of_special(update, context, special_type):
                     else:
                         print(f"The mentioned username ({username}) is not a user.")
                 except Exception as e:
-                    print(f"Error fetching user by username {username}: {e}")
+                    logging.error(f"Error fetching user by username {username}: {e}")
                     engaged_id = None
                
                 print(f"Username mentioned: {username}, engaged_name is {engaged_name}")
@@ -284,7 +262,7 @@ async def check_use_of_special(update, context, special_type):
                 print(f"{special_type_singular} couldn't be used by {engager_name}")
                 return False
     except Exception as e:
-        print(f"Error selecting goal: {e}")
+        logging.error(f"Error selecting goal: {e}")
     finally:
         cursor.close()
         conn.close() 
@@ -330,7 +308,7 @@ async def check_use_of_special(update, context, special_type):
         print(f"\n\n*  *  *  Completing Engagement  *  *  *\n\n{engager_name} {special_type} {engaged_name}\n\n")
     else:
         await update.message.reply_text(f"🚫 Uhhh.. staat deze persoon misschien (nog) niet in de database? 🧙‍♂️ \n(hij/zij moet in dat geval eerst een doel stellen)")  #77
-        print(f"Engagement Failed op de valreep.")
+        logging.error(f"Engagement Failed op de valreep.")
   
         
 async def delete_message(context, chat_id, message_id, delay=9):
@@ -356,7 +334,7 @@ async def check_special_balance(engager_id, chat_id, special_type):
             return "no inventory"
             
     except Exception as e:
-        print(f'Error checking sufficient inventory: {e}')
+        logging.error(f'Error checking sufficient inventory: {e}')
         return
     finally:
         cursor.close()
@@ -384,7 +362,7 @@ async def check_identical_engagement(engager_id, engaged_id, special_type, chat_
         else:
             return False  
     except Exception as e:
-        print(f'Error checking identical engagement: {e}')
+        logging.error(f'Error checking identical engagement: {e}')
         return     
     finally:
         cursor.close()
@@ -450,7 +428,7 @@ async def handle_goal_setting(update, user_id, chat_id):
         conn.commit()
     except Exception as e:
         await update.message.reply_text("Doelstatusprobleempje. Probeer het later opnieuw.")
-        print(f"Error updating today_goal_status: {e}")
+        logging.error(f"Error updating today_goal_status: {e}")
         conn.rollback()
         return
     finally:
@@ -537,7 +515,7 @@ async def handle_goal_completion(update, context, user_id, chat_id, goal_text, f
                 try:
                     await record_goal(user_id, chat_id, goal_text)
                 except Exception as e:
-                    print(f"Error recording goal: {e}")
+                    logging.error(f"Error recording goal: {e}")
                 # Lastly, transition any pending links to live - for completions without any existing live engagements
                 await advance_links_status(cursor, conn, chat_id, user_id)
                 return
@@ -557,7 +535,7 @@ async def handle_goal_completion(update, context, user_id, chat_id, goal_text, f
                     # record goal if challenge
                     await record_goal(user_id, chat_id, goal_text, engager_id, is_challenge=True)
                 except Exception as e:
-                    print(f"Error recording goal: {e}")   
+                    logging.error(f"Error recording goal: {e}")   
             unescaped_emojis = engaged_emojis.replace('\\(', '').replace('\\)', '')
             engaged_id = user_id
             engaged_bonus_total, engager_bonuses = await calculate_bonuses(update, engaged_id, chat_id)
@@ -1126,29 +1104,22 @@ async def prepare_openai_messages(update, user_message, message_type, goal_text=
     if message_type == 'classification':
         print("system prompt: classification message")
         system_message = system_message = """
-        # Opdracht
-        Jij bent @TakenTovenaar_bot in een telegramgroep over het samen stellen en behalen van doelen. 
-        Je classificeert een berichtje van een gebruiker in een van de volgende vier categorieën: 
-        Doelstelling, Klaar, Meta of Overig.
+         # Task
+        You are @Manon_PA_bot, personal assistant of {first_name} in a telegram group. 
+        Please judge {first_name}'s goal setting intention on timeframe: for which duration are they setting this goal? You do this by classifying the goal as one of the following timeframe types:
+        'day', 'week', 'by_date', 'open-ended'.
 
-        ## Doelstelling
-        Elk bericht waaruit blijkt dat de gebruiker van plan is om iets (specifieks) te gaan doen vandaag.
+        ## day
+        This is the default timeframe for a goal, and it means that the user intents to finish their goal this very same day. Either by the day's end, or at a specific time today. If the user doesn't specify anything, and the goal is the kind of goal they might feasibly finish in a day, then you should always pick this.
 
-        ## Klaar
-        Als de gebruiker rapporteert dat hun ingestelde doel met succes is afgerond, zoals: 'klaar!', 
-        'Gelukt!'. Een eventueel ingesteld doel is ook voorhanden: beoordeel dus of het ingestelde dagdoel compatibel is met hun bericht.
-        Als hun doel bijvoorbeeld was om de afwas te doen, dan moet je 'het afdruiprekje is vol' als 'Klaar' classificeren. Maar als hun doel was om 10km te hardlopen, dan niet.
+        ## week 
+        This is for a goal the user sets for the current workweek + weekend.
 
-        ## Meta
-        Als de gebruiker een vraag stelt over jou zelf als bot of over de groep. Voorbeelden van meta-vragen: 
-        'Wie heeft de meeste punten?', 'Waarom weet jij niks over Fitrie's doel?', of 'Wanneer krijgen we weer nieuwe boosts/links/challenges?'.
+        ## by_date
+        For goals that should be finished by a specific custom date (that is not today). Use this when the user says: 'tomorrow', 'Saturday', 'End of July', 'Wednesday next week', '12 August', etc.
 
-        ## Overig
-        Alle gevallen die niet duidelijk onder bovenstaande drie groepen vallen, zijn 'Overig'. Voorbeelden van overig: 
-        'Wat vind jij van kapucijners?', of 'Ik heb heel veel zin in m'n avondeten.', of: 'Wie was de laatste president van Amerika?' 
-
-        # Antwoord
-        Antwoord door eerst een beredenering te geven, die de voorhanden zijnde gegevens logisch op een rijtje zet. Daarna komt je classificatie: 'Doelstelling', 'Klaar', 'Meta', of 'Overig'.
+        ## open-ended
+        For goals without a specified deadline, that are not day goals. This is for cases when the user sets out to do this 'at some point', 'once in their life', 'eventually' etc. If the user says they want to do something 'soon', this is not open-ended. In cases like that, pick by_date. 
         """
 
     elif message_type == 'other':
@@ -1742,7 +1713,7 @@ async def analyze_bot_reply(update, context):
         # Prepare and send OpenAI messages with bot_last_response
         class Classificatie(BaseModel):
             beredenering: str
-            classificatie: Literal['Doelstelling', 'Klaar', 'Meta', 'Overig']
+            classificatie: Literal['day', 'week', 'by_date', 'open-ended']
             
         messages = await prepare_openai_messages(
             update, 
@@ -1864,7 +1835,7 @@ async def analyze_regular_message(update, context):
     goal_text = fetch_goal_text(update)
     first_name = update.effective_user.first_name
     if len(update.message.text) > 1600:
-        await update.message.reply_text(f"Hmpff {first_name}... TL;DR aub? 🧙‍♂️")
+        await update.message.reply_text(f"Hmpff {first_name}... TL;DR aub?")
         return
     await handle_regular_message(update, context)
     print("analyze_regular_message > handle_regular_message")
@@ -1886,7 +1857,7 @@ async def handle_regular_message(update, context):
                 reaction = "💯" 
             await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
     except Exception as e:
-        print(f"Error reacting to message: {e}")
+        logging.error(f"Error reacting to message: {e}")
     if len(user_message) > 11 and random.random() < 0.015:
         messages = await prepare_openai_messages(update, user_message, 'sleepy')
         assistant_response = await send_openai_request(messages, "gpt-4o")
@@ -1978,7 +1949,7 @@ async def handle_regular_message(update, context):
                 from handlers.weekly_poll import create_weekly_goals_poll
                 await create_weekly_goals_poll(context, chat_id)
             except Exception as e:
-                print(f"Error running 888-poll: {e}")
+                logging.error(f"Error running 888-poll: {e}")
                 
     # currently works only WHERE chat_id = -4591388020;
     elif user_message == 'voegneppedoelentoe':
@@ -2138,7 +2109,7 @@ async def add_weekly_goals(update, chat_id, amount = 4):
         print(f"Successfully added {amount} weekly goals for all users in chat {chat_id}.")
         await update.message.reply_text("Iedereen 4 dagdoelen erbij 🧙‍♂️")
     except Exception as e:
-        print(f"Error adding weekly goals amount: {e}")
+        logging.error(f"Error adding weekly goals amount: {e}")
         conn.rollback()
     finally:
         cursor.close()
@@ -2245,7 +2216,7 @@ async def giv_specials(update, context, special_type, for_all=False):
             return updated_inventory
 
     except Exception as e:
-        print(f"Error updating specials: {e}")
+        logging.error(f"Error updating specials: {e}")
         conn.rollback()
         return None
     finally:
@@ -2300,7 +2271,7 @@ async def reset_to_testing_state(update: Update, context: ContextTypes.DEFAULT_T
             )
         except Exception as e:
             conn.rollback()  # Rollback the transaction on error
-            print(f"Error: {e}")
+            logging.error(f"Error: {e}")
             await context.bot.send_message(
                 chat_id=update.message.chat_id,
                 text=f"Error occurred while resetting to testing state: {e}"
@@ -2342,6 +2313,6 @@ async def scheduled_daily_reset(context_or_application, chat_id=None):
             for chat_id in chat_ids:
                 await reset_goal_status(bot, chat_id)
     except Exception as e:
-        print(f"Error in scheduled_daily_reset: {e}")
+        logging.error(f"Error in scheduled_daily_reset: {e}")
         return
 
