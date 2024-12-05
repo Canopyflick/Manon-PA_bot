@@ -1,10 +1,11 @@
-﻿import io, sys, os, logging
+﻿import io, sys, os, logging, asyncio
 from logging.handlers import RotatingFileHandler
 from telegram import ChatMember
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, CallbackQueryHandler, PollHandler, ExtBot
 from datetime import datetime, timezone
 from utils.helpers import get_database_connection
 from utils.db import setup_database
+
 
 
 print("... STARTING ... 👩‍🦱  \n\n")
@@ -32,7 +33,7 @@ def configure_logging():
 
     # Console handler for all logs
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(formatter)
 
 
@@ -52,6 +53,7 @@ configure_logging()
 global_bot: ExtBot = None
 
 local_flag = False
+
 
 # Only load dotenv if running locally (not on Heroku)
 if not os.getenv('HEROKU_ENV'):  # Check if HEROKU_ENV is not set, meaning it's local
@@ -85,11 +87,17 @@ def get_bot_token() -> str:
 
 # Register bot commands and handlers
 def register_handlers(application):
-    from modules.commands import start_command, help_command, stats_command, filosofie_command
+    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("filosofie", filosofie_command))
+    
+    # Add the /btc /bitcoin command handler
+    application.add_handler(CommandHandler("btc", btc_command))
+    application.add_handler(CommandHandler("bitcoin", bitcoin_command))
+    
+    application.add_handler(CommandHandler("smarter", smarter_command))
     
     from utils.listener import analyze_message, print_edit  
     # Bind the message analysis to any non-command text messages
@@ -104,12 +112,22 @@ async def setup(application):
         initialize_environment()  # Sets up the database and resets reminders
         now = datetime.now(tz=timezone.utc)
         logging.info(f"Current time: {now}\n\n")
+        
+        # Start the bitcoin price pinger loop
+        from utils.helpers import monitor_btc_price
+        # This is the chat PA test channel
+        chat_id = -4788252476
+        # Schedule the monitor_btc_price task
+        asyncio.create_task(monitor_btc_price(application.bot, chat_id))        
+
     except Exception as e:
         logging.error(f"Error during setup: {e}")
         import traceback
         logging.error(traceback.format_exc())
         raise
     
+
+
 
 def main():
     logging.info("Entering main function")
@@ -118,7 +136,8 @@ def main():
         token = get_bot_token()
         if token is None:
             raise ValueError("No TELEGRAM_API_KEY found in environment variables")
-        
+
+
         # Log if running locally or hosted
         logging.info("Using *local database* & *dev bot* (@TestManon_bot)" if local_flag else "Using *hosted database* & *prod bot* (@Manon_PA_bot)\n")
 
@@ -131,7 +150,7 @@ def main():
         global_bot = application.bot
         if not global_bot:
             raise ValueError("Failed to initialize bot")
-        
+
         # Register handlers
         register_handlers(application)
 

@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel
 from modules.TakenTovenaar.weekly_poll import retrieve_poll_results
 import json, asyncio, re, random, logging
+from utils.helpers import get_database_connection, get_first_name, datetime
 
 
 # nightly or catch-up reset        

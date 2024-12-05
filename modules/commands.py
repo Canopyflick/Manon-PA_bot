@@ -2,7 +2,10 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
 import asyncio, random, re, logging
-from utils.helpers import get_database_connection
+from utils.helpers import get_database_connection, get_btc_price
+from telegram.ext import ContextTypes, CallbackContext
+
+from utils.listener import handle_goals_set_message
 
 
 # Asynchronous command functions
@@ -494,5 +497,17 @@ async def ranking_command(update, context):
     return
 
 
+async def btc_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    simple_message, _, _ = await get_btc_price()
+    await update.message.reply_text(simple_message)
+    
+
+async def bitcoin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _, detailed_message, _ = await get_btc_price()
+    await update.message.reply_text(detailed_message)
 
 
+async def smarter_command(update: Update, context: CallbackContext):
+    logging.warning("triggered /smarter")
+    user_message = update.message.text
+    await handle_goals_set_message(update, context, user_message, smarter=True)

@@ -1,4 +1,4 @@
-﻿from utils.helpers import get_database_connection, get_first_name, datetime, timedelta, cet
+﻿from utils.helpers import get_database_connection, get_first_name, datetime, timedelta, BERLIN_TZ
 import logging
 
 
@@ -46,10 +46,11 @@ def setup_database():
             CREATE TABLE IF NOT EXISTS manon_users (
                 user_id BIGINT,
                 chat_id BIGINT,
-                first_name TEXT DEFAULT 'Josefientje',
-                score INTEGER DEFAULT 0,
+                first_name TEXT DEFAULT "Josefientje",
+                score FLOAT DEFAULT 0,
                 inventory JSONB DEFAULT '{"boosts": 1, "challenges": 1, "links": 1}',
                 any_reminder_scheduled BOOLEAN DEFAULT False,
+                long_term_goals TEXT DEFAULT NULL,       
                 PRIMARY KEY (user_id, chat_id)
             )
         ''')
@@ -59,18 +60,33 @@ def setup_database():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS manon_goals (
                 goal_id SERIAL PRIMARY KEY,
+                group_id BIGINT DEFAULT NULL,           -- Group ID for recurring goals       
                 user_id BIGINT NOT NULL,                -- Foreign key to identify the user
-                chat_id BIGINT NOT NULL,                -- Foreign key to identify the chat       
-                goal_timeframe TEXT NOT NULL CHECK (goal_timeframe IN ('day', 'week', 'by_date', 'open_ended')),
-                goal_category TEXT NOT NULL,            -- eg career, productivity, relationships, hobbies, self-development, wealth, impact (EA), health, fun, other
-                goal_type TEXT NOT NULL DEFAULT 'unique' CHECK (goal_type IN ('unique', 'recurring')),
-                iteration INTEGER DEFAULT 1,            -- N+1, either for tracking attempts at unique goals (retries), or index of recurring
-                goal_text TEXT NOT NULL,                -- Goal description
+                chat_id BIGINT NOT NULL,                -- Foreign key to identify the chat 
+                status TEXT DEFAULT 'pending' CHECK (status IN (
+                    'prepared', 'pending', 'paused', 'archived_done', 'archived_failed', 'archived_canceled'
+                )),
+		        goal_durability TEXT NOT NULL DEFAULT 'one-time' CHECK (goal_durability IN ('one-time', 'recurring')),
+                goal_timeframe TEXT NOT NULL CHECK (goal_timeframe IN ('today', 'by_date', 'open-ended')),       
+                goal_value FLOAT NOT NULL,   
+
+                description TEXT NOT NULL,
                 set_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,       -- Time when the goal was set
-                deadline TIMESTAMP CHECK (goal_timeframe != 'infinite' OR deadline IS NULL),
+                deadline TIMESTAMP CHECK (
+                    (goal_timeframe = 'open-ended' AND deadline IS NULL) OR
+                    (goal_timeframe IN ('today', 'by_date') AND deadline IS NOT NULL)
+                ),
+
+                reminder_time TIMESTAMP DEFAULT NULL,       
                 reminder_scheduled BOOLEAN DEFAULT False,
-                status TEXT DEFAULT 'active' CHECK (status IN ('prepared', 'pending', 'paused', 'archived_done', 'archived_failed', 'archived_canceled')),
-                completed_time TIMESTAMP,                           -- Time when the goal was completed
+                time_investment_value FLOAT NOT NULL,    
+		        effort_multiplier FLOAT NOT NULL,
+		        impact_multiplier FLOAT NOT NULL,
+                penalty FLOAT DEFAULT 0 NOT NULL,       
+                iteration INTEGER DEFAULT 1,            -- N+1, either for tracking attempts at one-time goals (retries), or index of recurring
+                final_iteration TEXT DEFAULT 'not_applicable' CHECK (final_iteration IN ('not_applicable', 'false', 'true')),  -- The last iteration of a recurring goal. Should only be None for one-time goals, and can be used to prompt evaluation of extension       
+                goal_category TEXT[] NOT NULL,            -- eg work, productivity, chores, relationships, hobbies, self-development, wealth, impact (EA), health, fun, other       
+                completed_time TIMESTAMP DEFAULT NULL,                           -- Time when the goal was completed
                 FOREIGN KEY (user_id, chat_id) REFERENCES manon_users (user_id, chat_id)
             )
         ''')
@@ -78,7 +94,7 @@ def setup_database():
     
         #3 manon_bot table
         # Set 4 AM as default last_reset_time
-        now = datetime.now(tz=cet)
+        now = datetime.now(tz=BERLIN_TZ)
         unformatted_time = now.replace(hour=4, minute=0, second=0, microsecond=0) - timedelta(days=1)
         four_am_last_night = unformatted_time.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -215,3 +231,7 @@ async def collect_meta_data(user_id, chat_id):
     finally:
         cursor.close()
         conn.close()
+
+# Dummy function, not yet interacting with db        
+async def fetch_long_term_goals(chat_id, user_id):
+    return "To be increasingly kind and useful to others. To set myself up for continuous learning, self-improvement, longevity and rich relationships."

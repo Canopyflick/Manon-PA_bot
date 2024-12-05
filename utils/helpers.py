@@ -1,12 +1,14 @@
 ﻿from telegram import Update, ChatMember, Bot
 from telegram.ext import CallbackContext, ExtBot
 from typing import Union
-from datetime import timedelta, datetime
-import os, psycopg2, pytz, logging
+from datetime import datetime, time, timedelta, timezone
+import os, psycopg2, pytz, logging, requests, asyncio
 from openai import OpenAI
+from typing import Union
+from zoneinfo import ZoneInfo
 
-
-cet = pytz.timezone('Europe/Berlin')  # Automatically adjusts for CET/CEST based on the date
+# Define the Berlin timezone
+BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
 
 # Only load dotenv if running locally (not on Heroku)
@@ -26,6 +28,7 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY not found! Ensure it's set in the environment.")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 def get_database_connection():
     # Use DATABASE_URL if available (Heroku), otherwise fallback to LOCAL_DB_URL
@@ -109,3 +112,54 @@ async def get_first_name(context_or_bot: Union[Bot, ExtBot, CallbackContext], us
     except Exception as e:
         logging.error(f"Error fetching user details for user_id {user_id}: {e}")
         return "Lodewijk 🚨🐛"
+    
+
+async def get_btc_price() -> tuple[str, str, float]:
+    url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise HTTPError for bad responses
+        data = response.json()
+        usd_price = float(data["bitcoin"]["usd"])  # Convert to float for formatting
+        eur_price = float(data["bitcoin"]["eur"])  # Convert to float for formatting
+        
+        mycelium_balance = 0.01614903
+        mycelium_euros = round(eur_price * mycelium_balance, 2)
+        
+        # Format the prices with a comma as the thousands separator
+        usd_price_formatted = f"{usd_price:,.0f}"
+        mycelium_euros_formatted = f"{mycelium_euros:,.0f}"
+        
+        # Return two different outputs
+        simple_message = f"${usd_price_formatted}"
+        detailed_message = f"1₿ = ${usd_price_formatted}\n🍄 = €{mycelium_euros_formatted}"
+        raw_float_price = usd_price
+        
+        return simple_message, detailed_message, raw_float_price
+    except requests.RequestException as e:
+        return f"Error fetching Bitcoin price: {e}"
+    
+
+# Function to check Bitcoin price every hour and send a message if it exceeds the threshold
+async def monitor_btc_price(bot: Bot, chat_id: int):
+    lower_threshold = 100000
+    upper_threshold = 104000
+    upper_threshold_alerted = False
+    lower_threshold_alerted = False
+    while True:
+        _, _, price = await get_btc_price()
+        if price is not None:
+            print(f"Bitcoin price: ${price:,.2f}")  # Log the price
+            if price > upper_threshold and not upper_threshold_alerted:
+                message = f"*🚀 Bitcoin price alert!*\n\n1₿ is now ${price:,.2f} USD, exceeding the threshold of ${upper_threshold:,.2f}!"
+                await bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
+                upper_threshold_alerted = True
+                lower_threshold_alerted = False  # Reset lower threshold flag
+
+            elif price < lower_threshold and not lower_threshold_alerted:
+                message = f"*📉 Bitcoin price alert!*\n\n1₿ is now ${price:,.2f} USD, dropping below the threshold of ${lower_threshold:,.2f}!"
+                await bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
+                lower_threshold_alerted = True
+                upper_threshold_alerted = False  # Reset upper threshold flag
+                
+        await asyncio.sleep(600)  # Wait for 10 minutes before checking again
