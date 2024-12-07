@@ -142,8 +142,8 @@ async def get_btc_price() -> tuple[str, str, float]:
 
 # Function to check Bitcoin price every hour and send a message if it exceeds the threshold
 async def monitor_btc_price(bot: Bot, chat_id: int):
-    lower_threshold = 100000
-    upper_threshold = 104000
+    lower_threshold = 90000
+    upper_threshold = 111111
     upper_threshold_alerted = False
     lower_threshold_alerted = False
     while True:
@@ -151,13 +151,13 @@ async def monitor_btc_price(bot: Bot, chat_id: int):
         if price is not None:
             print(f"Bitcoin price: ${price:,.2f}")  # Log the price
             if price > upper_threshold and not upper_threshold_alerted:
-                message = f"*🚀 Bitcoin price alert!*\n\n1₿ is now ${price:,.2f} USD, exceeding the threshold of ${upper_threshold:,.2f}!"
+                message = f"*🚀 Bitcoin price alert!*\n1₿ is now ${price:,.2f} USD, exceeding the threshold of ${upper_threshold:,.2f}"
                 await bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
                 upper_threshold_alerted = True
                 lower_threshold_alerted = False  # Reset lower threshold flag
 
             elif price < lower_threshold and not lower_threshold_alerted:
-                message = f"*📉 Bitcoin price alert!*\n\n1₿ is now ${price:,.2f} USD, dropping below the threshold of ${lower_threshold:,.2f}!"
+                message = f"*📉 Bitcoin price alert!*\n1₿ is now ${price:,.2f} USD, dropping below the threshold of ${lower_threshold:,.2f}"
                 await bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
                 lower_threshold_alerted = True
                 upper_threshold_alerted = False  # Reset upper threshold flag

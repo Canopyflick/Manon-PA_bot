@@ -80,7 +80,7 @@ def setup_database():
                 reminder_time TIMESTAMP DEFAULT NULL,       
                 reminder_scheduled BOOLEAN DEFAULT False,
                 time_investment_value FLOAT NOT NULL,    
-		        effort_multiplier FLOAT NOT NULL,
+		        difficulty_multiplier FLOAT NOT NULL,
 		        impact_multiplier FLOAT NOT NULL,
                 penalty FLOAT DEFAULT 0 NOT NULL,       
                 iteration INTEGER DEFAULT 1,            -- N+1, either for tracking attempts at one-time goals (retries), or index of recurring

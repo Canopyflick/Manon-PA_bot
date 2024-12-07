@@ -4,7 +4,7 @@ from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from utils.helpers import get_database_connection, get_btc_price
 from telegram.ext import ContextTypes, CallbackContext
-
+from modules.LLM_helpers import process_other_language
 from utils.listener import handle_goals_set_message
 
 
@@ -511,3 +511,9 @@ async def smarter_command(update: Update, context: CallbackContext):
     logging.warning("triggered /smarter")
     user_message = update.message.text
     await handle_goals_set_message(update, context, user_message, smarter=True)
+    
+
+async def translate_command(update: Update, context: CallbackContext):
+    logging.warning("triggered /translate")
+    user_message = update.message.text
+    await process_other_language(update, context, user_message, translate_command=True)

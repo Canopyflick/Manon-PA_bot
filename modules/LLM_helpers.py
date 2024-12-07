@@ -1,11 +1,422 @@
-﻿from utils.helpers import get_first_name, client, BERLIN_TZ, datetime
-import logging, os
-from openai import OpenAI
+﻿from tkinter import W
+from utils.helpers import get_first_name, client, BERLIN_TZ, datetime
+import logging, os, asyncio
 from utils.db import fetch_long_term_goals
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain.memory import ConversationBufferMemory
+from typing import Literal, List, Union
+from typing_extensions import Annotated, TypedDict
+from pydantic import BaseModel, Field
 
 
 
-async def send_openai_request(messages, model="gpt-4o-mini", temperature=None, response_format=None):
+
+
+
+
+from langchain.schema import(
+    AIMessage,
+    HumanMessage,
+    SystemMessage
+    
+)
+
+
+# Initialize LLMs
+gpt4o = ChatOpenAI(model_name="gpt-4o", temperature=0.3)
+mini = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
+
+
+
+# Define PromptTemplates
+initial_classification_template = PromptTemplate(
+    input_variables=["bot_name", "first_name", "user_message"],
+    template="""
+    # Assignment
+    You are {bot_name}, personal assistant of {first_name} in a Telegram group. 
+    You classify a user's message into one of the following categories: 
+    'Goals', 'Reminders', 'Meta', 'Other'.
+
+    ## Goals
+    Any message that primarily indicates that the user is setting a new intention to do something, wants to report about something they already have done, or otherwise goal-related, no matter the timeframe. 
+    A 'Goals' message might also discuss wanting to declare finished, declare failed, cancel, pause, or update the deadline of a goal.
+
+    ## Reminders
+    Any message that is a request to remind the user of something.
+
+    ## Meta
+    If the user asks a question about you as a bot or about their data in the group. Examples of meta-questions: 
+    "Can you give me a recap of my pending goals?", "What are some of the things you can do for me?", "Are you gonna remind me of something today?", "How many goals have I set this week?", etc..
+
+    ## Other
+    Any cases that don't fit 'Goals', 'Reminders', or 'Meta', should be classified as "Other". Examples of Other type messages: 
+    "Who was the last president of Argentinia?", "Give me some words that rhyme with 'Pineapple'", "Can you help rewrite this message to use better jargon?", etc. 
+
+    # Answer structure
+    First pick the main language the user message is written in: Literal['English', 'German', 'Dutch', 'other']. Look only at the user message itself. When languages are mixed, word majority decides.
+    Then, state your classification: 'Goals', 'Reminders', 'Meta', or 'Other'. 
+    (Lastly, give a fitting emoji-reaction, pick one of these: 
+    🤔: Thinking face (puzzled or considering)
+    🫡: Saluting face (respect or acknowledgment)
+    👀: Eyes (paying attention or curiosity)
+    🍌: Banana (playful or random reaction)
+    😎: Cool face (confidence or approval)
+    🆒: COOL button (indicates something is cool)
+    🏆: Trophy (success or achievement)
+    💩: Pile of poo (disapproval or humorously bad)
+    💋: Kiss mark (affection or approval)
+    😘: Face blowing a kiss (love or gratitude)
+    👾: Alien monster (playful or nerdy vibe)
+    👻: Ghost (spooky or playful)
+    🎃: Jack-o’-lantern (Halloween or spooky)
+    🎄: Christmas tree (festive or seasonal)
+    🌚: New moon face (cheeky or mysterious)
+    🤮: Face vomiting (disgust or dislike)
+    👎: Thumbs down (disapproval or disagreement)
+    )
+    # User message
+    {user_message}
+    """,
+)
+
+goals_classification_template = PromptTemplate(
+    input_variables=["bot_name", "first_name", "weekday", "now", "user_message"],
+    template="""
+    # Task
+    You are {bot_name}, personal assistant of {first_name} in a Telegram group. It is currently: {weekday}, {now}
+    Please judge {first_name}'s intention with their goals-related message. Pick one of the following classifications:
+    'Set', 'Report_done', 'Report_failed', 'Postpone', 'Cancel', 'Pause'
+
+    ## Set
+    Any message that primarily indicates that the user is setting a new intention to do something, regardless of timeframe. 
+
+    ## Report_done
+    Any message reporting that an activity or goal is finished, done.
+
+    ## Report_failed
+    Any message reporting that an activity or goal was failed, not (quite) succesful.
+
+    ## Postpone
+    Any message about wanting to postpone a goal to a later date and/or time.
+        
+    ## Cancel
+    Any message about wanting to cancel or delete an existing goal.
+        
+    ## Pause
+    Any message about wanting to put off a goal for now, indefinitely.
+        
+    ## None
+    Any message that doesn't fit any of the other categories.
+        
+    # Answer structure
+    Classify the goals message with the exact term that is most fitting: 'Set', 'Report_done', 'Report_failed', 'Postpone', 'Cancel', or 'Pause'.
+        
+    # User message
+    {user_message}
+    """,
+)
+
+goal_durability_template = PromptTemplate(
+    input_variables=["bot_name", "first_name", "user_message"],
+    template="""
+    You are {bot_name}, helping {first_name} set their goal. Determine the durability of the goal: 
+    '1.1.1.1one-time' or '1.1.1.2recurring'. Also classify goal timeframe, category, and provide a description.
+    
+    User message: "{user_message}"
+    """,
+)
+
+recurring_goal_split_template = PromptTemplate(
+    input_variables=["bot_name", "first_name", "goal_details"],
+    template="""
+    You are {bot_name}, helping {first_name} manage their recurring goal. Split the recurring goal into several individual tasks.
+    Provide the updated list of tasks.
+
+    Goal details: "{goal_details}"
+    """,
+)
+
+language_template = PromptTemplate(
+    input_variables=["user_message"],
+    template="""
+    What language is the user message in?
+    user_message:
+    {user_message}
+    """,
+)
+
+async def get_input_variables(update):
+    now = datetime.now(tz=BERLIN_TZ)
+    weekday = now.strftime("%A")  # Full weekday name
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    first_name = update.effective_user.first_name
+    bot_name = update.get_bot().username
+    default_deadline_time = "22:22"
+    default_reminder_time = "11:11"
+    long_term_goals = await fetch_long_term_goals(chat_id, user_id)
+    user_message = update.message.text  # Retrieve the user's message text
+    response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
+    return {
+        "first_name": first_name,
+        "bot_name": bot_name,
+        "user_message": user_message,
+        "now": now.strftime("%Y-%m-%d %H:%M:%S"),  # Include current datetime as string
+        "weekday": weekday,
+        "user_id": user_id,
+        "chat_id": chat_id,
+        "default_deadline_time": default_deadline_time,
+        "default_reminder_time": default_reminder_time,
+        "long_term_goals": long_term_goals,
+        "response_text": response_text,
+    }
+
+
+
+
+# Define schemas
+class InitialClassification(BaseModel):
+    user_message_language: Literal['English', 'German', 'Dutch', 'other']
+    classification: Literal['Goals', 'Reminders', 'Meta', 'Other']
+    emoji_reaction: str
+
+class GoalsClassification(BaseModel):
+    classification: Literal['Set', 'Report_done', 'Report_failed', 'Postpone', 'Cancel', 'Pause', 'None']
+
+# Goal setting #1
+class GoalAnalysis(BaseModel):
+    description: str
+    durability: Literal['one-time', 'recurring']
+    timeframe: Literal['today', 'by_date', 'open-ended']
+    category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other']]
+
+# Goal setting #2.1 (one-time goals)
+class GoalSetData(BaseModel):
+    deadline: str  # Use string instead of datetime for compatibility
+    schedule_reminder: bool
+    reminder_time: Union[str, None] = Field(
+        default=None,
+        description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
+    )
+    time_investment_value: float
+    difficulty_multiplier: float
+    impact_multiplier: float
+    failure_penalty: Literal['no', 'small', 'big']
+        
+# Goal setting #2.2 (recurring goals)
+class RecurringGoalSetData(BaseModel):
+    penalty: int
+    deadline: List[str]  
+    interval: str
+    schedule_reminder: bool
+    reminder_time: Union[List[str], None] = Field(
+        default=None,
+        description="A list of one or more timestamps for reminders in ISO 8601 format, or null if no reminders should be scheduled."
+    )
+    time_investment_value: float
+    difficulty_multiplier: float
+    impact_multiplier: float
+    penalty: int
+
+                
+# For language revision
+class LanguageCorrection(BaseModel):
+    corrected_text: str = Field(description="revision")
+    changes: str = Field(description="succinct list of changes made")
+    proficiency_score: int = Field(description="language level of source text")
+
+# for /translate
+class LanguageCheck(BaseModel):
+    user_message_language: Literal['English', 'German', 'Dutch', 'other']
+
+# For reference:
+# structured_gpt4o = gpt4o.with_structured_output(<schemaName>)                  
+# structured_mini = mini.with_structured_output(<schemaName>)     
+
+# Bind structured outputs
+structured_mini_initial_classification = mini.with_structured_output(InitialClassification)
+
+structured_mini_goal_classification = mini.with_structured_output(GoalsClassification)
+structured_mini_goal_setting_analysis = mini.with_structured_output(GoalAnalysis)
+structured_mini_goal_setting_onetime = mini.with_structured_output(GoalSetData)
+structured_mini_goal_setting_recurring = mini.with_structured_output(RecurringGoalSetData)
+structured_mini_goal_setting_analysis = mini.with_structured_output(GoalAnalysis)
+
+structured_4o_language_correction = gpt4o.with_structured_output(LanguageCorrection)
+structured_mini_language_check = mini.with_structured_output(LanguageCheck)
+
+
+
+
+
+
+
+async def start_initial_classification(update, context):
+    try:
+        # Extract input variables for the chain
+        input_variables = await get_input_variables(update)
+        # await update.message.reply_text(f"Input variables: \n{input_variables}")
+        
+        # Format the input prompt using PromptTemplate
+        formatted_prompt = initial_classification_template.format(**input_variables)
+        logging.info(f"Formatted prompt: {formatted_prompt}")
+
+        classification_result = await structured_mini_initial_classification.ainvoke(formatted_prompt)
+        
+        logging.info(f"Structured classification result: {classification_result}")
+        await update.message.reply_text(f"classification_result: \n{classification_result}")
+
+        # Process and respond to the result
+        await process_classification_result(update, context, classification_result)
+    
+    except Exception as e:
+        await update.message.reply_text(f"Error in start_initial_classification():\n {e}")
+        logging.error(f"\n\n🚨 Error in start_initial_classification(): {e}\n\n")
+    
+
+async def process_classification_result(update, context, classification_result):
+    chat_id=update.effective_chat.id
+    message_id = update.message.message_id
+    user_message = update.message.text
+    try:
+        # Parse the classification result
+        parsed_result = InitialClassification.model_validate(classification_result)
+        reaction = parsed_result.emoji_reaction
+        
+        await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+
+        if parsed_result.user_message_language != "English":
+            language = parsed_result.user_message_language
+            reaction = "💯"
+            await process_other_language(update, context, user_message, language)
+            await asyncio.sleep(5)
+            await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+            return
+
+        # Respond based on classification
+        if parsed_result.classification == "Goals":
+            await update.message.reply_text(f"Your message has been classified as a goal! {parsed_result.emoji_reaction}")
+            await handle_goal_classification(update, context)
+        elif parsed_result.classification == "Reminders":
+            await update.message.reply_text("Your message has been classified as a reminder.")
+        elif parsed_result.classification == "Meta":
+            await update.message.reply_text("This is a meta query about the bot.")
+        else:
+            await update.message.reply_text("Your message doesn't fall into any specific category.")
+
+    except Exception as e:
+        await update.message.reply_text(f"Error in process_classification_result():\n {e}")
+        logging.error(f"\n\n🚨 Error in process_classification_result(): {e}\n\n")
+
+
+
+
+async def process_other_language(update, context, user_message, language=None, translate_command=False):
+    if language == "German" and translate_command:
+        await update.message.reply_text(f"# translate to Dutch")
+    elif language == "German":
+        await update.message.reply_text(f"# revise")
+    elif language == "Dutch":
+        await update.message.reply_text(f"# translate to German")
+    else:
+        await update.message.reply_text(f"# translate to English")
+
+
+
+    
+        
+
+
+# english = assistant_response.English
+#             reaction = assistant_response.emoji_reaction
+
+#             await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+#             logging.critical(f"{chat_id}")
+#             if not english:
+#                 reaction = "💯" 
+#                 await handle_language_correction_message(update, context, user_message)
+#                 await asyncio.sleep(4)
+#                 await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+#                 return
+#             else:
+#                 initial_classification = assistant_response.classification
+#                 if initial_classification == 'Goals':
+#                     reaction = "⚡" 
+#                     await handle_goals_message(update, context, user_message)
+#                     await asyncio.sleep(4)
+#                     await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+#                 elif initial_classification == 'Other':
+#                     reaction = "🤔" 
+#                     await handle_other_message(update, context, user_message)
+#                     await asyncio.sleep(4)
+#                     await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+#                 elif initial_classification == 'Reminders':
+#                     reaction = "🫡" 
+#                     await asyncio.sleep(4)
+#                     await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+#                 elif initial_classification == 'Meta':
+#                     reaction = "👀" 
+#                     await asyncio.sleep(4)
+#                     await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+
+
+
+
+
+
+
+
+
+
+
+async def handle_goal_classification(update, context):
+    try:
+        input_variables = await get_input_variables(update)
+
+        # Format the input prompt using PromptTemplate
+        formatted_prompt = goals_classification_template.format(**input_variables)
+        logging.info(f"Formatted prompt: {formatted_prompt}")
+
+        # Run the goals classification chain
+        goal_result = await structured_mini_goal_classification.ainvoke(formatted_prompt)
+
+        # Parse and respond to the goal classification result
+        parsed_goal_result = GoalsClassification.model_validate(goal_result)
+
+        await update.message.reply_text(
+            f"Your goal message has been classified as: {parsed_goal_result.classification}"
+        )
+
+        # Optionally, proceed to further chains (e.g., goal setting)
+        if parsed_goal_result.classification == "Set":
+            await update.message.reply_text(
+                f"einde voor nu ffkes"
+            )
+            # await handle_goal_setting(update)
+    except Exception as e:
+        await update.message.reply_text(f"Error in handle_goal_classification():\n {e}")
+        logging.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+async def send_ChatOpenAI_request(messages, model="gpt-4o-mini", temperature=None, response_format=None):
     try:
         request_params = {
             "model": model,
@@ -23,12 +434,12 @@ async def send_openai_request(messages, model="gpt-4o-mini", temperature=None, r
             response = client.chat.completions.create(**request_params)
             return response.choices[0].message.content.strip()
     except Exception as e:
-        logging.error(f"Error calling OpenAI: {e}")
+        logging.error(f"Error calling ChatOpenAI: {e}")
         return None
     
+    
 
-
-async def prepare_openai_messages(update, user_message, message_type, response=None):
+async def prepare_ChatOpenAI_messages(update, user_message, message_type, response=None):
     # Define system messages based on the message_type
     now = datetime.now(tz=BERLIN_TZ)
     weekday = now.strftime("%A")  # Full weekday name
@@ -134,7 +545,7 @@ async def prepare_openai_messages(update, user_message, message_type, response=N
                 default=None,
                 description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
             )
-            effort_multiplier: float
+            difficulty_multiplier: float
             impact_multiplier: float
             
             
@@ -171,8 +582,8 @@ async def prepare_openai_messages(update, user_message, message_type, response=N
         50 = timespan of half a year
         60 = timespan of a year or more
  
-        ## effort_multiplier: how hard is the goal likely to be? Primarily related to the level of friction that is to overcome, to do with the required concentration and level of enjoyment/suffering while doing it.
-        Pick any number between 0.1 and 2 for the effort_multiplier. Some values with examples for reference:
+        ## difficulty_multiplier: how hard is the goal likely to be? Primarily related to the level of friction that is to overcome, to do with the required concentration and level of enjoyment/suffering while doing it.
+        Pick any number between 0.1 and 2 for the difficulty_multiplier. Some values with examples for reference:
         0.1 = a fun goal that is really entirely more like a reward (eating cookies) 
         0.2 = fun, but some exertion is required that might not be fun (plan a nice date)
         0.75 = slightly below average effort
@@ -196,7 +607,7 @@ async def prepare_openai_messages(update, user_message, message_type, response=N
         # Task
         You are {bot_name}, personal assistant of {first_name} in a Telegram group. It is currently: {now}
         Please judge {first_name}'s goal setting intention of a recurring goal, and fill the following fields: 
-            # Prepare and send OpenAI messages
+            # Prepare and send ChatOpenAI messages
             class RecurringGoalSetData(BaseModel):
                 reasoning: str
                 penalty: int
@@ -208,10 +619,10 @@ async def prepare_openai_messages(update, user_message, message_type, response=N
                     description="A list of one or more timestamps for reminders in ISO 8601 format, or null if no reminders should be scheduled."
                 )
                 time_investment_value: float
-                effort_multiplier: float
+                difficulty_multiplier: float
                 impact_multiplier: float
             
-            messages = await prepare_openai_messages(
+            messages = await prepare_ChatOpenAI_messages(
                 update, 
                 user_message, 
                 message_type='recurring_goal_set_data'
@@ -222,7 +633,7 @@ async def prepare_openai_messages(update, user_message, message_type, response=N
         ## penalty: how urgent is the goal?
         For this number, always pick 0 by default. Only pick another number than 0 if the user explicitly talks about a penalty number they want (pick their requested number) or if the goal sounds EXTREMELEY urgent and indispensable (pick 1). If not, just pick 0.
         ## interval
-        This field is about the interval between the deadlines, simply pick the closest fit out of 'intra-day', 'daily', 'several times a week', 'weekly', 'biweekly', 'monthly', 'several times a year', 'yearly', or 'custom'. 
+        This field is about the interval between the deadlines, simply pick the closest fit out of ['intra-day', 'daily', 'several times a week', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom']. 
         ## deadlines: at what moments should the goal be evaluated?
         You don't have to set ALL the recurring instances of future deadlines, just pick a maximum of the next 30 deadlines into the future. Unless specified otherwise, schedule deadlines at {default_deadline_time}.
         ## schedule_reminder: bool
@@ -251,8 +662,8 @@ async def prepare_openai_messages(update, user_message, message_type, response=N
         50 = timespan of half a year
         60 = timespan of a year or more
  
-        ## effort_multiplier: how hard is each individual occurence of the goal likely to be? Think only about the level of friction that is to overcome, to do with the required concentration and level of enjoyment/suffering while doing it.
-        Pick any number between 0.1 and 2 for the effort_multiplier. Some values with examples for reference:
+        ## difficulty_multiplier: how hard is each individual occurence of the goal likely to be? Think only about the level of friction that is to overcome, to do with the required concentration and level of enjoyment/suffering while doing it.
+        Pick any number between 0.1 and 2 for the difficulty_multiplier. Some values with examples for reference:
         0.1 = a fun goal that is really entirely more like a reward (eating cookies) 
         0.2 = fun, but some exertion is required that might not be fun (plan a nice date)
         0.75 = slightly below average effort
@@ -324,25 +735,6 @@ async def prepare_openai_messages(update, user_message, message_type, response=N
     return messages
 
 
-async def send_openai_request(messages, model="gpt-4o-mini", temperature=None, response_format=None):
-    try:
-        request_params = {
-            "model": model,
-            "messages": messages
-            }
-        # only add temperature if it's provided (not None)
-        if temperature is not None:
-            request_params["temperature"] = temperature
-        if response_format is not None:
-            request_params['response_format'] = response_format
-        if response_format:
-            response = client.beta.chat.completions.parse(**request_params)
-            return response.choices[0].message.parsed
-        else:
-            response = client.chat.completions.create(**request_params)
-            return response.choices[0].message.content.strip()
-    except Exception as e:
-        logging.error(f"Error calling OpenAI: {e}")
-        return None
+
 
 

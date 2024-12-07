@@ -1,7 +1,6 @@
 ﻿from utils.helpers import is_ben_in_chat, notify_ben, datetime
-from modules.openai_helpers import prepare_openai_messages, send_openai_request
+from modules.LLM_helpers import start_initial_classification # prepare_openai_messages, send_openai_request, 
 from typing import Literal, List, Union
-from pydantic import BaseModel, Field
 import asyncio, logging
 from telegram import Bot
 
@@ -19,11 +18,23 @@ async def handle_triggers(update, context, trigger_text):
         logic
         
 
+
+        
+
 # First orchestration: function to analyze any chat message and categorize it. Currently treats every kind of message the same, but prepared to treat replies, mentions and regular messages differently
-async def analyze_message(update, context):
-    if await is_ben_in_chat(update, context):
+async def analyze_any_message(update, context):
+    if not await is_ben_in_chat(update, context):
+        await update.message.reply_text("Uhh, hoi... Stiekem ben ik een beetje verlegen. Praat met me in een chat waar Ben bij zit, pas dan voel ik me op mijn gemak 🧙‍♂️\n\n\nPS: je kunt hier wel allerhande boodschappen ter feedback achterlaten, dan geef ik die door aan Ben (#privacy). Denk bijvoorbeeld aan feature requests, kwinkslagen, knuffelbedreigingen, valsspeelbiechten, slaapzakberichten etc.\nPPS: Die laatste verzon ChatGPT. En ik quote: 'Een heel lang bericht, waarin je jezelf zou kunnen verliezen alsof je in een slaapzak kruipt.'")
+        await notify_ben(update, context)
+        return
+    else:
         try:
             user_message = update.message.text
+            
+            # Reject longs messages
+            if len(user_message) > 1600:
+                await update.message.reply_text(f"Hmpff... TL;DR pl0x? 🧙‍♂️\n(_{len(user_message)}_)", parse_mode="Markdown")
+                return
             
             # Handle dice-roll
             if user_message.isdigit() and 1 <= int(user_message) <= 6:
@@ -48,15 +59,24 @@ async def analyze_message(update, context):
                 regular_message = False          
             if regular_message:
                 logging.info("Message received: Regular Message\n")
-            await classification_initial(update, context, user_message)
+                
+            await start_initial_classification(update, context)     # <<<
+            
         except Exception as e:
-            await update.message.reply_text(f"Error in analyze_message():\n {e}")
-            logging.error(f"\n\n🚨 Error in analyze_message(): {e}\n\n")   
-    else: 
-        await update.message.reply_text("Uhh, hoi... Stiekem ben ik een beetje verlegen. Praat met me in een chat waar Ben bij zit, pas dan voel ik me op mijn gemak 🧙‍♂️\n\n\nPS: je kunt hier wel allerhande boodschappen ter feedback achterlaten, dan geef ik die door aan Ben (#privacy). Denk bijvoorbeeld aan feature requests, kwinkslagen, knuffelbedreigingen, valsspeelbiechten, slaapzakberichten etc.\nPPS: Die laatste verzon ChatGPT. En ik quote: 'Een heel lang bericht, waarin je jezelf zou kunnen verliezen alsof je in een slaapzak kruipt.'")
-        await notify_ben(update, context)
-        return
+            logging.error(f"\n\n🚨 Error in analyze_any_message(): {e}\n\n")
+            await update.message.reply_text(f"Error in analyze_any_message():\n {e}")
+
+
     
+
+
+
+
+
+
+
+
+
 
 async def classification_initial(update, context, user_message):
     chat_id=update.effective_chat.id
@@ -129,8 +149,7 @@ async def classification_initial(update, context, user_message):
 async def handle_goals_message(update, context, user_message):
     try:
         # Prepare and send OpenAI messages
-        class GoalsClassification1(BaseModel):
-            reasoning: str
+        class GoalsClassification(BaseModel):
             classification: Literal['Set', 'Report_done', 'Report_failed', 'Postpone', 'Cancel', 'Pause', 'None']
             
         messages = await prepare_openai_messages(
@@ -141,7 +160,7 @@ async def handle_goals_message(update, context, user_message):
         
         # Prepare and send OpenAI messages
         logging.info(messages)
-        assistant_response = await send_openai_request(messages, temperature=0.3, model="gpt-4o-mini", response_format=GoalsClassification1)
+        assistant_response = await send_openai_request(messages, temperature=0.3, model="gpt-4o-mini", response_format=GoalsClassification)
         goals_classification = assistant_response.classification
         await update.message.reply_text(f"goals_classification: {goals_classification}")
         logging.info(f"classification_goals_initial: {assistant_response}\n")
@@ -159,12 +178,11 @@ async def handle_goals_set_message(update, context, user_message, smarter=None):
         model = "gpt-4o"
     try:
         # Prepare and send OpenAI messages
-        class GoalsClassification2(BaseModel):
-            reasoning: str
+        class GoalAnalysis(BaseModel):
             description: str
-            goal_timeframe: Literal['today', 'by_date', 'open-ended']
-            goal_category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other']]
-            goal_durability: Literal['one-time', 'recurring']
+            category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other']]
+            timeframe: Literal['today', 'by_date', 'open-ended']
+            durability: Literal['one-time', 'recurring']
             
         messages = await prepare_openai_messages(
             update, 
@@ -174,29 +192,29 @@ async def handle_goals_set_message(update, context, user_message, smarter=None):
         
         # Prepare and send OpenAI messages
         logging.info(messages)
-        assistant_response = await send_openai_request(messages, temperature=0.3, model=model, response_format=GoalsClassification2)
+        assistant_response = await send_openai_request(messages, temperature=0.3, model=model, response_format=GoalAnalysis)
         logging.info(f"classification_goals_setting: {assistant_response}\n")
         reasoning = assistant_response.reasoning
-        goal_timeframe = assistant_response.goal_timeframe
+        timeframe = assistant_response.timeframe
         description = assistant_response.description
-        goal_category = assistant_response.goal_category
-        goal_durability = assistant_response.goal_durability
+        category = assistant_response.category
+        durability = assistant_response.durability
         
-        await update.message.reply_text(f"goals_setting: {description}\n{goal_timeframe}\n{goal_category}\n{goal_durability}\n({reasoning})")
+        await update.message.reply_text(f"goals_setting: {description}\n{timeframe}\n{category}\n{durability}\n({reasoning})")
         
         # Handle goals without deadline clue
-        if goal_durability == 'open-ended':
+        if durability == 'open-ended':
             await update.message.reply_text(f"> prepare open-ended goal >)")
             return
 
         # Handle one-time goals with deadline clue
-        if goal_durability == 'one-time' and (goal_timeframe == 'today' or goal_timeframe == 'by_date'):
-            await get_goal_set_data(update, context, user_message, smarter, description=description, timeframe=goal_timeframe)
+        if durability == 'one-time' and (timeframe == 'today' or timeframe == 'by_date'):
+            await get_goal_set_data(update, context, user_message, smarter, description=description, timeframe=timeframe)
         
         # Handle recurring goals
-        if goal_durability == 'recurring':
+        if durability == 'recurring':
             await update.message.reply_text(f"_> ... splitting up recurring goal into its individual ones ... >_", parse_mode="Markdown")
-            await get_goal_set_data(update, context, user_message, smarter, description=description, timeframe=goal_timeframe, durability='recurring')
+            await get_goal_set_data(update, context, user_message, smarter, description=description, timeframe=timeframe, durability='recurring')
 
 
     except Exception as e:
@@ -223,7 +241,7 @@ async def get_goal_set_data(update, context, user_message, description, timefram
             description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
         )
         time_investment_value: float
-        effort_multiplier: float
+        difficulty_multiplier: float
         impact_multiplier: float
         
                 
@@ -238,7 +256,7 @@ async def get_goal_set_data(update, context, user_message, description, timefram
             description="A list of one or more timestamps for reminders in ISO 8601 format, or null if no reminders should be scheduled."
         )
         time_investment_value: float
-        effort_multiplier: float
+        difficulty_multiplier: float
         impact_multiplier: float
         penalty: int
         
@@ -265,7 +283,7 @@ async def get_goal_set_data(update, context, user_message, description, timefram
         await update.message.reply_text(f"PENALTY: \n{penalty}\n")
         goal_value = round(
             assistant_response.time_investment_value
-            * assistant_response.effort_multiplier
+            * assistant_response.difficulty_multiplier
             * assistant_response.impact_multiplier,
             2
         )

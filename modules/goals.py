@@ -76,7 +76,7 @@ async def goal_proposal(update, description, durability, assistant_response):
         )
         
         time_investment = assistant_response.time_investment_value
-        effort = assistant_response.effort_multiplier
+        effort = assistant_response.difficulty_multiplier
         impact = assistant_response.impact_multiplier
         
         # Calculate goal value

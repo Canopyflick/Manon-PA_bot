@@ -7,7 +7,6 @@ from utils.helpers import get_database_connection
 from utils.db import setup_database
 
 
-
 print("... STARTING ... 👩‍🦱  \n\n")
 
 def configure_logging():
@@ -87,7 +86,7 @@ def get_bot_token() -> str:
 
 # Register bot commands and handlers
 def register_handlers(application):
-    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command
+    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command, translate_command
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
@@ -98,10 +97,11 @@ def register_handlers(application):
     application.add_handler(CommandHandler("bitcoin", bitcoin_command))
     
     application.add_handler(CommandHandler("smarter", smarter_command))
+    application.add_handler(CommandHandler("translate", translate_command))
     
-    from utils.listener import analyze_message, print_edit  
+    from utils.listener import analyze_any_message, print_edit  
     # Bind the message analysis to any non-command text messages
-    application.add_handler(MessageHandler(filters.TEXT, analyze_message))        
+    application.add_handler(MessageHandler(filters.TEXT, analyze_any_message))        
     # Handler for edited messages
     application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT & ~filters.COMMAND, print_edit))
 
@@ -137,10 +137,8 @@ def main():
         if token is None:
             raise ValueError("No TELEGRAM_API_KEY found in environment variables")
 
-
         # Log if running locally or hosted
         logging.info("Using *local database* & *dev bot* (@TestManon_bot)" if local_flag else "Using *hosted database* & *prod bot* (@Manon_PA_bot)\n")
-
         
         # Create the bot application with ApplicationBuilder
         application = ApplicationBuilder().token(token).post_init(setup).build()
