@@ -1,24 +1,32 @@
-﻿from utils.helpers import get_random_philosophical_message, escape_markdown_v2, check_chat_owner
+﻿from utils.helpers import get_first_name, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, PA
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from utils.helpers import get_database_connection, get_btc_price
 from telegram.ext import ContextTypes, CallbackContext
-from modules.LLM_helpers import process_other_language
+from LLMs.orchestration import process_other_language
 from utils.listener import handle_goals_set_message
+from utils.db import register_user
 
 
 # Asynchronous command functions
 async def start_command(update, context):
-    await update.message.reply_text('Hoi! 👋👩‍🦱\n\nIk ben Manon. Jij bent als het goed is Ben, dus je weet alles al. De groeten.')
+    await update.message.reply_text(f'Hoi! 👋{PA}‍\n\nIk ben Manon. Jij bent als het goed is Ben, dus je weet alles al.\nWas je nog niet geregistreerd, dan ben je dat nu. De groeten.')
+    try:
+        user_id = update.message.from_user.id
+        chat_id = update.message.chat_id
+        await register_user(context, user_id, chat_id)
+    except Exception as e:
+        print(f"Error checking user records in start_command: {e}")
 
 
 async def help_command(update, context):
     help_message = (
-        '*Ziehier de commando\'s* 🧙‍♂️\n'
-        '👋 /start - Uitleg om te beginnen\n'
-        '❓/help - Dit lijstje\n'
-        '💭 /filosofie - Laat je inspireren'
+        '*The available commands:* 🧙‍♂️\n'
+        '👋 /start - Hi!\n'
+        '❓ /help - This list\n'
+        '🗒️ /profile - What I know about you\n'
+        '💭 /filosofie - Get inspired'
     )
     chat_type = update.effective_chat.type
     if chat_type == 'private':
@@ -26,6 +34,9 @@ async def help_command(update, context):
         await update.message.reply_text(help_message, parse_mode="Markdown")
     else:  
         await update.message.reply_text(help_message, parse_mode="Markdown")
+    
+async def profile_command(update, context):
+    await update.message.reply_text("will show all the user-specific settings, like long term goals, preferences, constitution ... + edit-button")
     
     
 
@@ -151,8 +162,8 @@ async def stats_command(update: Update, context):
 async def handle_trashbin_click(update, context):
     query = update.callback_query
 
-    # Check if the callback data is 'delete_message'
-    if query.data == "delete_stats":
+    # Double-check if the callback data is 'delete_message'
+    if query.data == "delete_message":
         # Delete the message that contains the button
         await query.message.delete()
 
@@ -515,5 +526,9 @@ async def smarter_command(update: Update, context: CallbackContext):
 
 async def translate_command(update: Update, context: CallbackContext):
     logging.warning("triggered /translate")
-    user_message = update.message.text
-    await process_other_language(update, context, user_message, translate_command=True)
+    if not context.args:    # Check if NO argument was provided
+        await update.message.reply_text(f"Provide some source text to translate {PA}")
+        return
+    else:
+        source_text = " ".join(context.args)
+        await process_other_language(update, context, source_text, translate_command=True)

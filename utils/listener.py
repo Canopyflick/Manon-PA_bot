@@ -1,5 +1,5 @@
-﻿from utils.helpers import is_ben_in_chat, notify_ben, datetime
-from modules.LLM_helpers import start_initial_classification # prepare_openai_messages, send_openai_request, 
+﻿from utils.helpers import is_ben_in_chat, notify_ben, datetime, test_emojis_with_telegram, emoji_stopwatch, send_user_context, PA
+from LLMs.orchestration import start_initial_classification # prepare_openai_messages, send_openai_request, 
 from typing import Literal, List, Union
 import asyncio, logging
 from telegram import Bot
@@ -8,14 +8,25 @@ from telegram import Bot
 
 
 
-triggers = ["SeintjeNatuurlijk", "OpenAICall"]
+
+triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext"]
 
 async def handle_triggers(update, context, trigger_text):
     if trigger_text == "SeintjeNatuurlijk":
         await update.message.reply_text("Ja hoor, hoi!")
-        
+    elif trigger_text == "Emoji":
+        await test_emojis_with_telegram(update, context)
+    elif trigger_text == "Stopwatch":
+        await emoji_stopwatch(update, context)
     elif trigger_text == "OpenAICall":
-        logic
+        print (f"nothing implemented yet")
+    elif trigger_text == "usercontext":
+        await send_user_context(update, context)
+    elif trigger_text == "clearcontext":
+        context.user_data.clear()
+
+
+
         
 
 
@@ -44,7 +55,8 @@ async def analyze_any_message(update, context):
             
             # Handle preset triggers
             for trigger_text in triggers:
-                if trigger_text in user_message:
+                user_message = user_message.lower()
+                if trigger_text.lower() in user_message:
                     await handle_triggers(update, context, trigger_text)
                     logging.info(f"Message received: Trigger ({trigger_text})")
                     return
@@ -178,11 +190,11 @@ async def handle_goals_set_message(update, context, user_message, smarter=None):
         model = "gpt-4o"
     try:
         # Prepare and send OpenAI messages
-        class GoalAnalysis(BaseModel):
+        class SetGoalAnalysis(BaseModel):
             description: str
             category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other']]
             timeframe: Literal['today', 'by_date', 'open-ended']
-            durability: Literal['one-time', 'recurring']
+            recurrence_type: Literal['one-time', 'recurring']
             
         messages = await prepare_openai_messages(
             update, 
@@ -192,29 +204,29 @@ async def handle_goals_set_message(update, context, user_message, smarter=None):
         
         # Prepare and send OpenAI messages
         logging.info(messages)
-        assistant_response = await send_openai_request(messages, temperature=0.3, model=model, response_format=GoalAnalysis)
+        assistant_response = await send_openai_request(messages, temperature=0.3, model=model, response_format=SetGoalAnalysis)
         logging.info(f"classification_goals_setting: {assistant_response}\n")
         reasoning = assistant_response.reasoning
         timeframe = assistant_response.timeframe
         description = assistant_response.description
         category = assistant_response.category
-        durability = assistant_response.durability
+        recurrence_type = assistant_response.recurrence_type
         
-        await update.message.reply_text(f"goals_setting: {description}\n{timeframe}\n{category}\n{durability}\n({reasoning})")
+        await update.message.reply_text(f"goals_setting: {description}\n{timeframe}\n{category}\n{recurrence_type}\n({reasoning})")
         
         # Handle goals without deadline clue
-        if durability == 'open-ended':
+        if recurrence_type == 'open-ended':
             await update.message.reply_text(f"> prepare open-ended goal >)")
             return
 
         # Handle one-time goals with deadline clue
-        if durability == 'one-time' and (timeframe == 'today' or timeframe == 'by_date'):
+        if recurrence_type == 'one-time' and (timeframe == 'today' or timeframe == 'by_date'):
             await get_goal_set_data(update, context, user_message, smarter, description=description, timeframe=timeframe)
         
         # Handle recurring goals
-        if durability == 'recurring':
+        if recurrence_type == 'recurring':
             await update.message.reply_text(f"_> ... splitting up recurring goal into its individual ones ... >_", parse_mode="Markdown")
-            await get_goal_set_data(update, context, user_message, smarter, description=description, timeframe=timeframe, durability='recurring')
+            await get_goal_set_data(update, context, user_message, smarter, description=description, timeframe=timeframe, recurrence_type='recurring')
 
 
     except Exception as e:
@@ -225,7 +237,7 @@ async def handle_goals_set_message(update, context, user_message, smarter=None):
         
 
 
-async def get_goal_set_data(update, context, user_message, description, timeframe, durability="one-time", smarter=None):
+async def get_goal_set_data(update, context, user_message, description, timeframe, recurrence_type="one-time", smarter=None):
     model = "gpt-4o-mini"
     if smarter:
         model = "gpt-4o"
@@ -262,14 +274,14 @@ async def get_goal_set_data(update, context, user_message, description, timefram
         
     # Prepare messages and send OpenAI calls    
     try:
-        if durability == "one-time":
+        if recurrence_type == "one-time":
             message_type = "goal_set_data"
             response_format = GoalSetData
-        elif durability == "recurring":
+        elif recurrence_type == "recurring":
             message_type = "recurring_goal_set_data"
             response_format = RecurringGoalSetData
         else:
-            logging.error("Invalid durability in get_goal_set_data()")
+            logging.error("Invalid recurrence_type in get_goal_set_data()")
             return
 
         messages = await prepare_openai_messages(update, user_message, message_type=message_type)
@@ -290,17 +302,17 @@ async def get_goal_set_data(update, context, user_message, description, timefram
         await update.message.reply_text(f"Calculated goal_value: {goal_value}")
         
         interval = None
-        if durability == 'recurring':
+        if recurrence_type == 'recurring':
             interval = assistant_response.interval
         await update.message.reply_text(f"INTERVAL: {interval}")
         
         from modules.goals import process_new_goal
-        logging.info(f"going to process_new_goal() for {durability} goal(s)")
-        await process_new_goal(update, context, user_message, description, timeframe, durability, assistant_response)
+        logging.info(f"going to process_new_goal() for {recurrence_type} goal(s)")
+        await process_new_goal(update, context, user_message, description, timeframe, recurrence_type, assistant_response)
         
     except Exception as e:
-        await update.message.reply_text(f"Error in get_goal_set_data() for {durability} goal:\n {e}")
-        logging.error(f"Error in get_goal_set_data() for {durability} goal: {e}")
+        await update.message.reply_text(f"Error in get_goal_set_data() for {recurrence_type} goal:\n {e}")
+        logging.error(f"Error in get_goal_set_data() for {recurrence_type} goal: {e}")
 
 
             

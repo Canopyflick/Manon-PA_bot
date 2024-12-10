@@ -1,20 +1,29 @@
-﻿from telegram import Update, ChatMember, Bot
+﻿from telegram import Update, ChatMember, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, ExtBot
 from telegram.error import TelegramError
 from typing import Union
 from datetime import datetime, time, timedelta, timezone
-import os, psycopg2, pytz, logging, requests, asyncio, re
+import os, psycopg2, pytz, logging, requests, asyncio, re, random, json
 from openai import OpenAI
 from typing import Union
 from zoneinfo import ZoneInfo
+from pprint import pformat
 
 # Define the Berlin timezone
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
+PA_options = [
+    '🦄', '🫡', '🐯', '🐲', '🕷️', '🧌', '🦳', '🧓', '🤴', '🎅',
+    '👮‍♀️', '👮', '💂', '💂‍♂️', '💂‍♀️', '🥷', '🧑‍💼', '🔬', '🔸',
+    '🧜‍♀️', '🧜', '🧚‍♀️', '🧚‍♂️', '🧚', '💃', '🧘', '🧘‍♂️', '🧘‍♀️',
+    '🕴️', '🌞', '🌬️', '☃️', '💖'
+]
+PA = random.choice(PA_options)
+
 
 # Only load dotenv if running locally (not on Heroku)
 if not os.getenv('HEROKU_ENV'):
-    try:
+    try: 
         from dotenv import load_dotenv
         load_dotenv(override=True)
     except ImportError:
@@ -31,9 +40,14 @@ if not OPENAI_API_KEY:
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 
+def redact_password(url):
+    # Match the "username:password@" part and redact the password
+    return re.sub(r":([^:@]*)@", r":*****@", url)
+
+
 def get_database_connection():
-    # Use DATABASE_URL if available (Heroku), otherwise fallback to LOCAL_DB_URL
-    DATABASE_URL = os.getenv('DATABASE_URL', os.getenv('LOCAL_DB_URL'))
+    # Use LOCAL_DATABASE_URL if available, otherwise fallback to DATABASE_URL (Raspberry Pi/Heroku)
+    DATABASE_URL = os.getenv('LOCAL_DB_URL', os.getenv('DATABASE_URL'))
 
     if not DATABASE_URL:
         raise ValueError("Database URL not found! Ensure 'DATABASE_URL' or 'LOCAL_DB_URL' is set in the environment.")
@@ -43,6 +57,9 @@ def get_database_connection():
         conn = psycopg2.connect(DATABASE_URL, sslmode='require')
     else:  # Running locally
         conn = psycopg2.connect(DATABASE_URL)  # For local development, no SSL required
+        
+    redacted_url = redact_password(DATABASE_URL)
+    print(f"Connecting to database with URL: {redacted_url}")
 
     return conn
 
@@ -302,3 +319,177 @@ async def check_chat_owner(update: Update, context: CallbackContext):
         else:
             print("No message object available to send a reply.")
         return False
+    
+
+async def test_emojis_with_telegram(update, context):
+    emoji_list = [
+        '🤔', '💩', '💋', '👻', '🎃', '🎄', '🌚', '🤮', '👎', '🫡',
+        '👀', '🍌', '😎', '🆒', '👾', '😘'
+    ]
+
+    chat_id = update.effective_chat.id
+    message_id = update.message.message_id
+    
+    for emoji in emoji_list:
+        try:
+            await context.bot.setMessageReaction(
+                chat_id=chat_id,
+                message_id=message_id,
+                reaction=emoji
+            )
+            print(f"Success: Emoji '{emoji}' works as a reaction.")
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"Error: Emoji '{emoji}' failed. Reason: {e}")
+            
+
+async def emoji_stopwatch(update, context):
+    chat_id = update.effective_chat.id
+    message_id = update.message.message_id
+    
+    async def run_stopwatch():
+        # List of emoji representing minutes (1-10)
+        minute_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        
+        # Reaction emoji at start and end
+        initial_emoji = '🆒'
+        final_emoji = '🦄'
+
+        await context.bot.setMessageReaction(
+            chat_id=chat_id,
+            message_id=message_id,
+            reaction=initial_emoji
+        )
+        
+        for i, emoji in enumerate(minute_emojis, start=1):
+            # Send emoji for each minute
+            await update.message.reply_text(f"{emoji}")
+            if i < 10:
+                await asyncio.sleep(60)
+        
+        # Final message
+        await asyncio.sleep(1)
+        await update.message.reply_text("⏹️")
+        await context.bot.setMessageReaction(
+            chat_id=chat_id,
+            message_id=message_id,
+            reaction=final_emoji
+        )
+    
+    # Run the stopwatch in the background
+    asyncio.create_task(run_stopwatch())
+    
+
+
+async def add_user_context_to_goals(context, goal_id, **kwargs):
+    """
+    Adds or updates fields for a specific goal_id in user_data, flattening dictionaries and removing parent key names.
+
+    Args:
+        context: The context object from the Telegram bot.
+        goal_id: The unique ID of the goal to update.
+        **kwargs: Key-value pairs to add or update in the goal's context.
+    """
+    # Ensure the goals dictionary exists
+    if "goals" not in context.user_data:
+        context.user_data["goals"] = {}
+
+    # Ensure the specific goal_id dictionary exists
+    if goal_id not in context.user_data["goals"]:
+        context.user_data["goals"][goal_id] = {}
+
+    # Flatten and store all input data
+    for key, value in kwargs.items():
+        if isinstance(value, dict):  # Flatten nested dictionaries
+            for sub_key, sub_value in value.items():
+                context.user_data["goals"][goal_id][sub_key] = sub_value
+        elif hasattr(value, "__dict__"):  # Flatten custom objects
+            for sub_key, sub_value in value.__dict__.items():
+                context.user_data["goals"][goal_id][sub_key] = sub_value
+        else:  # Directly store primitive types
+            context.user_data["goals"][goal_id][key] = value
+
+
+
+
+
+    
+
+async def send_user_context(update, context):
+    # Retrieve the user context
+    user_context = context.user_data
+
+    # Format the context data for display
+    if user_context:
+        chat_id = update.effective_chat.id
+        for key, value in user_context.items():
+            if key == "goals" and isinstance(value, dict):
+                # Special handling for `goals` sub-keys
+                for goal_id, goal_data in value.items():
+                    formatted_message = (
+                        f"{PA} *Here is your context for goal:* `{goal_id}`\n"
+                        + pformat(goal_data, indent=6)
+                    )
+                    context_message = await update.message.reply_text(
+                        formatted_message, parse_mode="Markdown"
+                    )
+                    asyncio.create_task(delete_message(update, context, context_message.message_id, 180))
+                    await add_delete_button(update, context, context_message.message_id)
+            else:
+                # Handle other top-level keys
+                formatted_message = f"{PA} *Here is your context for:* *{key}*\n"
+                if isinstance(value, dict):
+                    formatted_message += "\n" + pformat(value, indent=10)
+                else:
+                    formatted_message += f" {value}"
+
+                context_message = await update.message.reply_text(
+                    formatted_message, parse_mode="Markdown"
+                )
+                asyncio.create_task(delete_message(update, context, context_message.message_id, 180))
+                await add_delete_button(update, context, context_message.message_id)
+    else:
+        await update.message.reply_text(f"Your user context is currently empty {PA}")
+    
+    
+async def delete_message(update, context, message_id=None, delay=None):
+    if delay:
+        await asyncio.sleep(delay)
+    if message_id:      # aka triggered within a function
+        chat_id = update.effective_chat.id
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    else:
+        try:            # aka triggered by a button labeled "delete_message" 
+            query = update.callback_query
+            await query.answer()  
+
+            # Delete the message containing the button
+            await query.message.delete()
+        except Exception as e:
+            await query.message.reply_text(f"Failed to delete the message: {e}")
+        
+    
+
+
+async def add_delete_button(update, context, message_id, delay=0):
+    """
+    Adds a delete button to a specific message.
+
+    Args:
+        context: The context object from the Telegram bot.
+        chat_id: The ID of the chat where the message is located.
+        message_id: The ID of the message to which the button should be added.
+    """
+    chat_id = update.effective_chat.id
+    # Create an inline keyboard with a static delete button
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🗑️", callback_data="delete_message")]]
+    )
+    
+    # Edit the message to include the inline keyboard
+    await asyncio.sleep(delay)
+    await context.bot.edit_message_reply_markup(
+        chat_id=chat_id,
+        message_id=message_id,
+        reply_markup=keyboard
+    )

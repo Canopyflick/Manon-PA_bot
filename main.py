@@ -3,11 +3,10 @@ from logging.handlers import RotatingFileHandler
 from telegram import ChatMember
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, CallbackQueryHandler, PollHandler, ExtBot
 from datetime import datetime, timezone
-from utils.helpers import get_database_connection
+from utils.helpers import get_database_connection, PA
 from utils.db import setup_database
 
-
-print("... STARTING ... 👩‍🦱  \n\n")
+print(f"... STARTING ... {PA}  \n\n")
 
 def configure_logging():
     # Create a formatter for logs
@@ -86,13 +85,14 @@ def get_bot_token() -> str:
 
 # Register bot commands and handlers
 def register_handlers(application):
-    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command, translate_command
+    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command, translate_command, profile_command
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
-    application.add_handler(CommandHandler("filosofie", filosofie_command))
+    application.add_handler(CommandHandler(["filosofie", "philosophy"], filosofie_command))
+    application.add_handler(CommandHandler("profile", profile_command))
     
-    # Add the /btc /bitcoin command handler
+    # /btc /bitcoin command handler
     application.add_handler(CommandHandler("btc", btc_command))
     application.add_handler(CommandHandler("bitcoin", bitcoin_command))
     
@@ -104,6 +104,20 @@ def register_handlers(application):
     application.add_handler(MessageHandler(filters.TEXT, analyze_any_message))        
     # Handler for edited messages
     application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT & ~filters.COMMAND, print_edit))
+    
+    # Buttons
+    from utils.helpers import delete_message
+    application.add_handler(CallbackQueryHandler(delete_message, pattern=r"delete_message"))
+    
+    from modules.goals import handle_proposal_change_click, accept_goal_proposal, reject_goal_proposal
+    application.add_handler(CallbackQueryHandler(
+        handle_proposal_change_click,
+        pattern=r"^(goal_value_up|goal_value_down|penalty_up|penalty_down)_(\d+)$"
+        ))
+    application.add_handler(CallbackQueryHandler(accept_goal_proposal, pattern=r"^accept_(\d+)$"))
+    application.add_handler(CallbackQueryHandler(reject_goal_proposal, pattern=r"^reject_(\d+)$"))
+    
+    
 
 
 async def setup(application):
@@ -118,7 +132,7 @@ async def setup(application):
         # This is the chat PA test channel
         chat_id = -4788252476
         # Schedule the monitor_btc_price task
-        asyncio.create_task(monitor_btc_price(application.bot, chat_id))        
+        asyncio.create_task(monitor_btc_price(application.bot, chat_id))
 
     except Exception as e:
         logging.error(f"Error during setup: {e}")
@@ -138,7 +152,7 @@ def main():
             raise ValueError("No TELEGRAM_API_KEY found in environment variables")
 
         # Log if running locally or hosted
-        logging.info("Using *local database* & *dev bot* (@TestManon_bot)" if local_flag else "Using *hosted database* & *prod bot* (@Manon_PA_bot)\n")
+        logging.info("Using *dev bot* (@TestManon_bot)" if local_flag else "Using & *prod bot* (@Manon_PA_bot)\n")
         
         # Create the bot application with ApplicationBuilder
         application = ApplicationBuilder().token(token).post_init(setup).build()
