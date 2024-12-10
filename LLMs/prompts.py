@@ -430,7 +430,7 @@ language_correction_template = ChatPromptTemplate([
     """),
 ]) 
 
-translation_template = ChatPromptTemplate([
+translations_template = ChatPromptTemplate([
     ("system", """
     SYSTEM MESSAGE 
     Translate the user message to {target_language} three times. Once in a formal tone, once in a casual tone, and once in a youthful tone (using as much slang as possible).
@@ -442,9 +442,21 @@ translation_template = ChatPromptTemplate([
     """),
 ])
 
-language_template = ChatPromptTemplate([
+translation_template = ChatPromptTemplate([
     ("system", """
-    What language is the user message in?
+    SYSTEM MESSAGE 
+    Translate the user message to {target_language}.
+    """),
+    
+    ("human", """
+    USER MESSAGE 
+    {user_message}
+    """),
+])
+
+language_check_template = ChatPromptTemplate([
+    ("system", """
+    What language is the user message itself primarily written in?
     """),
     
     ("human", """

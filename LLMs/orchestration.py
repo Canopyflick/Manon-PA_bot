@@ -20,6 +20,7 @@ from LLMs.classes import (
     LanguageCorrection,
     LanguageCheck,
     Translation,
+    Translations,
     Schedule,
     Planning,
     GoalAssessment,
@@ -112,7 +113,7 @@ async def run_chain(chain_name, input_variables: dict):
 async def dummy_call(update, context):
     try:
         input_vars = await get_input_variables(update)
-        output = await run_chain(name_of_chain, input_vars)
+        output = await run_chain("name_of_chain", input_vars)
         
         parsed_output = DummyClass.model_validate(output)
         dummy_field = parsed_output.dummy_field
@@ -317,38 +318,50 @@ async def prepare_goal_proposal(update, context, goal_id, frequency):
 
 
 
-# voor nu gaat /translate direct hierheen
+# /translate + any other non-English or non-Dutch messages pass through this
 async def process_other_language(update, context, user_message, language=None, translate_command=False):
-    if language == "German" and translate_command:
-        await update.message.reply_text(f"# translate to Dutch")
+    if language == "German" and translate_command:          # translate to Dutch")
         await translate(update, context, source_text=user_message, target_language='Dutch')
     elif language == "German":
-        await language_correction(update, context)
-    elif language == "Dutch":
+        await language_correction(update, context)          # revise
+    elif language == "Dutch" and translate_command or language == "English":         # translate to German
+        await translate(update, context, source_text=user_message, target_language='German', verbose=True)
+    elif language == "Dutch":                               # don't translate, will be processed as any English message
         logging.info(f"Dutch jatog")
-        # await update.message.reply_text(f"# translate to German")     # Just process as any other message
     else:
-        await translate(update, context, source_text=user_message)      # translate to German
+        await update.message.reply_text(f"# translate to English")
+        await translate(update, context, source_text=user_message, target_language="English")      # translate to English
 
 
-async def translate(update, context, source_text, target_language="German"):
+async def translate(update, context, source_text, target_language="German", verbose=False):
     try:
         input_vars = await get_input_variables(update, source_text, target_language)
-        output = await run_chain("translation", input_vars)
+        if verbose:
+            output = await run_chain("translations", input_vars)
         
-        parsed_output = Translation.model_validate(output)
-        casual = parsed_output.casual
-        formal = parsed_output.formal 
-        degenerate = parsed_output.degenerate 
+            parsed_output = Translations.model_validate(output)
+            casual = parsed_output.casual
+            formal = parsed_output.formal 
+            degenerate = parsed_output.degenerate 
         
-        casual_message = await update.message.reply_text(f"*{casual}*", parse_mode="Markdown")
-        formal_message = await update.message.reply_text(f"{formal}", parse_mode="Markdown")
-        slang_message = await update.message.reply_text(f"{degenerate}", parse_mode="Markdown")
+            casual_message = await update.message.reply_text(f"*{casual}*", parse_mode="Markdown")
+            formal_message = await update.message.reply_text(f"{formal}", parse_mode="Markdown")
+            slang_message = await update.message.reply_text(f"{degenerate}", parse_mode="Markdown")
 
-        # Add delete buttons to each message
-        await add_delete_button(update, context, casual_message.message_id, delay=5)
-        await add_delete_button(update, context, formal_message.message_id, delay=0)
-        await add_delete_button(update, context, slang_message.message_id, delay=0)
+            # Add delete buttons to each message
+            await add_delete_button(update, context, casual_message.message_id, delay=5)
+            await add_delete_button(update, context, formal_message.message_id, delay=0)
+            await add_delete_button(update, context, slang_message.message_id, delay=0)
+        if not verbose:
+            output = await run_chain("translation", input_vars)
+        
+            parsed_output = Translation.model_validate(output)
+            translation = parsed_output.translation
+        
+            translation_message = await update.message.reply_text(f"*{translation}*", parse_mode="Markdown")
+
+            # Add delete buttons to each message
+            await add_delete_button(update, context, translation_message.message_id, delay=0)
 
     except Exception as e:
         await update.message.reply_text(f"Error in translate():\n {e}")
@@ -372,4 +385,19 @@ async def language_correction(update, context):
         await update.message.reply_text(f"Error in revision:\n {e}")
         logging.error(f"\n\n🚨 Error in revision: {e}\n\n")
         
-
+    
+async def check_language(update, context, source_text):
+    try:
+        input_vars = await get_input_variables(update, source_text=source_text)
+        output = await run_chain("language_check", input_vars)
+        
+        parsed_output = LanguageCheck.model_validate(output)
+        language = parsed_output.user_message_language
+        
+        logging.info(f"Language checked: {language}")
+        
+        return language
+    
+    except Exception as e:
+        await update.message.reply_text(f"Error in check_language():\n {e}")
+        logging.error(f"\n\n🚨 Error in check_language(): {e}\n\n")

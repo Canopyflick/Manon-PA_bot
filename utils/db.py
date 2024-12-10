@@ -1,8 +1,11 @@
-﻿from utils.helpers import get_database_connection, get_first_name, datetime, timedelta, BERLIN_TZ, PA
+﻿from utils.helpers import add_user_context_to_goals, get_database_connection, get_first_name, datetime, timedelta, BERLIN_TZ, PA
 import logging
 
 
-
+def format_array_for_postgres(py_list):
+    if not py_list:
+        return None
+    return '{' + ','.join(f'"{item}"' for item in py_list) + '}'
 
 async def update_goal_data(goal_id, **kwargs):
     try:
@@ -73,16 +76,13 @@ async def complete_limbo_goal(update, context, goal_id):
         if not goal_data:
             await update.message.reply_text("No data found for this goal in user context.")
             return
-        goal_recurrence_type = goal_data.get("goal_recurrence_type")
-        if goal_recurrence_type == "recurring":
-            await update.message.reply_text(f"Nog ffkes niet geïmplementeerrrd {PA}")
-            return
 
         # Extract the required fields from the goal data
         kwargs = {
             "goal_recurrence_type": goal_data.get("goal_recurrence_type"),
             "goal_timeframe": goal_data.get("goal_timeframe"),
             "goal_value": goal_data.get("goal_value"),
+            "total_goal_value": goal_data.get("total_goal_value"),
             "description": goal_data.get("description"),
             "deadline": goal_data.get("evaluation_deadline"),
             "interval": goal_data.get("interval"),
@@ -92,11 +92,15 @@ async def complete_limbo_goal(update, context, goal_id):
             "difficulty_multiplier": goal_data.get("difficulty_multiplier"),
             "impact_multiplier": goal_data.get("impact_multiplier"),
             "penalty": goal_data.get("penalty"),
+            "total_penalty": goal_data.get("total_penalty"),
             "goal_category": goal_data.get("goal_category"),
             "set_time": datetime.now(tz=BERLIN_TZ),  # Set the current time for when the goal is first fully recorded (update later if accepted)
+            "deadlines": format_array_for_postgres(goal_data.get("deadlines")),
+            "reminders_times": format_array_for_postgres(goal_data.get("reminders_times")),
+            "interval": goal_data.get("interval"),
         }
-        
-        
+        if kwargs.get("goal_recurrence_type") == "recurring":
+            kwargs["group_id"] = goal_data.get("goal_id")  # Add the group_id field for recurring goals
 
         # Update the goal data in the database
         await update_goal_data(goal_id, **kwargs)
@@ -185,16 +189,20 @@ def setup_database():
 		        goal_recurrence_type TEXT DEFAULT NULL,
                 goal_timeframe TEXT DEFAULT NULL,       
                 goal_value FLOAT DEFAULT NULL,   
+                total_goal_value FLOAT DEFAULT NULL,       
                 description TEXT DEFAULT NULL,
                 set_time TIMESTAMPTZ DEFAULT NOW(),       -- Time when the (limbo first, then other status again) goal was set
                 deadline TIMESTAMPTZ,
+                deadlines TEXT[] DEFAULT NULL,              -- To use for the goal_proposal template, storing future and past deadlines of the entire group_id as well 
                 interval TEXT DEFAULT NULL,
-                reminder_time TIMESTAMPTZ DEFAULT NULL,       
-                reminder_scheduled BOOLEAN DEFAULT False,
+                reminder_time TIMESTAMPTZ DEFAULT NULL,
+                reminders_times TEXT[] DEFAULT NULL,       -- To use for the goal_proposal template, storing future and past reminders of the entire group_id as well
+                reminder_scheduled BOOLEAN DEFAULT False,   
                 time_investment_value FLOAT DEFAULT NULL,    
 		        difficulty_multiplier FLOAT DEFAULT NULL,
 		        impact_multiplier FLOAT DEFAULT NULL,
-                penalty FLOAT DEFAULT 0,       
+                penalty FLOAT DEFAULT NULL,
+                total_penalty FLOAT DEFAULT NULL,
                 iteration INTEGER DEFAULT 1,            -- N+1, either for tracking attempts at one-time goals (retries), or index of recurring
                 final_iteration TEXT DEFAULT 'not_applicable',  -- The last iteration of a recurring goal. Can be used to prompt evaluation of extension ('not_applicable', 'yes', 'not yet')
                 goal_category TEXT[] DEFAULT NULL,            -- eg work, productivity, chores, relationships, hobbies, self-development, wealth, impact (EA), health, fun, other       
@@ -399,32 +407,79 @@ async def adjust_penalty_or_goal_value(update, context, goal_id, action, directi
             return None
 
         current_value = current_value[0]  # Unpack the fetched value
-        logging.info(f"{action} value of           {current_value} retrieved")
-        
-        # Step 2: Calculate the new value
-        if direction == "up":
-            new_value = round(current_value * 1.4, 2)
-        elif direction == "down":
-            new_value = round(current_value * 0.6, 2)
-        else:
-            logging.error(f"Invalid direction: {direction}")
-            return None
+        logging.info(f"{action} value of     {current_value} retrieved")
+
+        new_value = None 
+        if current_value <= 5:   # move in increments of 1 for low values
+            if direction == "up":
+                new_value = current_value + 1
+            elif direction == "down":
+                new_value = current_value - 1 
+        elif current_value > 5:
+            if direction == "up":
+                    new_value = current_value * 1.4
+            elif direction == "down":
+                new_value = current_value * 0.6
         
         # Ensure the new value is not less than 1
         if new_value < 1:
-            new_value = 0
+            new_value = 0            
 
         # Step 3: Update the database with the new value
         cursor.execute(f"UPDATE manon_goals SET {action} = %s WHERE goal_id = %s", (new_value, goal_id))
         
         # Step 4: Commit the changes
         conn.commit()
-        logging.info(f"{action} for goal_id {goal_id} updated to {new_value}")
+        logging.info(f"{action} for goal_id {goal_id} {current_value} updated to {new_value}")
         
+        new_value = round(new_value, 1)
         return new_value
     
     except Exception as e:
         logging.error(f'Error in adjust_penalty_or_goal_value(): \n{e}')
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+        
+async def fetch_template_data_from_db(context, goal_id):
+    try:
+        conn = get_database_connection()
+        cursor = conn.cursor()
+        # Fetch the data for the given goal_id
+        query = '''
+        SELECT 
+            goal_recurrence_type AS frequency,
+            description,
+            array_length(deadlines, 1) AS deadline_count,
+            deadlines AS formatted_deadlines,
+            goal_value,
+            total_goal_value,
+            penalty,
+            total_penalty,
+            reminder_scheduled AS schedule_reminder,
+            array_length(reminders_times, 1) AS reminder_count,
+            reminders_times AS formatted_reminders,
+            goal_id AS ID,
+            reminders_times,
+            deadlines,
+            time_investment_value,
+            difficulty_multiplier
+        FROM manon_goals
+        WHERE goal_id = $1
+        '''
+        result = await conn.fetchrow(query, goal_id)
+        logging.info(f'{PA} Fetching in fetch_template_data_from_db(): | {e}')
+        if not result:
+            raise ValueError(f"No goal found for goal_id: {goal_id}")
+        
+        kwargs = dict(result)
+
+        await add_user_context_to_goals(context, goal_id, **kwargs)
+    
+    except Exception as e:
+        logging.error(f'{PA} Error in fetch_template_data_from_db(): \n{e}')
         conn.rollback()
         return None
     finally:

@@ -82,6 +82,9 @@ class LanguageCheck(BaseModel):
     user_message_language: Literal['English', 'German', 'Dutch', 'other']
     
 class Translation(BaseModel):
+    translation: str
+
+class Translations(BaseModel):
     formal: str
     casual: str
     degenerate: str

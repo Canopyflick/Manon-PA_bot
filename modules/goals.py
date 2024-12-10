@@ -1,9 +1,10 @@
 ﻿from utils.helpers import get_database_connection, BERLIN_TZ, add_user_context_to_goals, PA
-from utils.db import update_goal_data, complete_limbo_goal, adjust_penalty_or_goal_value
+from utils.db import update_goal_data, complete_limbo_goal, adjust_penalty_or_goal_value, fetch_template_data_from_db
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import logging, re, asyncio
 from datetime import datetime
 from collections.abc import Iterable
+from jinja2 import Template
 
 
 
@@ -67,78 +68,124 @@ async def format_datetime_list(datetime_input):
 
 async def send_goal_proposal(update, context, goal_id):
     try:
-        # Get the needed data from user context
-        goal_data = context.user_data["goals"].get(goal_id)
-        logging.info(f"Goal data: {goal_data}")
-
-        frequency = goal_data.get("goal_recurrence_type")
-
-        # Deseriali
-        schedule_reminder = goal_data.get("schedule_reminder")
-        description = goal_data.get("description")
-        
-        evaluation_deadlines = goal_data.get("evaluation_deadlines") or goal_data.get("evaluation_deadline")
-        reminders=None
-        if schedule_reminder:
-            reminders = goal_data.get("reminders") or goal_data.get("reminder")
-
-        # Use the formatting function for deadlines and reminders
-        deadline_count, formatted_deadlines = await format_datetime_list(evaluation_deadlines)
-        reminder_count, formatted_reminders = await format_datetime_list(reminders if schedule_reminder else None)      
-
-        time_investment = goal_data.get("time_investment_value")
-        effort = goal_data.get("difficulty_multiplier")
-        impact = goal_data.get("impact_multiplier")
-    
-        # Calculate goal value
-        goal_value = round(time_investment * effort * impact, 2)
-        total_goal_value = round(goal_value * deadline_count, 0)
-        
-        # Calculate the penalty
-        # for 'no penalty':
-        penalty = 1
-        
-        penalty_field_value = goal_data.get("failure_penalty")
-        if penalty_field_value == "small":
-            penalty = round(1.5 * goal_value, 2)
-        elif penalty_field_value == "big":
-            penalty = round(6 * goal_value, 2)
-        
-        total_penalty = round(penalty * deadline_count, 0)
-        
-        await add_user_context_to_goals(context, goal_id, penalty=penalty, goal_value=goal_value)
-        
+        message_text, keyboard = await draft_goal_proposal_message(update, context, goal_id, adjust=False)
+                
         await complete_limbo_goal(update, context, goal_id)
-        
-        ID = goal_id    # which is in fact group_id, if frequency == recurring
-        
-        # Create message text
-        message_text = (
-            f"{PA}‍ *{frequency.capitalize()} Goal Proposal*\n"
-            f"✍️ {description}\n\n"
-            f"{deadline_count} Deadline(s):\n"
-            + "\n".join(formatted_deadlines)
-            + f"\n\n⚡ Goal Value: {goal_value} ({total_goal_value} total)\n"
-            f"🌚 Potential Penalty: {penalty} ({total_penalty} total)\n"
-            f"#_{ID}_"
-        )
-        
-        if schedule_reminder and reminder_count > 0:
-            message_text += f"\n\n⏰ {reminder_count} Reminders:\n" + "\n".join(formatted_reminders)
-        
-        # Create inline keyboard
-        keyboard = await create_proposal_keyboard(goal_id)
-        
+       
         # Send message with buttons
         await update.message.reply_text(message_text, reply_markup=keyboard, parse_mode="Markdown")
     
     except Exception as e:
         await update.message.reply_text(f"Error in send_goal_proposal(): {e}")
         logging.error(f"Error in send_goal_proposal(): {e}")
+    
+        
+TEMPLATE_TEXT = """{{ PA }}‍ *{{ frequency }} Goal Proposal*
+✍️ {{ description }}
+
+📅 {{ "Deadline" if deadline_count == 1 else deadline_count ~ " Deadlines" }}:
+{{ formatted_deadlines }}
+
+⚡ Goal Value: {{ goal_value }} {% if total_goal_value is not none %}({{ total_goal_value }} total){% endif %}
+🌚 Potential Penalty: {{ penalty }} {% if total_penalty is not none %}({{ total_penalty }} total){% endif %}
+{% if schedule_reminder and reminder_count > 0 %}\n⏰ {{ "Reminder" if reminder_count == 1 else reminder_count ~ " Reminders" }}:\n{{ formatted_reminders }}\n{% endif %}#_{{ ID }}_"""
+
+        
+async def populate_goal_template(update, context, goal_id, adjust=True):
+    try:
+        goal_data = context.user_data["goals"].get(goal_id)
+        if adjust:
+            goal_data = await fetch_template_data_from_db(update, context, goal_id)          
+
+        template = Template(TEMPLATE_TEXT)
+        logging.critical(f"Template:\n{template}")
+        return template.render(**goal_data)
+    except Exception as e:
+        logging.error(f"Error in populate_goal_template(): {e}")
         
 
+async def draft_goal_proposal_message(update, context, goal_id, adjust):
+    try:
+        if not adjust:      # for first initialization of the goal proposal, retrieving data from user context
+            goal_data = context.user_data["goals"].get(goal_id)
+            logging.critical(f"Goal Data in draft_goal_proposal_message: {goal_data}")
+            await calculate_goal_values(context, goal_id, goal_data, adjust)
+        
+            message_text = await populate_goal_template(update, context, goal_id, adjust=False)
+            logging.critical(f"Message text:\n{message_text}")
+            keyboard = await create_proposal_keyboard(goal_id)
 
+            return message_text, keyboard
+        else:               # for adjustment of a previously initialized goal proposal, retrieving data from db
+            print(f"Get That Shit FROM THE DATABASE!")
+    except Exception as e:
+        await update.message.reply_text(f"Error in draft_goal_proposal_message(): {e}")
+        logging.error(f"Error in draft_goal_proposal_message(): {e}")
+        
 
+async def run_algorithm(context, goal_id, goal_data, deadline_count):
+    time_investment = goal_data.get("time_investment_value")
+    effort = goal_data.get("difficulty_multiplier")
+    impact = goal_data.get("impact_multiplier")
+    
+    goal_value = time_investment * effort * impact
+    total_goal_value = round(goal_value * deadline_count)
+        
+    penalty = 1
+    penalty_field_value = goal_data.get("failure_penalty")
+        
+    if penalty_field_value == "small":
+        penalty = 1.5 * goal_value
+    elif penalty_field_value == "big":
+        penalty = 6 * goal_value
+        
+    total_penalty = round(penalty * deadline_count)
+    penalty = round(penalty, 1)
+    goal_value = round(goal_value, 1)
+    
+    await add_user_context_to_goals(context, goal_id, penalty=penalty, goal_value=goal_value, total_penalty=total_penalty, total_goal_value=total_goal_value)
+        
+# this is just for calculating and recording in user context/DB the goal and penalty values
+async def calculate_goal_values(context, goal_id, goal_data=None, adjust=True):
+    try:            
+        reminders = None
+        if adjust:
+            await fetch_template_data_from_db(context, goal_id)
+            print(f"Get That Shit FROM THE DATABASE! en put into goal_data")
+            
+        frequency = goal_data.get("goal_recurrence_type")
+        schedule_reminder = goal_data.get("schedule_reminder")
+        evaluation_deadlines = goal_data.get("evaluation_deadlines") or [goal_data.get("evaluation_deadline")]
+        
+        if schedule_reminder:
+            reminders = goal_data.get("reminders") or [goal_data.get("reminder")]
+
+        deadline_count, formatted_deadlines = await format_datetime_list(evaluation_deadlines)
+        reminder_count, formatted_reminders = await format_datetime_list(reminders if schedule_reminder else None)
+        
+        if not adjust:  # penalty and goal_value algorithm must only be run once on initialization of proposal, not for later adjustments
+            await run_algorithm(context, goal_id, goal_data, deadline_count)
+            
+        # Join formatted lists into strings to avoid quotes from jinja template
+        formatted_deadlines_str = "\n".join(formatted_deadlines)
+        formatted_reminders_str = "\n".join(formatted_reminders) if formatted_reminders else ""
+
+        await add_user_context_to_goals(
+            context,
+            goal_id,
+            deadlines=evaluation_deadlines,
+            reminders_times=reminders,
+            formatted_deadlines=formatted_deadlines_str,
+            formatted_reminders=formatted_reminders_str,
+            reminder_count=reminder_count,
+            deadline_count=deadline_count,
+            ID=goal_id,
+            PA=PA,
+            frequency=frequency.capitalize()
+        )
+    
+    except Exception as e:
+        raise RuntimeError(f"Error in calculate_goal_values(): {e}")
 
 
 async def create_proposal_keyboard(goal_id):
@@ -147,8 +194,8 @@ async def create_proposal_keyboard(goal_id):
     button_reject = InlineKeyboardButton(text="❌ Reject", callback_data=f"reject_{goal_id}")
 
     # Second row: Additional buttons
-    button_moon_up = InlineKeyboardButton(text="🌚⬆️", callback_data=f"penalty_up_{goal_id}")
-    button_moon_down = InlineKeyboardButton(text="🌚⬇️", callback_data=f"penalty_down_{goal_id}")
+    button_moon_up = InlineKeyboardButton(text="🌚 ⬆️", callback_data=f"penalty_up_{goal_id}")
+    button_moon_down = InlineKeyboardButton(text="🌚 ⬇️", callback_data=f"penalty_down_{goal_id}")
     button_bolt_up = InlineKeyboardButton(text="⚡⬆️", callback_data=f"goal_value_up_{goal_id}")
     button_bolt_down = InlineKeyboardButton(text="⚡⬇️", callback_data=f"goal_value_down_{goal_id}")
         
@@ -158,13 +205,11 @@ async def create_proposal_keyboard(goal_id):
         [button_moon_up, button_moon_down, button_bolt_up, button_bolt_down]  # Second row
     ])
     return keyboard
-    
 
-async def handle_proposal_change_click(update, context):
+async def unpack_query(update):
     query = update.callback_query
     match = re.match(r"^(goal_value_up|goal_value_down|penalty_up|penalty_down)_(\d+)$", query.data)
-    data = query.data  # Callback data (e.g., "penalty_down_123")
-    if match:
+    if match:    
         full_action = match.group(1)  # e.g., "goal_value_up"
         goal_id = int(match.group(2))  # e.g., 123
         # Determine action and direction
@@ -172,18 +217,24 @@ async def handle_proposal_change_click(update, context):
             action = "goal_value"
         elif "penalty" in full_action:
             action = "penalty"
-
         if "up" in full_action:
             direction = "up"
         else:
-            direction = "down"   
+            direction = "down"       
+            
+        return goal_id, action, direction, query, full_action
+    else:
+        logging.error(f"Invalid callback data format: {query}")
+        
 
+async def handle_proposal_change_click(update, context):
+        goal_id, action, direction, query, full_action = await unpack_query(update)
         new_value = await adjust_penalty_or_goal_value(update, context, goal_id, action, direction)
         # Ensure the value is properly formatted
-        
         if new_value is None:    
             await query.answer(f"Error updating value {PA}")
             return
+
         # Get the current message text
         original_proposal = query.message.text
 
@@ -211,12 +262,9 @@ async def handle_proposal_change_click(update, context):
         try:
             await query.edit_message_text(updated_message, reply_markup=keyboard, parse_mode="Markdown")
             await query.answer(f"Value updated successfully! {PA}")
-            await asyncio.sleep(1)
         except Exception as e:
             logging.error(f"Error editing message text: {e}")
             await query.answer(f"Error updating message text {PA}\n{e}")
-    else:
-        logging.error(f"Invalid callback data format: {query}")
         
 
 async def accept_goal_proposal(update, context):
@@ -234,7 +282,8 @@ async def accept_goal_proposal(update, context):
             logging.error(f"⏰ Goal ID {goal_id} has issues: {validation_result['errors']}")
             await update.message.reply_text(f"⏰ Goal ID {goal_id} has issues: {validation_result['errors']}")
             return
-        updated_message = f"You *accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ Description"
+        logging.info(f"⏰ Goal ID {goal_id} complies with all constraints: {validation_result['valid']}")
+        updated_message = f"You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ Description"
         await query.edit_message_text(updated_message, parse_mode="Markdown")
         return
     except Exception as e:
@@ -247,12 +296,11 @@ async def reject_goal_proposal(update, context):
     goal_id = 0
     query = update.callback_query
     match = re.match(r"^accept_(\d+)$", query.data)
-    data = query.data  # Callback data (e.g., "penalty_down_123")
     if match:
-        goal_id = int(match.group(2))
+        goal_id = int(match.group(1))
     await update_goal_data(goal_id, status="archived_canceled")
 
-    updated_message = f"You *rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ Description"
+    updated_message = f"You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ Description"
     
     await query.edit_message_text(updated_message, parse_mode="Markdown")
     return     

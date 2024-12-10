@@ -7,11 +7,13 @@ from LLMs.classes import (
     LanguageCorrection,
     LanguageCheck,
     Translation,
+    Translations,
     DummyClass,
     Schedule,
     Planning,
     GoalAssessment,
     GoalInstanceAssessment,
+    LanguageCheck,
 )
 from LLMs.prompts import (
     dummy_template,
@@ -21,12 +23,13 @@ from LLMs.prompts import (
     recurring_goal_valuation_template,
     recurring_goal_split_template,
     translation_template,
-    language_template,
+    translations_template,
     goal_setting_analysis_template,
     language_correction_template,
     translation_template,
     recurring_schedule_template,
     one_time_schedule_template,
+    language_check_template,
 )
 from langchain_openai import ChatOpenAI
 
@@ -89,10 +92,20 @@ chain_configs = {
         "class": LanguageCorrection,
         "llm": llms["gpt4o"],
     },
+    "translations": {
+        "template": translations_template,
+        "class": Translations,
+        "llm": llms["gpt4o"],
+    },
     "translation": {
         "template": translation_template,
         "class": Translation,
         "llm": llms["gpt4o"],
+    },
+    "language_check": {
+        "template": language_check_template,
+        "class": LanguageCheck,
+        "llm": llms["mini"],
     },
 }
 

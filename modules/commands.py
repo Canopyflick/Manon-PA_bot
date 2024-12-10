@@ -4,7 +4,7 @@ from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from utils.helpers import get_database_connection, get_btc_price
 from telegram.ext import ContextTypes, CallbackContext
-from LLMs.orchestration import process_other_language
+from LLMs.orchestration import process_other_language, check_language
 from utils.listener import handle_goals_set_message
 from utils.db import register_user
 
@@ -531,4 +531,5 @@ async def translate_command(update: Update, context: CallbackContext):
         return
     else:
         source_text = " ".join(context.args)
-        await process_other_language(update, context, source_text, translate_command=True)
+        language = await check_language(update, context, source_text)
+        await process_other_language(update, context, source_text, language=language, translate_command=True)
