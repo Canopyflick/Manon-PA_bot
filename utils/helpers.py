@@ -3,7 +3,7 @@ from telegram.ext import CallbackContext, ExtBot
 from telegram.error import TelegramError
 from typing import Union
 from datetime import datetime, time, timedelta, timezone
-import os, psycopg2, pytz, logging, requests, asyncio, re, random, json
+import os, pytz, logging, requests, asyncio, re, random, json
 from openai import OpenAI
 from typing import Union
 from zoneinfo import ZoneInfo
@@ -40,28 +40,6 @@ if not OPENAI_API_KEY:
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 
-def redact_password(url):
-    # Match the "username:password@" part and redact the password
-    return re.sub(r":([^:@]*)@", r":*****@", url)
-
-
-def get_database_connection():
-    # Use LOCAL_DATABASE_URL if available, otherwise fallback to DATABASE_URL (Raspberry Pi/Heroku)
-    DATABASE_URL = os.getenv('LOCAL_DB_URL', os.getenv('DATABASE_URL'))
-
-    if not DATABASE_URL:
-        raise ValueError("Database URL not found! Ensure 'DATABASE_URL' or 'LOCAL_DB_URL' is set in the environment.")
-
-    # Connect to the PostgreSQL database
-    if os.getenv('HEROKU_ENV'):  # Running on Heroku
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-    else:  # Running locally
-        conn = psycopg2.connect(DATABASE_URL)  # For local development, no SSL required
-        
-    redacted_url = redact_password(DATABASE_URL)
-    print(f"Connecting to database with URL: {redacted_url}")
-
-    return conn
 
 
 
@@ -343,47 +321,111 @@ async def test_emojis_with_telegram(update, context):
             print(f"Error: Emoji '{emoji}' failed. Reason: {e}")
             
 
-async def emoji_stopwatch(update, context):
+async def emoji_stopwatch(update, context, **kwargs):
     chat_id = update.effective_chat.id
     message_id = update.message.message_id
-    
-    async def run_stopwatch():
-        # List of emoji representing minutes (1-10)
-        minute_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-        
-        # Reaction emoji at start and end
-        initial_emoji = '🆒'
-        final_emoji = '🦄'
 
+    # Determine mode from kwargs
+    mode = kwargs.get("mode", "default")
+    logging.info(f"⏱️Stopwatch started in {mode} mode")
+
+    # Define default durations
+    durations = {
+        "default": 10 * 60,     # 10 minutes
+        "pomodoro": 25 * 60,     # 25 minutes
+        "coffee": 3 * 60 + 30,  # 3 minutes 30 seconds
+        "test": 5,
+    }
+    # Check for custom duration from /stopwatch, fallback to predefined durations
+    custom_duration = kwargs.get("duration")
+    duration = durations.get(mode, durations["default"])
+    if custom_duration is not None:
+            duration = custom_duration        
+
+    # Calculate total minutes and per-minute interval
+    total_minutes = duration // 60
+    remaining_seconds = duration % 60
+
+    # Define custom responses dynamically
+    custom_responses = {
+        "default": {"initial": "🆒", "final": "🦄", "final_message": "⏰"},
+        "coffee": {"initial": "❤️‍🔥", "final": "🦄", "final_message": "☕"},
+        "test": {"initial": "💩", "final": "👌", "final_message": "🕸️"},
+        "pomodoro": {"initial": "👨‍💻", "final": "🍾", "final_message": "🍅"},
+    }
+
+    # Merge `kwargs` for custom modes
+    custom_responses.update(kwargs.get("reactions", {}))
+
+    # Retrieve mode-specific responses
+    mode_responses = custom_responses.get(mode, custom_responses["default"])
+    initial_emoji = mode_responses["initial"]
+    final_emoji = mode_responses["final"]
+    final_message = mode_responses["final_message"]
+
+    # Notify the group
+    duration_headsup = await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"{PA} {final_message if len(final_message) < 3 else '⏱️'} \n\n*{total_minutes} minutes {remaining_seconds} seconds*",
+        parse_mode="Markdown"
+    )
+    # Delete duration_headsup message after duration - 4 seconds (delay), but never < 2 seconds
+    delay = 56
+    if duration < 60 :
+        delay = duration - 4
+        if delay < 2:
+            delay = 2
+    asyncio.create_task(delete_message(update, context, duration_headsup.message_id, delay))
+
+    async def run_stopwatch(duration):
+        # Emoji sequence for all durations
+        emoji_sequence = [
+            f"{i//10}️⃣{i%10}️⃣" if i > 9 else f"{i}️⃣"
+            for i in range(1, 100)  # Arbitrary large limit to accommodate long durations
+        ]
+
+        # React with the initial emoji
         await context.bot.setMessageReaction(
             chat_id=chat_id,
             message_id=message_id,
             reaction=initial_emoji
         )
+
+        # Calculate the total minutes
+        total_minutes = duration // 60
+        remaining_seconds = duration % 60
+
+        # Send emojis every minute
+        if total_minutes > 0:
+            for minute in range(1, total_minutes + 1):
+                if minute > len(emoji_sequence):  # Avoid index errors
+                    break
+
+                # Send the emoji for the current minute
+                await asyncio.sleep(60)  # Wait for one minute
+                await update.message.reply_text(emoji_sequence[minute - 1])
+
+        # Wait for any remaining seconds
+        await asyncio.sleep(remaining_seconds)
+
+        # Send the final message
+        await update.message.reply_text(final_message)
         
-        for i, emoji in enumerate(minute_emojis, start=1):
-            # Send emoji for each minute
-            await update.message.reply_text(f"{emoji}")
-            if i < 10:
-                await asyncio.sleep(60)
-        
-        # Final message
-        await asyncio.sleep(1)
-        await update.message.reply_text("⏹️")
+        # React with the final emoji
         await context.bot.setMessageReaction(
             chat_id=chat_id,
             message_id=message_id,
             reaction=final_emoji
         )
-    
+
     # Run the stopwatch in the background
-    asyncio.create_task(run_stopwatch())
-    
+    asyncio.create_task(run_stopwatch(duration))
+
 
 
 async def add_user_context_to_goals(context, goal_id, **kwargs):
     """
-    Adds or updates fields for a specific goal_id in user_data, flattening dictionaries and removing parent key names.
+    Adds or updates fields for a specific goal_id in user_data, flattening dictionaries and removing parent key names, such that only the deepest child keys remain (preserving all types).
 
     Args:
         context: The context object from the Telegram bot.
@@ -402,18 +444,16 @@ async def add_user_context_to_goals(context, goal_id, **kwargs):
     for key, value in kwargs.items():
         if isinstance(value, dict):  # Flatten nested dictionaries
             for sub_key, sub_value in value.items():
+                logging.info(f"Adding |{sub_key}| : |{sub_value}| to context")
                 context.user_data["goals"][goal_id][sub_key] = sub_value
         elif hasattr(value, "__dict__"):  # Flatten custom objects
             for sub_key, sub_value in value.__dict__.items():
+                logging.info(f"Adding |{sub_key}| : |{sub_value}| to context")
                 context.user_data["goals"][goal_id][sub_key] = sub_value
         else:  # Directly store primitive types
+            logging.info(f"Adding |{key}| : |{value}| to context")
             context.user_data["goals"][goal_id][key] = value
 
-
-
-
-
-    
 
 async def send_user_context(update, context):
     # Retrieve the user context

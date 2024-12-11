@@ -42,23 +42,23 @@ class GoalInstanceAssessment(BaseModel):
 # Goal setting #3.1  
 class Schedule(BaseModel):
     reasoning: str
-    description: str
+    goal_description: str
     evaluation_deadline: str
     schedule_reminder: bool
-    reminder: Union[str, None] = Field(
+    reminder_time: Union[str, None] = Field(
         default=None,
         description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
     )
     
 # Goal setting #3.2 (recurring goals branch)      
 class Planning(BaseModel):
-    description: str
+    goal_description: str
     evaluation_deadlines: List[str]
     interval: Literal['intra-day', 'daily', 'every few days', 'weekly', 'every few weeks', 'monthly', 'every few months', 'bi-annually', 'yearly', 'longer than yearly', 'custom']
     schedule_reminder: bool
-    reminders: Union[str, None] = Field(
+    reminder_times: Union[str, None] = Field(
         default=None,
-        description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
+        description="The timestamp for the reminder(s) in ISO 8601 format, or null if no reminder is scheduled."
     )
     
     

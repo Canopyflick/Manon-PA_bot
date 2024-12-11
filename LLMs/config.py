@@ -67,25 +67,50 @@ chain_configs = {
         "class": SetGoalAnalysis,
         "llm": llms["mini"],
     },
+    "goal_setting_analysis_smart": {
+        "template": goal_setting_analysis_template,
+        "class": SetGoalAnalysis,
+        "llm": llms["gpt4o"],
+    },
     "goal_valuation": {
         "template": goal_valuation_template,
         "class": GoalAssessment,
         "llm": llms["mini"],  # or llms["gpt4o"], llms["mini_high_temp"] etc.
+    },
+    "goal_valuation_smart": {
+        "template": goal_valuation_template,
+        "class": GoalAssessment,
+        "llm": llms["gpt4o"], 
     },
     "recurring_goal_valuation": {
         "template": recurring_goal_valuation_template,
         "class": GoalInstanceAssessment,
         "llm": llms["mini"],  # or llms["gpt4o"], llms["mini_high_temp"] etc.
     },
+    "recurring_goal_valuation_smart": {
+        "template": recurring_goal_valuation_template,
+        "class": GoalInstanceAssessment,
+        "llm": llms["gpt4o"],  # or llms["gpt4o"], llms["mini_high_temp"] etc.
+    },
      "schedule_goal": {
         "template": one_time_schedule_template,
         "class": Schedule,
         "llm": llms["mini"],
     },
+     "schedule_goal_smart": {
+        "template": one_time_schedule_template,
+        "class": Schedule,
+        "llm": llms["gpt4o"],
+    },
      "schedule_goals": {
         "template": recurring_schedule_template,
         "class": Planning,
         "llm": llms["mini"],
+    },
+     "schedule_goals_smart": {
+        "template": recurring_schedule_template,
+        "class": Planning,
+        "llm": llms["gpt4o"],
     },
     "language_correction": {
         "template": language_correction_template,

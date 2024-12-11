@@ -191,10 +191,14 @@ async def process_classification_result(update, context, initial_classification)
         logging.error(f"\n\n🚨 Error in process_classification_result(): {e}\n\n")
         
 
-async def handle_goal_classification(update, context):
+async def handle_goal_classification(update, context, smarter=False):
     try:
         input_vars = await get_input_variables(update)
-        goal_classification = await run_chain("goal_classification", input_vars)   
+        goal_classification=None
+        if smarter:
+            goal_classification = await run_chain("goal_classification_smart", input_vars)  
+        else:
+            goal_classification = await run_chain("goal_classification", input_vars)   
         
         parsed_goal_classification = GoalClassification.model_validate(goal_classification)
         await update.message.reply_text(f"goal_classification: \n{parsed_goal_classification}")
@@ -212,7 +216,7 @@ async def handle_goal_classification(update, context):
             # Create an empty dictionary for the specific goal_id
             context.user_data["goals"][goal_id] = {}
             
-            await goal_setting_analysis(update, context, goal_id)                                                                        # < < < < <
+            await goal_setting_analysis(update, context, goal_id, smarter)                                                                        # < < < < <
             
         else: 
             await update.message.reply_text(f"_goal_result {goal_result} not yet implemented_", parse_mode="Markdown")
@@ -221,7 +225,7 @@ async def handle_goal_classification(update, context):
         logging.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")
 
 
-async def goal_setting_analysis(update, context, goal_id):
+async def goal_setting_analysis(update, context, goal_id, smarter=False):
     try:
         input_vars = await get_input_variables(update)
         goal_setting_analysis = await run_chain("goal_setting_analysis", input_vars)
@@ -229,16 +233,15 @@ async def goal_setting_analysis(update, context, goal_id):
         
         await update.message.reply_text(f"parsed_goal_analysis: \n{parsed_goal_analysis}")
 
-        evaluation_frequency = parsed_goal_analysis.evaluation_frequency
+        recurrence_type = parsed_goal_analysis.evaluation_frequency
         timeframe = parsed_goal_analysis.timeframe
-        goal_category = parsed_goal_analysis.category
         
         await add_user_context_to_goals(
             context,
             goal_id,
-            goal_recurrence_type=evaluation_frequency,
-            goal_timeframe=timeframe,
-            goal_category=goal_category
+            recurrence_type=recurrence_type,
+            timeframe=timeframe,
+            category=parsed_goal_analysis.category
         )
 
         if timeframe == "open-ended":
@@ -248,10 +251,10 @@ async def goal_setting_analysis(update, context, goal_id):
             )
             return
         
-        elif evaluation_frequency == 'one-time':
-            await goal_valuation(update, context, goal_id)
-        elif evaluation_frequency == 'recurring':
-            await goal_valuation(update, context, goal_id, "recurring")
+        elif recurrence_type == 'one-time':
+            await goal_valuation(update, context, goal_id, smarter=smarter)
+        elif recurrence_type == 'recurring':
+            await goal_valuation(update, context, goal_id, "recurring", smarter)
         else:
             await update.message.reply_text(
                 f"Next step for ANDERS: ???"
@@ -261,19 +264,21 @@ async def goal_setting_analysis(update, context, goal_id):
         logging.error(f"\n\n🚨 Error in goal_setting_analysis(): {e}\n\n")
         
 
-async def goal_valuation(update, context, goal_id, frequency="one-time"):
+async def goal_valuation(update, context, goal_id, recurrence_type="one-time", smarter=False):
     try:
         input_vars = await get_input_variables(update)
         parsed_goal_valuation = None
-        if frequency == 'recurring':
+        if recurrence_type == 'recurring':
             await update.message.reply_text(f"complete recurring in goal_valuation")
             goal_valuation = await run_chain("recurring_goal_valuation", input_vars)
+            await update.message.reply_text(f"🧚‍♀️Goal Valuation: \n{parsed_goal_valuation}")
             parsed_goal_valuation = GoalInstanceAssessment.model_validate(goal_valuation)
-        elif frequency == 'one-time':
+        elif recurrence_type == 'one-time':
             goal_valuation = await run_chain("goal_valuation", input_vars)
+            await update.message.reply_text(f"🧚‍♀️Goal Valuation: \n{parsed_goal_valuation}")
             parsed_goal_valuation = GoalAssessment.model_validate(goal_valuation)
             
-        await update.message.reply_text(f"goal_valuation: \n{parsed_goal_valuation}")
+        await update.message.reply_text(f"Parsed Goal Valuation: \n{parsed_goal_valuation}")
         
         await add_user_context_to_goals(
             context,
@@ -281,30 +286,37 @@ async def goal_valuation(update, context, goal_id, frequency="one-time"):
             parsed_goal_valuation=parsed_goal_valuation,
         )
 
-        await prepare_goal_proposal(update, context, goal_id, frequency=frequency)
+        await prepare_goal_proposal(update, context, goal_id, recurrence_type=recurrence_type, smarter=smarter)
         
     except Exception as e:
         await update.message.reply_text(f"Error in goal_valuation():\n {e}")
         logging.error(f"\n\n🚨 Error in goal_valuation(): {e}\n\n")
         
 
-async def prepare_goal_proposal(update, context, goal_id, frequency):
+async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smarter=False):
     try:
         input_vars = await get_input_variables(update)
         parsed_planning = None
-        if frequency == 'recurring':
-            output = await run_chain("schedule_goals", input_vars)        
-            parsed_planning = Planning.model_validate(output)
-        elif frequency == 'one-time':
-            output = await run_chain("schedule_goal", input_vars)
-            parsed_planning = Schedule.model_validate(output)
+        if recurrence_type == 'recurring':
+            if smarter:
+                output = await run_chain("schedule_goals_smarter", input_vars)        
+                parsed_planning = Planning.model_validate(output)
+            else:
+                output = await run_chain("schedule_goals", input_vars)        
+                parsed_planning = Planning.model_validate(output)               
+        elif recurrence_type == 'one-time':
+            if smarter:
+                output = await run_chain("schedule_goal_smarter", input_vars)
+                parsed_planning = Schedule.model_validate(output)
+            else:
+                output = await run_chain("schedule_goal", input_vars)
+                parsed_planning = Schedule.model_validate(output)
 
-        await update.message.reply_text(f"prepare_goal_proposal: \n{parsed_planning}", parse_mode="markdown")  
+        await update.message.reply_text(f"prepare_goal_proposal: \n{parsed_planning}")  
         
         await add_user_context_to_goals(
             context,
             goal_id,
-            description=parsed_planning.description,
             parsed_planning=parsed_planning
         )
         

@@ -305,7 +305,7 @@ async def is_reminder_scheduled(user_id, chat_id):
         WHERE user_id = %s AND chat_id = %s
     ''', (user_id, chat_id))
     
-    result = cursor.fetchone()
+    result = cursor.fetchrow()
     conn.close()
     cursor.close()
     return result[0] if result else False

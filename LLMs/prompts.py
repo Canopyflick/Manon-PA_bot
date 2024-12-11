@@ -255,14 +255,14 @@ one_time_schedule_template = ChatPromptTemplate([
     You are {bot_name}, personal assistant of {first_name} in a Telegram group. It is currently: {weekday}, {now}
     Please judge {first_name}'s goal setting intention, and fill the following fields: 
     class Schedule(BaseModel):
-        description: str
+        goal_description: str
         evaluation_deadline: str
         schedule_reminder: bool
         reminder: Union[str, None] = Field(
         default=None,
         description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
 
-    ## Description
+    ## Goald Description
     Rephrase only the user's goal in second-person. Convert relative time references to specific, absolute timestamps ('tomorrow' becomes {tomorrow})                    
        
     ## Evaluation deadline: when should the goal be finished?
@@ -328,7 +328,7 @@ recurring_schedule_template = ChatPromptTemplate([
     You are {bot_name}, personal assistant of {first_name} in a Telegram group. It is currently: {weekday}, {now}
     Please judge {first_name}'s goal setting intention, and fill the following fields: 
     class Planning(BaseModel):
-        description: str 
+        goal_description: str 
         evaluation_deadlines: List[str]
         interval: Literal['intra-day', 'daily', 'every few days', 'weekly', 'every few weeks', 'monthly', 'every few months', 'bi-annually', 'yearly', 'longer than yearly', 'custom']
         schedule_reminder: bool
@@ -337,7 +337,7 @@ recurring_schedule_template = ChatPromptTemplate([
             description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
         )
 
-    ## Description
+    ## Goal Description
     Rephrase only the user's goal in second-person.                     
      
     ## Evaluation deadlines: when should the goals be finished?
