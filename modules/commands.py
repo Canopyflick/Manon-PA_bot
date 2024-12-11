@@ -6,6 +6,7 @@ from utils.helpers import get_btc_price
 from telegram.ext import ContextTypes, CallbackContext
 from LLMs.orchestration import process_other_language, check_language, handle_goal_classification
 from utils.db import register_user
+from utils.listener import roll_dice
 
 
 # Asynchronous command functions
@@ -74,6 +75,9 @@ async def help_command(update, context):
         await update.message.reply_text(help_message, parse_mode="Markdown")
     
 
+async def tea_command(update, context):
+    await emoji_stopwatch(update, context, mode="tea_short")
+
 async def profile_command(update, context):
     await update.message.reply_text("will show all the user-specific settings, like long term goals, preferences, constitution ... + edit-button")
     
@@ -100,9 +104,17 @@ async def profile_command(update, context):
     await update.message.reply_text("will show all the user-specific settings, like long term goals, preferences, constitution ... + edit-button")
     
     
-
-
-
+async def dice_command(update, context):
+    if context.args:  # Input from a command like /stopwatch 10
+        arg = context.args[0]
+        if arg.isdigit() and 1 <= int(arg) <= 6:
+            await roll_dice(update, context, user_guess=arg)
+            logging.info(f"Dice roll {arg}")
+            return
+    else:
+        await roll_dice(update, context, user_guess=None)
+        logging.info("Dice roll numberless")
+    
 
 # Function to handle the trashbin button click (delete the message)
 async def handle_trashbin_click(update, context):
@@ -183,12 +195,12 @@ async def filosofie_command(update, context):
 
 
 async def btc_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    simple_message, _, _ = await get_btc_price()
+    simple_message, _, _, _ = await get_btc_price()
     await update.message.reply_text(simple_message)
     
 
 async def bitcoin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _, detailed_message, _ = await get_btc_price()
+    _, detailed_message, _, _ = await get_btc_price()
     await update.message.reply_text(detailed_message)
 
 

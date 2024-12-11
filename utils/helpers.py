@@ -110,14 +110,16 @@ async def get_first_name(context_or_bot: Union[Bot, ExtBot, CallbackContext], us
         return "Lodewijk 🚨🐛"
     
 
-async def get_btc_price() -> tuple[str, str, float]:
-    url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur"
+async def get_btc_price() -> tuple[str, str, float, float]:
+    url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur&include_24hr_change=true"
     try:
         response = requests.get(url)
         response.raise_for_status()  # Raise HTTPError for bad responses
         data = response.json()
         usd_price = float(data["bitcoin"]["usd"])  # Convert to float for formatting
         eur_price = float(data["bitcoin"]["eur"])  # Convert to float for formatting
+        usd_change = float(data["bitcoin"]["usd_24h_change"])  # 24-hour percentage change
+
         
         mycelium_balance = 0.01614903
         mycelium_euros = round(eur_price * mycelium_balance, 2)
@@ -131,9 +133,14 @@ async def get_btc_price() -> tuple[str, str, float]:
         detailed_message = f"1₿ = ${usd_price_formatted}\n🍄 = €{mycelium_euros_formatted}"
         raw_float_price = usd_price
         
-        return simple_message, detailed_message, raw_float_price
+        return simple_message, detailed_message, raw_float_price, usd_change
     except requests.RequestException as e:
-        return f"Error fetching Bitcoin price: {e}"
+        # Default values in case of error
+        simple_message = "Error"
+        detailed_message = f"Error fetching Bitcoin price: {e}"
+        raw_float_price = 0.0
+        usd_change = 0.0
+        return simple_message, detailed_message, raw_float_price, usd_change
     
 
 # Function to check Bitcoin price every hour and send a message if it exceeds the threshold
@@ -143,7 +150,7 @@ async def monitor_btc_price(bot: Bot, chat_id: int):
     upper_threshold_alerted = False
     lower_threshold_alerted = False
     while True:
-        _, _, price = await get_btc_price()
+        _, _, price, _ = await get_btc_price()
         if price is not None:
             print(f"Bitcoin price: ${price:,.2f}")  # Log the price
             if price > upper_threshold and not upper_threshold_alerted:
@@ -334,6 +341,8 @@ async def emoji_stopwatch(update, context, **kwargs):
         "default": 10 * 60,     # 10 minutes
         "pomodoro": 25 * 60,     # 25 minutes
         "coffee": 3 * 60 + 30,  # 3 minutes 30 seconds
+        "tea_long": 6 * 60,
+        "tea_short": 2 * 60 + 30,
         "test": 5,
     }
     # Check for custom duration from /stopwatch, fallback to predefined durations
@@ -349,9 +358,11 @@ async def emoji_stopwatch(update, context, **kwargs):
     # Define custom responses dynamically
     custom_responses = {
         "default": {"initial": "🆒", "final": "🦄", "final_message": "⏰"},
-        "coffee": {"initial": "❤️‍🔥", "final": "🦄", "final_message": "☕"},
-        "test": {"initial": "💩", "final": "👌", "final_message": "🕸️"},
         "pomodoro": {"initial": "👨‍💻", "final": "🍾", "final_message": "🍅"},
+        "coffee": {"initial": "❤️‍🔥", "final": "🦄", "final_message": "☕"},
+        "tea_long": {"initial": "❤️‍🔥", "final": "🦄", "final_message": "🫖"},
+        "tea_short": {"initial": "❤️‍🔥", "final": "🦄", "final_message": "🍵"},
+        "test": {"initial": "💩", "final": "👌", "final_message": "🕸️"},
     }
 
     # Merge `kwargs` for custom modes
@@ -403,7 +414,8 @@ async def emoji_stopwatch(update, context, **kwargs):
 
                 # Send the emoji for the current minute
                 await asyncio.sleep(60)  # Wait for one minute
-                await update.message.reply_text(emoji_sequence[minute - 1])
+                count_message = await update.message.reply_text(emoji_sequence[minute - 1])
+                asyncio.create_task(delete_message(update, context, count_message.message_id, 180))
 
         # Wait for any remaining seconds
         await asyncio.sleep(remaining_seconds)

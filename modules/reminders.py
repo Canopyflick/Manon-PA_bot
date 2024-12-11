@@ -20,7 +20,7 @@ async def prepare_daily_reminders(context, chat_id=None):
         return
 
     # This should actually show CET: the time from the machine where the application is running
-    time_now = datetime.now()
+    now = datetime.now()
     
     # Do the goal_setters nudges first, unless it's after 8, then skip
     if time_now < time_now.replace(hour=20, minute=20, second=0, microsecond=0):

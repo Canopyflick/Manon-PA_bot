@@ -157,9 +157,9 @@ async def setup_database():
                 )
             ''')
 
-            #4 goal history table
+            #4 scheduled messages table
             await conn.execute('''
-                CREATE TABLE IF NOT EXISTS manon_goal_history (
+                CREATE TABLE IF NOT EXISTS manon_scheduled_messages (
                     id BIGSERIAL PRIMARY KEY,
                     user_id BIGINT,
                     chat_id BIGINT,

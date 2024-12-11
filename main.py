@@ -5,6 +5,7 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHan
 from datetime import datetime, timezone
 from utils.helpers import PA, monitor_btc_price
 from utils.db import setup_database, Database
+from utils.scheduler import send_morning_message, scheduler, AsyncIOScheduler, CronTrigger, DateTrigger, IntervalTrigger
 
 print(f"... STARTING ... {PA}  \n\n")
 
@@ -90,13 +91,15 @@ def get_bot_token() -> str:
 
 # Register bot commands and handlers
 def register_handlers(application):
-    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command, translate_command, profile_command, stopwatch_command
+    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command, translate_command, profile_command, stopwatch_command, tea_command, dice_command
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler(["filosofie", "philosophy"], filosofie_command))
     application.add_handler(CommandHandler("profile", profile_command))
     application.add_handler(CommandHandler(["stopwatch", "timer"], stopwatch_command))
+    application.add_handler(CommandHandler(["tea"], tea_command))
+    application.add_handler(CommandHandler(["dice"], dice_command))
     
     # /btc /bitcoin command handler
     application.add_handler(CommandHandler("btc", btc_command))
@@ -124,7 +127,8 @@ def register_handlers(application):
         ))
     application.add_handler(CallbackQueryHandler(accept_goal_proposal, pattern=r"^accept_(\d+)$"))
     application.add_handler(CallbackQueryHandler(reject_goal_proposal, pattern=r"^reject_(\d+)$"))
-    
+
+
 
     
 async def setup(application):
@@ -133,6 +137,15 @@ async def setup(application):
         now = datetime.now(tz=timezone.utc)
         logging.info(f"Current time: {now}\n")
         
+        # Initialize the database
+        await Database.initialize()
+        logging.info("Database initialization completed.")
+
+        scheduler.add_job(send_morning_message, CronTrigger(hour=6, minute=6), args=[application.bot])
+        scheduler.start()
+        logging.info("Scheduler started successfully")
+        
+
         # Initialize database and reset necessary data
         await initialize_environment()
         
@@ -154,11 +167,8 @@ def main():
 
     try:
         # Create and get the event loop
-        loop = asyncio.get_event_loop()
-        
-        # Initialize database connection pool
-        loop.run_until_complete(Database.initialize())
-        logging.info("Database initialization completed")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
         token = get_bot_token()
         if token is None:
@@ -179,21 +189,28 @@ def main():
         # Register handlers
         register_handlers(application)
 
-        # Start the bot
         logging.info("... Starting run_polling")
+
+        # Start the bot
         application.run_polling()
         logging.warning("*** *** *** Exiting run_polling ...")
-
+        
     except Exception as e:
         logging.error(f"Error in main function: {e}")
         logging.error(f"Error type: {type(e).__name__}")
         import traceback
         logging.error(traceback.format_exc())
     finally:
-        # Clean up database connection pool
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(Database.close())
+        # Clean up the database connection pool
+        try:
+            loop.run_until_complete(Database.close())
+        except Exception as e:
+            logging.error(f"Error closing database: {e}")
+        finally:
+            loop.close()
         logging.info("Database connection closed\n*** *** *** *** *** *** <3")
-        
+
 if __name__ == '__main__':
     main()
+    
+

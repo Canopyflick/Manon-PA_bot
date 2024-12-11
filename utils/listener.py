@@ -3,13 +3,14 @@ from LLMs.orchestration import start_initial_classification # prepare_openai_mes
 from typing import Literal, List, Union
 import asyncio, logging
 from telegram import Bot
+from utils.scheduler import send_morning_message
 
 
 
 
 
 
-triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", "koffie", "coffee", "!test", "pomodoro"]
+triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", "koffie", "coffee", "!test", "pomodoro", "tea", "gm"]
 
 async def handle_triggers(update, context, trigger_text):
     if trigger_text == "SeintjeNatuurlijk":
@@ -22,6 +23,8 @@ async def handle_triggers(update, context, trigger_text):
         await emoji_stopwatch(update, context, mode="pomodoro")
     elif trigger_text == "koffie" or trigger_text == "coffee":
         await emoji_stopwatch(update, context, mode="coffee")
+    elif trigger_text == "tea":
+        await emoji_stopwatch(update, context, mode="tea_long")
     elif trigger_text == "!test":
         await emoji_stopwatch(update, context, mode="test")
     elif trigger_text == "OpenAICall":
@@ -30,6 +33,9 @@ async def handle_triggers(update, context, trigger_text):
         await send_user_context(update, context)
     elif trigger_text == "clearcontext":
         context.user_data.clear()
+    elif trigger_text == "gm":    
+        bot=context.bot
+        await send_morning_message(bot)
 
 
 
@@ -48,12 +54,6 @@ async def analyze_any_message(update, context):
             # Reject longs messages
             if len(user_message) > 1600:
                 await update.message.reply_text(f"Hmpff... TL;DR pl0x? 🧙‍♂️\n(_{len(user_message)}_)", parse_mode="Markdown")
-                return
-            
-            # Handle dice-roll
-            if user_message.isdigit() and 1 <= int(user_message) <= 6:
-                await roll_dice(update, context)
-                logging.info("Message received: dice roll")
                 return
             
             # Handle preset triggers
@@ -82,21 +82,7 @@ async def analyze_any_message(update, context):
             await update.message.reply_text(f"Error in analyze_any_message():\n {e}")
 
 
-    
-
-
-
-
-
-
-
-
-
-    
-
-
-async def roll_dice(update, context):
-    user_message = update.message.text
+async def roll_dice(update, context, user_guess=None):
     chat_id = update.effective_chat.id
 
     try:
@@ -105,33 +91,32 @@ async def roll_dice(update, context):
             chat_id,
             reply_to_message_id=update.message.message_id
         )
-
-        # Extract the value that the user guessed
-        user_guess = int(user_message)
-
+        
         # Check the outcome of the dice roll
         rolled_value = dice_message.dice.value
-
-        # Give a reply based on the rolled value
-        await asyncio.sleep(4)
-        if rolled_value == user_guess:
-            await context.bot.send_message(
-                chat_id=update.message.chat_id,
-                text="🎊",
-                reply_to_message_id=update.message.message_id
-            )
-            await context.bot.send_message(
-                chat_id=update.message.chat_id,
-                text="Correct :)",
-                parse_mode="Markdown",
-                reply_to_message_id=update.message.message_id
-            )
+        if not user_guess:
+            return
         else:
-            await context.bot.send_message(
-                chat_id=update.message.chat_id,
-                text="nope.",
-                parse_mode="Markdown",
-                reply_to_message_id=update.message.message_id
+            # Give a reply based on the rolled value
+            await asyncio.sleep(4)
+            if rolled_value == user_guess:
+                await context.bot.send_message(
+                    chat_id=update.message.chat_id,
+                    text="🎊",
+                    reply_to_message_id=update.message.message_id
+                )
+                await context.bot.send_message(
+                    chat_id=update.message.chat_id,
+                    text="Correct :)",
+                    parse_mode="Markdown",
+                    reply_to_message_id=update.message.message_id
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=update.message.chat_id,
+                    text="nope.",
+                    parse_mode="Markdown",
+                    reply_to_message_id=update.message.message_id
             )
     except Exception as e:
         logging.error(f"Error in roll_dice: {e}")
