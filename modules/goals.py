@@ -389,7 +389,7 @@ async def handle_goal_completion(update, goal_id):
         await update_goal_data(goal_id, status="archived_done", completion_time=datetime.now(tz=BERLIN_TZ))
         goal_value  = await fetch_goal_data(goal_id, columns="goal_value", single_value=True)
         await update_user_data(user_id, chat_id, increment_score=goal_value, increment_finished_goals=1, increment_pending_goals=-1)
-        logging.info(f"✅ Goal completed: archived and user score increased {goal_id}")
+        logging.info(f"✅ Goal #{goal_id} completed: archived and user score increased by {goal_value}")
     except Exception as e:
         logging.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")   
     
@@ -403,7 +403,7 @@ async def handle_goal_failure(update, goal_id):
         penalty  = await fetch_goal_data(goal_id, columns="penalty", single_value=True)
         score_decrease = penalty * -1
         await update_user_data(user_id, chat_id, increment_score=score_decrease, increment_penalties_accrued=penalty, increment_failed_goals=1, increment_pending_goals=-1)
-        logging.info(f"✅ Goal failure completed: archived and penalty charged {goal_id}")
+        logging.info(f"✅ Goal #{goal_id}'s 'failure completed: archived and {score_decrease} penalty charged ")
     except Exception as e:
         logging.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
     
