@@ -54,20 +54,20 @@ async def send_morning_message(bot, specific_chat_id=None):
             greeting_message = f"*{greeting}, {first_name}!* {PA}\n"
             recap_message = None
             if overdue_goals:
-                recap_message = f"\nFirst, some unfinished business:_"
+                recap_message = f"\n_First, some unfinished business:_"
             
             # 4. Check schedule today: all upcoming goals
             goals_today, total_goal_value, total_penalty, goals_count = await fetch_upcoming_goals(chat_id, user_id, timeframe=10)    # fetching upcoming goals from now until 10am tomorrow
-            logging.warning(f"{goals_today}, {total_goal_value}, {total_penalty}, {goals_count}")
+            logging.warning(f"Alles gefetcht:\n{goals_today}, \n{total_goal_value}, \n{total_penalty}, \n{goals_count}")
             morning_message = (
                 f"{announcement}\n\n{goals_today}\n\n"
             )
             stakes_message = f"_Go get some (⚡{total_goal_value}) ..!\n... or lose some ({total_penalty}🌚 )_\n"
             if total_goal_value == 0 or goals_count == 1:
-                stakes_message = ""
+                stakes_message = ''
             if goals_count == 0:
-                announcement = ""
-                
+                announcement = ''
+            logging.warning(f"morning message: {morning_message}")
             morning_message += stakes_message
             
             morning_message += change_message
@@ -95,7 +95,7 @@ async def send_morning_message(bot, specific_chat_id=None):
                 await bot.send_message(chat_id, "🚀")
                 logging.info(f"Daily message sent successfully in chat {chat_id} for {first_name}({user_id}).")
             except Exception as e:
-                logging.error(f"Error sending message to chat_id {chat_id}: {e}")
+                logging.error(f"Error sending morning message to chat_id {chat_id}: {e}")
             
     except Exception as e:
         logging.error(f"Error sending daily message: {e}")
@@ -219,6 +219,7 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
         update_message += stakes_message
  
         try:
+            logging.warning(f"Update message: {update_message}")
             update_message = await context.bot.send_message(chat_id, update_message, parse_mode="Markdown")
             
             logging.info(f"goals overview message sent successfully in chat {chat_id} for {first_name}({user_id}).")
@@ -308,7 +309,7 @@ async def send_evening_message(bot, specific_chat_id=None):
                 await bot.send_message(chat_id, random_emoji)
                 logging.info(f"Nightly message sent successfully in chat {chat_id} for {first_name}({user_id}).")
             except Exception as e:
-                logging.error(f"Error sending message to chat_id {chat_id}: {e}")
+                logging.error(f"Error in evening message sending message to chat_id {chat_id}: {e}")
             
     except Exception as e:
         logging.error(f"Error sending daily message: {e}")

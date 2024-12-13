@@ -220,7 +220,7 @@ async def handle_goal_classification(update, context, smarter=False):
             await goal_setting_analysis(update, context, goal_id, smarter)                                                                        # < < < < <
             
         else: 
-            await update.message.reply_text(f"_goal_result {goal_result} not yet implemented_", parse_mode="Markdown")
+            await update.message.reply_text(f"_goal result {goal_result} not yet implemented_", parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"Error in handle_goal_classification():\n {e}")
         logging.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")

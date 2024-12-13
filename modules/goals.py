@@ -320,14 +320,18 @@ async def report_goal_progress(update, context):
     callback_data = query.data
 
     # Extract the action and goal_id using the regex groups
-    match = re.match(r"^(finished|failed|postpone)_(\d+)_(today|tomorrow)_(\d+)$", callback_data)
+    match = (
+    re.match(r"^(finished|failed)_(\d+)$", callback_data) or
+    re.match(r"^(postpone)_(\d+)_(today|tomorrow)$", callback_data)
+    )
     if not match:
         await query.answer("Invalid action.")
         return
 
     action = match.group(1)  # finished, failed, or postpone
     goal_id = int(match.group(2))  # The goal_id as an integer
-    postpone_to_day = match.group(3)    # not yet implemented
+    if action == "postpone":
+        postpone_to_day = match.group(3)    # not yet implemented
 
     # Perform actions based on the extracted data
     if action == "finished":
