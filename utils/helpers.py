@@ -484,20 +484,23 @@ async def send_user_context(update, context):
     
     
 async def delete_message(update, context, message_id=None, delay=None):
-    if delay:
-        await asyncio.sleep(delay)
-    if message_id:      # aka triggered within a function
-        chat_id = update.effective_chat.id
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    else:
-        try:            # aka triggered by a button labeled "delete_message" 
-            query = update.callback_query
-            await query.answer()  
+    try:
+        if delay:
+            await asyncio.sleep(delay)
+        if message_id:      # aka triggered within a function
+            chat_id = update.effective_chat.id
+            await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        else:
+            try:            # aka triggered by a button labeled "delete_message" 
+                query = update.callback_query
+                await query.answer()  
 
-            # Delete the message containing the button
-            await query.message.delete()
-        except Exception as e:
-            await query.message.reply_text(f"Failed to delete the message: {e}")
+                # Delete the message containing the button
+                await query.message.delete()
+            except Exception as e:
+                await query.message.reply_text(f"Failed to delete the message: {e}")
+    except Exception as e:
+        logging.error(f"Error in delete_message: {e}")
         
     
 

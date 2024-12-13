@@ -452,7 +452,7 @@ async def fetch_long_term_goals(chat_id, user_id):
 
 async def register_user(context, user_id, chat_id):
     try:
-        first_name = await get_first_name(context, user_id)
+        first_name = await get_first_name(user_id)
         
         async with Database.acquire() as conn:
             # Check if the user already exists in the users table
@@ -468,7 +468,7 @@ async def register_user(context, user_id, chat_id):
                     VALUES ($1, $2, $3)
                 """, user_id, chat_id, first_name)
                 logging.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
-            
+                context.bot.send_message(chat_id, text=f"_Registered new user with user_id: {user_id}\nchat_id: {chat_id}\nfirst_name: {first_name}_")
             elif result['first_name'] is None:
                 # User exists but first_name is missing, update it
                 await conn.execute("""

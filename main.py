@@ -32,21 +32,25 @@ def configure_logging():
 
     # Console handler for all logs
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
 
 
     # Set up the root logger with the handlers
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         handlers=[info_handler, error_handler, console_handler],
     )
     
     # Adjust logging levels for external libraries to reduce verbosity
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('telegram').setLevel(logging.WARNING)
+    
+    # Create and return logger
+    logger = logging.getLogger(__name__)
+    return logger
 
-configure_logging()
+logging = configure_logging()
 
 # Global bot instance
 global_bot: ExtBot = None
@@ -121,7 +125,7 @@ def register_handlers(application):
     # For any message starting with a digit or colon
     application.add_handler(MessageHandler(filters.Regex(r'^[\d:]'), stopwatch_command))
     # Bind the message analysis to any non-command text messages
-    application.add_handler(MessageHandler(filters.TEXT, analyze_any_message))        
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, analyze_any_message))
     # Handler for edited messages
     application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT & ~filters.COMMAND, print_edit))
     

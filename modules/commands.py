@@ -12,7 +12,7 @@ from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcomin
 
 # Asynchronous command functions
 async def start_command(update, context):
-    await update.message.reply_text(f'Hoi! 👋{PA}‍\n\nIk ben Manon. Jij bent als het goed is Ben, dus je weet alles al.\nWas je nog niet geregistreerd, dan ben je dat nu. De groeten.')
+    await update.message.reply_text(f"Hoi! 👋{PA}‍\n\nMy name is Manon, maybe. So call me. De groeten.")
     try:
         user_id = update.message.from_user.id
         chat_id = update.message.chat_id
