@@ -245,6 +245,15 @@ async def update_goal_data(goal_id, initial_update=False, **kwargs):
             kwargs["group_id"] = goal_id
             kwargs["final_iteration"] = "not yet"
             
+        # Convert datetime objects to ISO format strings
+        for key, value in kwargs.items():
+            if isinstance(value, datetime):
+                kwargs[key] = value.isoformat()
+
+        # Handle arrays properly
+        if 'goal_category' in kwargs and isinstance(kwargs['goal_category'], list):
+            kwargs['goal_category'] = list(filter(None, kwargs['goal_category']))  # Remove any None values
+
         # Handle special expressions for SQL updates
         special_updates = []
         if "increment_iteration" in kwargs:
