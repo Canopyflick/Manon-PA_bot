@@ -380,25 +380,7 @@ async def complete_limbo_goal(update, context, goal_id):
             await update.message.reply_text("No data found for this goal in user context.")
             return
         
-        # Helper function to parse datetime strings to timezone-aware datetime objects
-        def parse_tz_aware(dt_str):
-            if not dt_str:
-                return None
-            parsed_dt = parse(dt_str)
-            if parsed_dt.tzinfo is None:
-                return parsed_dt.replace(tzinfo=BERLIN_TZ)
-            return parsed_dt
-        
-        # Parse deadlines list if it exists
-        deadlines = goal_data.get("deadlines")
-        if deadlines:
-            deadlines = [parse_tz_aware(dl) for dl in deadlines]
-
-        # Parse reminder times list if it exists
-        reminders_times = goal_data.get("reminders_times")
-        if reminders_times:
-            reminders_times = [parse_tz_aware(rt) for rt in reminders_times]
-
+       
         # Extract the required fields from the goal data
         kwargs = {
             "recurrence_type": goal_data.get("recurrence_type"),
@@ -407,9 +389,9 @@ async def complete_limbo_goal(update, context, goal_id):
             "total_goal_value": goal_data.get("total_goal_value"),
             "goal_description": goal_data.get("goal_description"),
             # Parse deadline as a timestamp with timezone
-            "deadline": parse(goal_data.get("evaluation_deadline")) if goal_data.get("evaluation_deadline") else None,
+            "deadline": (goal_data.get("evaluation_deadline")) if goal_data.get("evaluation_deadline") else None,
             "interval": goal_data.get("interval"),
-            "reminder_time": parse(goal_data.get("reminder_time")) if goal_data.get("reminder_time") else None,
+            "reminder_time": (goal_data.get("reminder_time")) if goal_data.get("reminder_time") else None,
             "reminder_scheduled": goal_data.get("schedule_reminder"),
             "time_investment_value": goal_data.get("time_investment_value"),
             "difficulty_multiplier": goal_data.get("difficulty_multiplier"),
@@ -468,7 +450,7 @@ async def register_user(context, user_id, chat_id):
                     VALUES ($1, $2, $3)
                 """, user_id, chat_id, first_name)
                 logging.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
-                context.bot.send_message(chat_id, text=f"_Registered new user with user_id: {user_id}\nchat_id: {chat_id}\nfirst_name: {first_name}_")
+                await context.bot.send_message(chat_id, text=f"_Registered new user with user_id: {user_id}\nchat_id: {chat_id}\nfirst_name: {first_name}_")
             elif result['first_name'] is None:
                 # User exists but first_name is missing, update it
                 await conn.execute("""
