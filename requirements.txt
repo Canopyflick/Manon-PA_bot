@@ -26,3 +26,4 @@ tzlocal==5.2
 urllib3==2.2.3
 python-dotenv==1.0.1
 langchain-core==0.3.21
+python-dateutil==2.9.0
