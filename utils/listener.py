@@ -3,14 +3,14 @@ from LLMs.orchestration import start_initial_classification # prepare_openai_mes
 from typing import Literal, List, Union
 import asyncio, logging
 from telegram import Bot
-from utils.scheduler import send_morning_message
+from utils.scheduler import send_evening_message, send_morning_message
 
 
 
 
 
 
-triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", "koffie", "coffee", "!test", "pomodoro", "tea", "gm"]
+triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn"]
 
 async def handle_triggers(update, context, trigger_text):
     if trigger_text == "SeintjeNatuurlijk":
@@ -35,7 +35,12 @@ async def handle_triggers(update, context, trigger_text):
         context.user_data.clear()
     elif trigger_text == "gm":    
         bot=context.bot
-        await send_morning_message(bot)
+        chat_id=update.message.chat_id
+        await send_morning_message(bot, specific_chat_id=chat_id)
+    elif trigger_text == "gn":    
+        bot=context.bot
+        chat_id=update.message.chat_id
+        await send_evening_message(bot, specific_chat_id=chat_id)
 
 
 

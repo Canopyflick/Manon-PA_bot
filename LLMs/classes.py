@@ -21,7 +21,7 @@ class SetGoalAnalysis(BaseModel):
     description: str        # not used, but keeping it in case it does help the llm
     evaluation_frequency: Literal['one-time', 'recurring']
     timeframe: Literal['today', 'by_date', 'open-ended']
-    category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other']]
+    category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]
     
 # Goal setting #2.1    
 class GoalAssessment(BaseModel):

@@ -62,6 +62,11 @@ chain_configs = {
         "class": GoalClassification,
         "llm": llms["mini"],
     },
+    "goal_classification_smart": {
+        "template": goal_classification_template,
+        "class": GoalClassification,
+        "llm": llms["gpt4o"],
+    },
     "goal_setting_analysis": {
         "template": goal_setting_analysis_template,
         "class": SetGoalAnalysis,

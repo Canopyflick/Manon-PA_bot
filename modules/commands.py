@@ -1,4 +1,4 @@
-﻿from utils.helpers import emoji_stopwatch, get_first_name, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, PA
+﻿from utils.helpers import emoji_stopwatch, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, PA, add_delete_button, delete_message
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
 import asyncio, random, re, logging
@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes, CallbackContext
 from LLMs.orchestration import process_other_language, check_language, handle_goal_classification
 from utils.db import register_user
 from utils.listener import roll_dice
+from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
 
 
 # Asynchronous command functions
@@ -218,3 +219,106 @@ async def translate_command(update: Update, context: CallbackContext):
         source_text = " ".join(context.args)
         language = await check_language(update, context, source_text)
         await process_other_language(update, context, source_text, language=language, translate_command=True)
+        
+
+async def today_command(update, context):
+    try:
+        chat_id = update.message.chat_id
+        user_id = update.effective_user.id
+        
+        # Send upcoming goals
+        upcoming_goals_message, _ = await send_goals_today(update, context, chat_id, user_id, timeframe=7)
+        if upcoming_goals_message:
+            await add_delete_button(update, context, upcoming_goals_message.message_id, delay=4)
+            asyncio.create_task(delete_message(update, context, upcoming_goals_message.message_id, 1200))
+        
+        # Fetch overdue goals
+        overdue_goals_result = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue_today")
+        if overdue_goals_result[0]:
+            overdue_today = overdue_goals_result[0]
+            for goal in overdue_today:
+                if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
+                    continue
+                goal_report_prompt = await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=goal["text"],
+                    reply_markup=goal["buttons"],
+                    parse_mode="Markdown"
+                )
+                asyncio.create_task(delete_message(update, context, goal_report_prompt.message_id, 1200))
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"_No overdue goals today yet_ {PA}",
+                parse_mode="Markdown"
+            )
+            
+    except Exception as e:
+        logging.error(f"Error in today_command: {e}")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="An error occurred while processing your request. Please try again later.",
+            parse_mode="Markdown"
+        )
+
+
+async def twenty_four_hours_command(update, context):
+    chat_id = update.message.chat_id
+    user_id = update.effective_user.id
+    await send_goals_today(update, context, chat_id, user_id, timeframe="24hs")
+    
+
+async def overdue_command(update, context):
+    try:
+        chat_id = update.message.chat_id
+        user_id = update.effective_user.id
+        
+        # Fetch overdue goals
+        overdue_goals_result = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")
+        if overdue_goals_result[0]:
+            overdue_today = overdue_goals_result[0]
+            for goal in overdue_today:
+                if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
+                    continue
+                goal_report_prompt = await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=goal["text"],
+                    reply_markup=goal["buttons"],
+                    parse_mode="Markdown"
+                )
+                asyncio.create_task(delete_message(update, context, goal_report_prompt.message_id, 1200))
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="0 overdue goals ✨",
+                parse_mode="Markdown"
+            )
+            
+    except Exception as e:
+        logging.error(f"Error in today_command: {e}")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="An error occurred while processing your request in overdue_command()",
+            parse_mode="Markdown"
+        )
+        
+async def tomorrow_command(update, context):
+    try:
+        chat_id = update.message.chat_id
+        user_id = update.effective_user.id
+        
+        # Send upcoming goals
+        result = await fetch_upcoming_goals(chat_id, user_id, timeframe="tomorrow")
+        if result:
+            message_text = result[0]
+            upcoming_goals_message = await context.bot.send_message(chat_id, text=message_text)
+            await add_delete_button(update, context, upcoming_goals_message.message_id, delay=4)
+            asyncio.create_task(delete_message(update, context, upcoming_goals_message.message_id, 1200))
+            
+    except Exception as e:
+        logging.error(f"Error in today_command: {e}")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="An error occurred while processing your request. Please try again later.",
+            parse_mode="Markdown"
+        )

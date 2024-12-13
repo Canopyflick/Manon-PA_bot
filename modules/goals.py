@@ -1,8 +1,9 @@
-﻿from utils.helpers import BERLIN_TZ, add_user_context_to_goals, PA
-from utils.db import update_goal_data, complete_limbo_goal, adjust_penalty_or_goal_value, fetch_template_data_from_db, Database, validate_goal_constraints
+﻿from jinja2.utils import F
+from utils.helpers import BERLIN_TZ, add_user_context_to_goals, PA
+from utils.db import update_goal_data, complete_limbo_goal, adjust_penalty_or_goal_value, fetch_template_data_from_db, Database, validate_goal_constraints, update_user_data, fetch_goal_data
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import logging, re, asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections.abc import Iterable
 from jinja2 import Template
 
@@ -262,6 +263,7 @@ async def handle_proposal_change_click(update, context):
 
 async def accept_goal_proposal(update, context):
     chat_id=update.effective_chat.id
+    user_id=update.effective_user.id
     try:
         goal_id = 0
         query = update.callback_query
@@ -271,6 +273,7 @@ async def accept_goal_proposal(update, context):
         
         # Update goal status
         await update_goal_data(goal_id, status="pending")
+        await update_user_data(user_id, chat_id, increment_pending_goals=1)
         
         # Validate goal constraints
         async with Database.acquire() as conn:
@@ -310,4 +313,80 @@ async def reject_goal_proposal(update, context):
     except Exception as e:
         logging.error(f"NOPE in reject_goal_proposal(): {e}")
         raise
+    
+
+async def report_goal_progress(update, context):
+    query = update.callback_query
+    callback_data = query.data
+
+    # Extract the action and goal_id using the regex groups
+    match = re.match(r"^(finished|failed|postpone)_(\d+)_(today|tomorrow)_(\d+)$", callback_data)
+    if not match:
+        await query.answer("Invalid action.")
+        return
+
+    action = match.group(1)  # finished, failed, or postpone
+    goal_id = int(match.group(2))  # The goal_id as an integer
+    postpone_to_day = match.group(3)    # not yet implemented
+
+    # Perform actions based on the extracted data
+    if action == "finished":
+        await handle_goal_completion(update, goal_id)
+        await query.answer("🥂")
+    elif action == "failed":
+        await update_goal_data(goal_id, status="archived_failed")                           # Still need to implement 100% penalty charging
+        await query.answer("🌚")
+        # Add logic to handle a failed goal
+    elif action == "postpone":
+        # Calculate the new deadline
+        overdue_deadline = await fetch_goal_data(goal_id, columns="deadline", single_value=True)
+
+        logging.critical(f"overdue deadline: {overdue_deadline}")
+        if overdue_deadline is None:
+            raise ValueError(f"Deadline not found for goal ID: {goal_id}")
+        # Ensure overdue_deadline is a datetime object
+        if not isinstance(overdue_deadline, datetime):
+            raise TypeError(f"Expected datetime object for deadline, got {type(overdue_deadline).__name__}")
+        tomorrow = overdue_deadline + timedelta(days=1)
+        tomorrow_formatted = tomorrow.strftime('%a, %d %B')
+        
+        # set new deadline and increment goal
+        await update_goal_data(goal_id, deadline=tomorrow, increment_iteration=True)        # Still need to implement ~75% penalty charging
+        await query.answer("New day, new youuu")
+        # Add logic to handle a postponed goal
+
+    # edit the original message
+    try:
+        if action == "postpone":
+            action = "postponed"
+        emojis = {
+            "finished": "✅",
+            "failed": "❌",
+            "postponed": "⏭️"
+        }
+        emoji = emojis[action]
+        text = f"Goal {'' if action == 'postponed' else 'filed as '}{action.capitalize()} {emoji}"
+        if action == "postponed":
+            text += f" to {tomorrow_formatted}"
+        text += f"\n#{goal_id}"
+        await query.edit_message_text(
+            text=text,
+            reply_markup=None  # removes the buttons
+        )
+    except Exception as e:
+        logging.error(f"couldn't edit expiration message for {goal_id}: {e}'")
+
+    
+
+async def handle_goal_completion(update, goal_id):
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    await update_goal_data(goal_id, status="archived_done", completion_time=datetime.now(tz=BERLIN_TZ))
+    goal_value  = await fetch_goal_data(goal_id, columns="goal_value", single_value=True)
+    await update_user_data(user_id, chat_id, increment_score=goal_value, increment_finished_goals=1, increment_pending_goals=-1)
+    logging.info(f"✅ Goal completed: archived and user score increased {goal_id}")
+    
+    
+    
+
 

@@ -1,5 +1,5 @@
-﻿from utils.helpers import add_user_context_to_goals, get_first_name, datetime, timedelta, BERLIN_TZ, PA
-import logging, asyncpg, os, re
+﻿from utils.helpers import add_user_context_to_goals, datetime, timedelta, BERLIN_TZ, PA
+import logging, asyncpg, os, re, pytz
 from contextlib import asynccontextmanager
 from dateutil.parser import parse  
 
@@ -10,6 +10,7 @@ from dateutil.parser import parse
 def redact_password(url):
     # Match the "username:password@" part and redact the password
     return re.sub(r":([^:@]*)@", r":*****@", url)
+
 
 class Database:
     _pool = None
@@ -22,18 +23,54 @@ class Database:
         DATABASE_URL = os.getenv('LOCAL_DB_URL', os.getenv('DATABASE_URL'))
         if not DATABASE_URL:
             raise ValueError("Database URL not found!")
+        
+        # Create custom timestamp codec
+        def timestamp_converter(value):
+            if value is not None:
+                # Ensure we have a datetime object
+                if isinstance(value, str):
+                    # Parse string to datetime if needed
+                    value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                if value.tzinfo is None:
+                    # If naive datetime, assume UTC
+                    value = pytz.UTC.localize(value)
+                # Convert to Berlin timezone
+                return value.astimezone(BERLIN_TZ)
+            return value
 
+        # Create pool only once with all settings
         cls._pool = await asyncpg.create_pool(
             DATABASE_URL,
             ssl='require' if os.getenv('HEROKU_ENV') else None,
             min_size=5,
-            max_size=20
+            max_size=20,
+            server_settings={'timezone': 'Europe/Berlin'},
+            command_timeout=60,
+            init=lambda conn: conn.set_type_codec(
+                'timestamptz',
+                encoder=lambda value: value,
+                decoder=timestamp_converter,
+                schema='pg_catalog'
+            )
         )
         
-        # Test the connection
+        # Test the connection and verify timezone
         async with cls._pool.acquire() as conn:
+            # Test basic connectivity
             await conn.execute('SELECT 1')
-        logging.info("Database connection successful")
+            
+            # Verify timezone settings
+            timezone = await conn.fetchval('SHOW timezone')
+            logging.info(f"Database timezone set to: {timezone}")
+            
+            # Optional: Set session timezone explicitly
+            await conn.execute("SET timezone TO 'Europe/Berlin'")
+            
+            # Verify the timezone setting worked
+            test_time = await conn.fetchval('SELECT NOW()')
+            logging.info(f"Current database time: {test_time}")
+
+        logging.info("Database connection successful with timezone configuration")
 
     @classmethod
     def acquire(cls):
@@ -79,8 +116,9 @@ async def add_missing_columns(conn, table_name: str, desired_columns: dict):
 
 async def setup_database():
     """Create or update database tables"""
-    try:
+    try:    
         async with Database.acquire() as conn:
+
         #1 manon_users table
             await conn.execute('''
                 CREATE TABLE IF NOT EXISTS manon_users (
@@ -91,6 +129,7 @@ async def setup_database():
                     finished_goals INT DEFAULT 0,
                     failed_goals INT DEFAULT 0,       
                     score FLOAT DEFAULT 0,
+                    penalties_accrued FLOAT DEFAULT 0,          
                     inventory JSONB DEFAULT '{"boosts": 1, "challenges": 1, "links": 1}',
                     any_reminder_scheduled BOOLEAN DEFAULT False,
                     long_term_goals TEXT DEFAULT NULL,       
@@ -135,7 +174,7 @@ async def setup_database():
                     iteration INTEGER DEFAULT 1,            -- N+1, either for tracking attempts at one-time goals (retries), or index of recurring
                     final_iteration TEXT DEFAULT 'not_applicable',  -- The last iteration of a recurring goal. Can be used to prompt evaluation of extension ('not_applicable', 'yes', 'not yet')
                     goal_category TEXT[] DEFAULT NULL,            -- eg work, productivity, chores, relationships, hobbies, self-development, wealth, impact (EA), health, fun, other       
-                    completed_time TIMESTAMPTZ DEFAULT NULL,                           -- Time when the goal was completed
+                    completion_time TIMESTAMPTZ DEFAULT NULL,                           -- Time when the goal was completed
                     FOREIGN KEY (user_id, chat_id) REFERENCES manon_users (user_id, chat_id)
                 )
             ''')
@@ -195,15 +234,30 @@ def format_array_for_postgres(py_list):
         return None
     return '{' + ','.join(f'"{item}"' for item in py_list) + '}'
 
-async def update_goal_data(goal_id, **kwargs):
+async def update_goal_data(goal_id, initial_update=False, **kwargs):
     if not kwargs:
         logging.warning(f"{PA} No updates provided to update_goal_data()")
         return
         
-    try:                    
-        updates = ', '.join(f"{key} = ${i+2}" for i, key in enumerate(kwargs.keys()))
+    try:
+        # Add group_id dynamically for recurring goals, upon first update
+        if initial_update and kwargs.get("recurrence_type") == "recurring":
+            kwargs["group_id"] = goal_id
+            kwargs["final_iteration"] = "not yet"
+            
+        # Handle special expressions for SQL updates
+        special_updates = []
+        if "increment_iteration" in kwargs:
+            special_updates.append("iteration = iteration + 1")
+            del kwargs["increment_iteration"]
+
+            
+        regular_updates = ', '.join(f"{key} = ${i+2}" for i, key in enumerate(kwargs.keys()))
+        updates = ', '.join(filter(None, [regular_updates] + special_updates))
+        
         values = [goal_id] + list(kwargs.values())  # goal_id first, then kwargs values
         
+
         query = f'''
             UPDATE manon_goals
             SET {updates}
@@ -221,6 +275,64 @@ async def update_goal_data(goal_id, **kwargs):
         logging.error(f'Failed query: {query}')
         logging.error(f'Values: {values}')
         raise
+    
+
+async def update_user_data(user_id, chat_id, **kwargs):
+    """
+    Updates user data in the manon_users table.
+
+    Args:
+        user_id (int): The ID of the user to update.
+        chat_id (int): The chat ID associated with the user.
+        kwargs: Key-value pairs of columns to update. Supports special keys like 'increment_*' for increments.
+
+    Raises:
+        Exception: If an error occurs during the update.
+    """
+    if not kwargs:
+        logging.warning("No updates provided to update_user_data()")
+        return
+
+    try:
+        # Handle special increments (e.g., increment_pending_goals, increment_finished_goals, etc.)
+        special_updates = []
+        keys_to_remove = []
+        for key in kwargs.keys():
+            if key.startswith("increment_"):
+                column_name = key.replace("increment_", "")
+                increment_value = kwargs.get(key, 1)  # Default to 1 if no value is provided
+                special_updates.append(f"{column_name} = {column_name} + {increment_value}")
+                keys_to_remove.append(key)
+
+        # Remove special keys from kwargs to avoid double handling
+        for key in keys_to_remove:
+            del kwargs[key]
+
+        # Prepare regular updates
+        regular_updates = ', '.join(f"{key} = ${i+3}" for i, key in enumerate(kwargs.keys()))
+        updates = ', '.join(filter(None, [regular_updates] + special_updates))
+
+        # Build the query and values
+        values = [user_id, chat_id] + list(kwargs.values())
+        query = f'''
+            UPDATE manon_users
+            SET {updates}
+            WHERE user_id = $1 AND chat_id = $2
+        '''
+
+        logging.debug(f"Query: {query}")
+        logging.debug(f"Values: {values}")
+
+        # Execute the query
+        async with Database.acquire() as conn:
+            await conn.execute(query, *values)
+
+    except Exception as e:
+        logging.error(f"Error updating user data for user_id {user_id} and chat_id {chat_id}: {e}")
+        logging.error(f"Failed query: {query}")
+        logging.error(f"Values: {values}")
+        raise
+
         
         
 async def create_limbo_goal(update, context):
@@ -252,7 +364,7 @@ async def create_limbo_goal(update, context):
 async def complete_limbo_goal(update, context, goal_id):
     chat_id=update.effective_chat.id
     """
-    Completes a limbo goal's records in the database (should only have a goal_id and status as of yet).
+    Completes a limbo goal's records in the database (should only have a goal_id and status as of yet, was only created a few seconds ago).
 
     Args:
         update: Telegram update object.
@@ -267,6 +379,25 @@ async def complete_limbo_goal(update, context, goal_id):
             logging.critical(f"💩 Couldn't complete limbo goal for {goal_id}. (No data found for this goal in user context)'")
             await update.message.reply_text("No data found for this goal in user context.")
             return
+        
+        # Helper function to parse datetime strings to timezone-aware datetime objects
+        def parse_tz_aware(dt_str):
+            if not dt_str:
+                return None
+            parsed_dt = parse(dt_str)
+            if parsed_dt.tzinfo is None:
+                return parsed_dt.replace(tzinfo=BERLIN_TZ)
+            return parsed_dt
+        
+        # Parse deadlines list if it exists
+        deadlines = goal_data.get("deadlines")
+        if deadlines:
+            deadlines = [parse_tz_aware(dl) for dl in deadlines]
+
+        # Parse reminder times list if it exists
+        reminders_times = goal_data.get("reminders_times")
+        if reminders_times:
+            reminders_times = [parse_tz_aware(rt) for rt in reminders_times]
 
         # Extract the required fields from the goal data
         kwargs = {
@@ -276,7 +407,7 @@ async def complete_limbo_goal(update, context, goal_id):
             "total_goal_value": goal_data.get("total_goal_value"),
             "goal_description": goal_data.get("goal_description"),
             # Parse deadline as a timestamp with timezone
-            "deadline": parse(goal_data.get("evaluation_deadline")),
+            "deadline": parse(goal_data.get("evaluation_deadline")) if goal_data.get("evaluation_deadline") else None,
             "interval": goal_data.get("interval"),
             "reminder_time": parse(goal_data.get("reminder_time")) if goal_data.get("reminder_time") else None,
             "reminder_scheduled": goal_data.get("schedule_reminder"),
@@ -295,7 +426,7 @@ async def complete_limbo_goal(update, context, goal_id):
             kwargs["group_id"] = goal_data.get("goal_id")  # Add the group_id field for recurring goals
 
         # Update the goal data in the database
-        await update_goal_data(goal_id, **kwargs)
+        await update_goal_data(goal_id, initial_update=True, **kwargs)
         
         # Validate goal constraints
         async with Database.acquire() as conn:
@@ -401,7 +532,7 @@ async def adjust_penalty_or_goal_value(update, context, goal_id, action, directi
         logging.error(f'Error in adjust_penalty_or_goal_value(): \n{e}')
         return None
     
-        
+# incorrect query still        
 async def fetch_template_data_from_db(context, goal_id):
     try:
         async with Database.acquire() as conn:
@@ -478,8 +609,8 @@ async def validate_goal_constraints(goal_id: int, conn) -> dict:
     if goal_data['timeframe'] not in ('today', 'by_date', 'open-ended', None):
         errors.append('Invalid timeframe.')
 
-    if goal_data['timeframe'] in ('today', 'by_date') and not goal_data['deadline']:
-        errors.append('Deadline must be set for "today" or "by_date" timeframes.')
+    if goal_data['timeframe'] in ('today', 'by_date') and not goal_data['deadline'] and goal_data['recurrence_type'] != "recurring":
+        errors.append('Deadline for one-time goals must be set for "today" or "by_date" timeframes (cannot be "open-ended" or other values).')
 
     if goal_data['timeframe'] == 'open-ended' and goal_data['deadline']:
         errors.append('Deadline must not be set for "open-ended" timeframe.')
@@ -494,3 +625,60 @@ async def validate_goal_constraints(goal_id: int, conn) -> dict:
     if errors:
         return {'valid': False, 'errors': errors}
     return {'valid': True, 'message': 'Goal is valid.'}
+
+
+async def get_first_name(user_id):
+    try:
+        async with Database.acquire() as conn:
+            query = "SELECT first_name FROM manon_users WHERE user_id = $1"
+            row = await conn.fetchrow(query, user_id)
+            if row and row.get("first_name"):
+                return row["first_name"]
+            else:
+                return "Josefientje" 
+    except Exception as e:
+        logging.error(f"Error fetching first name for user_id {user_id}: {e}")
+        return "Valentijntje"
+    
+
+
+async def fetch_goal_data(goal_id, columns="*", conditions=None, single_value=False):
+    """
+    Fetch specified columns for a given goal_id from the manon_goals table.
+
+    Args:
+        goal_id (int): The ID of the goal to fetch data for.
+        columns (str): Comma-separated column names to fetch (default is '*').
+        conditions (str, optional): Additional SQL conditions to apply to the query.
+
+    Returns:
+        dict: A dictionary containing the fetched data, or simply the value if only one column is requested, or None if an error occurs.
+    """
+    try:
+        async with Database.acquire() as conn:
+            # Build the query dynamically
+            base_query = f'''
+                SELECT {columns}
+                FROM manon_goals
+                WHERE goal_id = $1
+            '''
+            if conditions:
+                base_query += f" AND {conditions}"
+
+            # Execute the query
+            result = await conn.fetchrow(base_query, goal_id)
+
+            if not result:
+                raise ValueError(f"No data found for goal_id: {goal_id} with conditions: {conditions or 'None'}")
+            
+            # Return a single value if requested and a single column is being fetched
+            if single_value and len(result) == 1:
+                return list(result.values())[0]
+
+            # Return the result as a dictionary
+            return dict(result)
+
+    except Exception as e:
+        logging.error(f"Error in fetch_goal_data() for goal_id {goal_id}: {e}")
+        return None
+

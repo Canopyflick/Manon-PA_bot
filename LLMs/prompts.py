@@ -22,13 +22,13 @@ initial_classification_template = ChatPromptTemplate([
     'Goals', 'Reminders', 'Meta', 'Other'.
 
     ## Goals
-    Any message that primarily indicates that the user is setting a new intention to do something, 
-    wants to report about something they already have done, or otherwise goal-related, no matter the timeframe. 
+    Any message where the user is setting an intention to do something, 
+    wants to report about something they already have done, or is otherwise goal-related, no matter the timeframe. 
     A 'Goals' message might also discuss wanting to declare finished, declare failed, cancel, pause, 
     or update the deadline of a goal.
 
     ## Reminders
-    Any message that is a request to remind the user of something.
+    Only messages that explicitly ask you to remind the user or talk about not forgetting should be classified as reminders.
 
     ## Meta
     If the user asks a question about you as a bot or about their data in the group. Examples of meta-questions: 
@@ -110,7 +110,7 @@ goal_setting_analysis_template = ChatPromptTemplate([
     If the user does have some idea about a timeframe, even if it's just "this year", or "soon", pick 'by_date'. ("I want to visit my parents in spring")
     
     ## Category 
-    One or more fitting tags that characterize the goal.
+    Pick one or more fitting tags that characterize the goal, choose only from: 'productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'travel', or 'other'.
     """),
     
     ("human", """
@@ -173,7 +173,7 @@ goal_valuation_template = ChatPromptTemplate([
     
     ## additional notes 
     All the numerical reference values are only examples on scales that are in fact continuous. It's your task to provide a nuanced, thoughtful assessment that reflects the specific context of the goal, using the reference scales as guidelines rather than strict boundaries.
-    Begin by writing out your reasoning: systematically consider the available data to come to better conclusions.   
+    Begin by writing out some very short reasoning: state your gut-level response to all 3 values, then take 1-2 sentences to focus on the value you're most unsure about and consider adjusting it.   
     """),
     
     ("human", """
@@ -239,7 +239,7 @@ recurring_goal_valuation_template = ChatPromptTemplate([
     
     ## additional notes 
     All the numerical reference values are only examples on scales that are in fact continuous. It's your task to provide a nuanced, thoughtful assessment that reflects the specific context of the sub-goals, using the reference scales as guidelines rather than strict boundaries.
-    Begin by writing out your reasoning: systematically consider the available data to come to better conclusions.  
+    Begin by writing out some very short reasoning: state your gut-level response to all 3 values, then take 1-2 sentences to focus on the value you're most unsure about and consider adjusting it.
     """),
     
     ("human", """
@@ -262,11 +262,14 @@ one_time_schedule_template = ChatPromptTemplate([
         default=None,
         description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
 
-    ## Goald Description
-    Rephrase only the user's goal in second-person. Convert relative time references to specific, absolute timestamps ('tomorrow' becomes {tomorrow})                    
+    ## Goal Description
+    Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain, in order for the goal to make sense on the day of the goal itself. Examples: "I want to meditate tomorrow morning" should become -> "You want to meditate in the morning", "I'm gonna climb mount everest before 18 December/next Wednesday" -> "You're gonna climb mount everest".
        
-    ## Evaluation deadline: when should the goal be finished?
-    If you don't know, schedule the deadline end of day at {default_deadline_time}. If the user specifies when in the day they want to do the thing, for example in the afternoon, set your deadline immediately after (in the example case of 'this afternoon', set the deadline at 18:00). 
+    ## Evaluation deadline: when should the goal be evaluated?
+    Unless otherwise specified, assume the user wants to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
+    If there's no indication of the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify exact moments or times of day they want to do the thing, adapt your deadlines accordingly.    
+    Examples: for the goal "I want to end my workday by 6 latest", if today were Monday, 2024-12-09, the best evaluation deadline would be "[2024-12-09T18:01:00]".
+    And for the goal "I want to meditate Wednesday morning", the best evaluation deadline would be "[2024-12-12T12:00:00]".
      
     ## schedule_reminder: bool
     Only schedule a reminder if the deadline is after tomorrow, for a goal where it would be helpful to the user to be reminded of the goal on a day other than the days of the deadline itself. For example, for a goal that might require some planning or that might span multiple days of effort.
@@ -312,7 +315,7 @@ one_time_schedule_template = ChatPromptTemplate([
     1 = advances their long-term well-being and goals at a normal, sufficient rate 
     1.5 = especially impactful, probably maximizes their time (from future {first_name}'s perspective).
     Please note that all the reference values given are just that: references for inspiration. They are only examples of some fixed points on a scale that is in fact gradual/continuous. It is your task to pick the exact numbers you deem most apt for each specific case.
-    Begin by writing out your reasoning: systematically consider the available data to come to better conclusions.   
+    Begin by writing out some very short reasoning: consider the available data to come to better conclusions on the parts that are non-obvious to you.
     """),
     
     ("human", """
@@ -338,10 +341,16 @@ recurring_schedule_template = ChatPromptTemplate([
         )
 
     ## Goal Description
-    Rephrase only the user's goal in second-person.                     
+    Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain: '"before 14:00" can stay, "tomorrow" should be removed. This adjustment is in order for the goal to make sense for the user on the day of the goal evaluation itself. 
+    Examples: "I want to meditate every Wednesday and Thursday morning" should become -> "Meditate in the morning", "train twice a week next year" -> "Train twice a week", "call my mom weekly on Sundays and Thursdays" ->  "Call your mom", "I want to finish my report on the train Thursday before 17:00" -> "Finish your report on the train before 17:00".
      
-    ## Evaluation deadlines: when should the goals be finished?
-    If you don't know, schedule deadlines end of day at {default_deadline_time}. If the user specifies when in the day they want to do the thing, for example in the afternoon, adapt your deadlines accordingly. Pick a deadline for each instance of the goal.
+    ## Evaluation deadlines: when should the goals be evaluated?
+    In principle, pick an evaluation deadline for each instance of the goal, however, the scope of these instances can vary. 
+    Examples: for the goal "In January {next_year}, I want to call my mom weekly on Thursdays and Sundays", those specific weekdays are the best evaluation deadlines. If today were Thursday, January 2, good deadlines would be: "[{next_year}-01-02T{default_deadline_time}:00, {next_year}-01-05T{default_deadline_time}:00, {next_year}-01-09T{default_deadline_time}:00, {next_year}-01-12T{default_deadline_time}:00, {next_year}-01-16T{default_deadline_time}:00, {next_year}-01-19T{default_deadline_time}:00, {next_year}-01-23T{default_deadline_time}:00, {next_year}-01-26T{default_deadline_time}:00, {next_year}-01-30T{default_deadline_time}:00]".
+    But for the goal "This month, I want to train twice a week", the goal should be evaluated only by the end of the week (aka each Sunday of the month), becaues the specific weekdays may vary.
+    If there's nothing indicating the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify exact moments or times of day they want to do the thing, adapt your deadlines accordingly.    
+    Examples: for the goal "This week, I want to end my workday by 6 latest every day", if today were Sunday, 2024-12-08, the best evaluation deadlines would be "[2024-12-09T18:01:00, 2024-01-10T18:01:00, 2024-01-11T18:01:00, 2024-01-12T18:01:00, 2024-01-13T18:01:00]".
+    And for the goal "This week, I want to meditate every morning", the best evaluation deadlines would be "[2024-12-09T12:00:00, 2024-01-10T12:00:00, 2024-01-11T12:00:00, 2024-01-12T12:00:00, 2024-01-13T12:00:00, 2024-01-14T12:00:00, 2024-01-15T12:00:00]".
     
     ## Interval
     Pick the closest interval for this case: the time between each sub-goal's deadline.
@@ -390,7 +399,7 @@ recurring_schedule_template = ChatPromptTemplate([
     1 = advances their long-term well-being and goals at a normal, sufficient rate 
     1.5 = especially impactful, probably maximizes their time (from future {first_name}'s perspective).
     Please note that all the reference values given are just that: references for inspiration. They are only examples of some fixed points on a scale that is in fact gradual/continuous. It is your task to pick the exact numbers you deem most apt for each specific case.
-    Begin by writing out your reasoning: systematically consider the available data to come to better conclusions.   
+    Begin by writing out some very short reasoning: consider the available data to come to better conclusions on the parts that are non-obvious to you. 
     """),
     
     ("human", """

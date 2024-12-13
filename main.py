@@ -3,9 +3,9 @@ from logging.handlers import RotatingFileHandler
 from telegram import ChatMember
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, CallbackQueryHandler, PollHandler, ExtBot
 from datetime import datetime, timezone
-from utils.helpers import PA, monitor_btc_price
+from utils.helpers import BERLIN_TZ, PA, monitor_btc_price
 from utils.db import setup_database, Database
-from utils.scheduler import send_morning_message, scheduler, AsyncIOScheduler, CronTrigger, DateTrigger, IntervalTrigger
+from utils.scheduler import send_morning_message, scheduler, AsyncIOScheduler, CronTrigger, DateTrigger, IntervalTrigger, send_evening_message, evening_message_hours, evening_message_minutes
 
 print(f"... STARTING ... {PA}  \n\n")
 
@@ -38,7 +38,7 @@ def configure_logging():
 
     # Set up the root logger with the handlers
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         handlers=[info_handler, error_handler, console_handler],
     )
     
@@ -91,7 +91,12 @@ def get_bot_token() -> str:
 
 # Register bot commands and handlers
 def register_handlers(application):
-    from modules.commands import start_command, help_command, stats_command, filosofie_command, btc_command, bitcoin_command, smarter_command, translate_command, profile_command, stopwatch_command, tea_command, dice_command
+    from modules.commands import (
+    start_command, help_command, stats_command, filosofie_command, btc_command, 
+    bitcoin_command, smarter_command, translate_command, profile_command, overdue_command,
+    stopwatch_command, tea_command, dice_command, today_command, twenty_four_hours_command,
+    tomorrow_command
+    )
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
@@ -99,7 +104,11 @@ def register_handlers(application):
     application.add_handler(CommandHandler("profile", profile_command))
     application.add_handler(CommandHandler(["stopwatch", "timer"], stopwatch_command))
     application.add_handler(CommandHandler(["tea"], tea_command))
-    application.add_handler(CommandHandler(["dice"], dice_command))
+    application.add_handler(CommandHandler(["dice", "die"], dice_command))
+    application.add_handler(CommandHandler(["today", "vandaag"], today_command))
+    application.add_handler(CommandHandler(["24", "24hs"], twenty_four_hours_command))
+    application.add_handler(CommandHandler(["overdue", "expired"], overdue_command))
+    application.add_handler(CommandHandler(["tomorrow", "morgen"], tomorrow_command))
     
     # /btc /bitcoin command handler
     application.add_handler(CommandHandler("btc", btc_command))
@@ -120,13 +129,15 @@ def register_handlers(application):
     from utils.helpers import delete_message
     application.add_handler(CallbackQueryHandler(delete_message, pattern=r"delete_message"))
     
-    from modules.goals import handle_proposal_change_click, accept_goal_proposal, reject_goal_proposal
+    from modules.goals import handle_proposal_change_click, accept_goal_proposal, reject_goal_proposal, report_goal_progress
     application.add_handler(CallbackQueryHandler(
         handle_proposal_change_click,
         pattern=r"^(goal_value_up|goal_value_down|penalty_up|penalty_down)_(\d+)$"
         ))
-    application.add_handler(CallbackQueryHandler(accept_goal_proposal, pattern=r"^accept_(\d+)$"))
-    application.add_handler(CallbackQueryHandler(reject_goal_proposal, pattern=r"^reject_(\d+)$"))
+    application.add_handler(CallbackQueryHandler(accept_goal_proposal, pattern=r"^accept_(\d+).*$"))
+    application.add_handler(CallbackQueryHandler(reject_goal_proposal, pattern=r"^reject_(\d+).*$"))
+    application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^(finished|failed|postpone)_(\d+).*$"))
+
 
 
 
@@ -134,14 +145,17 @@ def register_handlers(application):
 async def setup(application):
     try:
         logging.info("Running setup tasks...")
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=BERLIN_TZ)        
+
         logging.info(f"Current time: {now}\n")
         
         # Initialize the database
         await Database.initialize()
+        
         logging.info("Database initialization completed.")
 
         scheduler.add_job(send_morning_message, CronTrigger(hour=6, minute=6), args=[application.bot])
+        scheduler.add_job(send_evening_message, CronTrigger(hour=evening_message_hours, minute=evening_message_minutes), args=[application.bot])
         scheduler.start()
         logging.info("Scheduler started successfully")
         

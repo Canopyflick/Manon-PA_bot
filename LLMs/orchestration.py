@@ -45,6 +45,7 @@ async def get_input_variables(update, source_text=None, target_language="English
     now = datetime.now(tz=BERLIN_TZ)
     weekday = now.strftime("%A")  # Full weekday name
     tomorrow = (now + timedelta(days=1)).strftime("%A")
+    next_year = now.replace(year=now.year + 1)
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     first_name = update.effective_user.first_name
@@ -69,6 +70,7 @@ async def get_input_variables(update, source_text=None, target_language="English
         "response_text": response_text,
         "target_language": target_language,
         "tomorrow": tomorrow,
+        "next_year": next_year,
     }
 
 
@@ -299,14 +301,14 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
         parsed_planning = None
         if recurrence_type == 'recurring':
             if smarter:
-                output = await run_chain("schedule_goals_smarter", input_vars)        
+                output = await run_chain("schedule_goals_smart", input_vars)        
                 parsed_planning = Planning.model_validate(output)
             else:
                 output = await run_chain("schedule_goals", input_vars)        
                 parsed_planning = Planning.model_validate(output)               
         elif recurrence_type == 'one-time':
             if smarter:
-                output = await run_chain("schedule_goal_smarter", input_vars)
+                output = await run_chain("schedule_goal_smart", input_vars)
                 parsed_planning = Schedule.model_validate(output)
             else:
                 output = await run_chain("schedule_goal", input_vars)
@@ -325,9 +327,6 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
     except Exception as e:
         await update.message.reply_text(f"Error in prepare_goal_proposal():\n {e}")
         logging.error(f"\n\n🚨 Error in prepare_goal_proposal(): {e}\n\n")
-    
-
-
 
 
 # /translate + any other non-English or non-Dutch messages pass through this

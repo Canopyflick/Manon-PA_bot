@@ -9,6 +9,7 @@ from typing import Union
 from zoneinfo import ZoneInfo
 from pprint import pformat
 
+
 # Define the Berlin timezone
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
@@ -86,28 +87,7 @@ async def notify_ben(update,context):
         await context.bot.send_message(chat_id=USER_ID, text=notification_message)
         
 
-async def get_first_name(context_or_bot: Union[Bot, ExtBot, CallbackContext], user_id: int) -> str:
-    global global_bot
-    try:
-        # Check if context_or_bot is a CallbackContext
-        if isinstance(context_or_bot, CallbackContext):
-            bot = context_or_bot.bot
-        # If it's a Bot or ExtBot instance, use it directly
-        elif isinstance(context_or_bot, (Bot, ExtBot)):
-            bot = context_or_bot
-        else:
-            # Fallback to global bot if available
-            if global_bot is None:
-                raise ValueError("No bot instance available")
-            bot = global_bot
 
-        # Now, 'bot' is guaranteed to be a Bot or ExtBot instance
-        chat_member = await bot.get_chat_member(user_id, user_id)
-        return chat_member.user.first_name
-
-    except Exception as e:
-        logging.error(f"Error fetching user details for user_id {user_id}: {e}")
-        return "Lodewijk 🚨🐛"
     
 
 async def get_btc_price() -> tuple[str, str, float, float]:
@@ -374,10 +354,9 @@ async def emoji_stopwatch(update, context, **kwargs):
     final_emoji = mode_responses["final"]
     final_message = mode_responses["final_message"]
 
-    # Notify the group
-    duration_headsup = await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"{PA} {final_message if len(final_message) < 3 else '⏱️'} \n\n*{total_minutes} minutes {remaining_seconds} seconds*",
+    # Send initialization message with duration
+    duration_headsup = await update.message.reply_text(
+        text=f"{final_message if len(final_message) < 3 else '⏱️'} {PA}\n\n*{total_minutes} minutes {remaining_seconds} seconds*",
         parse_mode="Markdown"
     )
     # Delete duration_headsup message after duration - 4 seconds (delay), but never < 2 seconds
@@ -414,7 +393,7 @@ async def emoji_stopwatch(update, context, **kwargs):
 
                 # Send the emoji for the current minute
                 await asyncio.sleep(60)  # Wait for one minute
-                count_message = await update.message.reply_text(emoji_sequence[minute - 1])
+                count_message = await context.bot.send_message(chat_id, text=(emoji_sequence[minute - 1]))
                 asyncio.create_task(delete_message(update, context, count_message.message_id, 180))
 
         # Wait for any remaining seconds
