@@ -195,7 +195,7 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
 
 async def send_goals_today(update, context, chat_id, user_id, timeframe):
     try:
-        first_name = await get_first_name(user_id)
+        first_name = await get_first_name(context, user_id, chat_id)
         greetings = ["Whoa hey, ", "hellooo, ", "Hi, ", "👋, ", "", "☃️, ", "Why hello there, ", "Hey, ", "Alright, listen up, "]
         greeting = random.choice(greetings)
         announcement = "Your remaining goals today are:"
@@ -219,7 +219,6 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
         update_message += stakes_message
  
         try:
-            logging.warning(f"Update message: {update_message}")
             update_message = await context.bot.send_message(chat_id, update_message, parse_mode="Markdown")
             
             logging.info(f"goals overview message sent successfully in chat {chat_id} for {first_name}({user_id}).")

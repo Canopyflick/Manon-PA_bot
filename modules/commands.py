@@ -12,7 +12,7 @@ from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcomin
 
 # Asynchronous command functions
 async def start_command(update, context):
-    await update.message.reply_text(f"Hoi! 👋{PA}‍\n\nMy name is Manon, maybe. So call me. De groeten.")
+    await update.message.reply_text(f"Hoi! 👋{PA}‍\n\nMy name is Manon, maybe (so call me).")
     try:
         user_id = update.message.from_user.id
         chat_id = update.message.chat_id
@@ -62,17 +62,25 @@ async def stopwatch_command(update, context):
 
 async def help_command(update, context):
     help_message = (
-        '*The available commands:* 🧙‍♂️\n'
+        f'*Some options* {PA}\n\n'
+        '*Generic* \n'
         '👋 /start - Hi!\n'
-        '❓ /help - This list\n'
-        '🗒️ /profile - What I know about you\n'
-        '💭 /filosofie - Get inspired'
+        '⏱️ <minutes>:<seconds> - Timer\n'
+        '🉑 /translate - 肏你妈\n'
+        '🎲 /dice - 1-6\n'
+        '🗒️🚧 /profile - What I know about you\n'
+        '💭🚧 /filosofie - Get inspired\n\n'
+        '*Info about your goals*\n'
+        f'| /today | /tomorrow | /24 | /overdue |\n\n'
+        '*Trigger words*\n'
+        '| gm | gn | emoji | pomodoro | !test | '
     )
     chat_type = update.effective_chat.type
     if chat_type == 'private':
         help_message += "\n\nHoi trouwens... 👋🧙‍♂️ Stiekem ben ik een beetje verlegen. Praat met me in een chat waar Ben bij zit, pas dan voel ik me op mijn gemak.\n\n\nPS: je kunt hier wel allerhande boodschappen ter feedback achterlaten, dan geef ik die door aan Ben (#privacy)."
         await update.message.reply_text(help_message, parse_mode="Markdown")
-    else:  
+    else:
+        help_message += "\n\n🚧_...deze werken nog niet/nauwelijks_"
         await update.message.reply_text(help_message, parse_mode="Markdown")
     
 
@@ -249,7 +257,7 @@ async def today_command(update, context):
         else:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"_No overdue goals today yet_ {PA}",
+                text=f"_You're all caught up today, nothing overdue_ {PA}",
                 parse_mode="Markdown"
             )
             
@@ -311,7 +319,7 @@ async def tomorrow_command(update, context):
         result = await fetch_upcoming_goals(chat_id, user_id, timeframe="tomorrow")
         if result:
             message_text = result[0]
-            upcoming_goals_message = await context.bot.send_message(chat_id, text=message_text)
+            upcoming_goals_message = await context.bot.send_message(chat_id, text=message_text, parse_mode="Markdown")
             await add_delete_button(update, context, upcoming_goals_message.message_id, delay=4)
             asyncio.create_task(delete_message(update, context, upcoming_goals_message.message_id, 1200))
             

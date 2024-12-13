@@ -182,34 +182,7 @@ async def setup_database():
                 'goal_id': 'SERIAL PRIMARY KEY',
             }
             await add_missing_columns(conn, 'manon_goals', desired_columns_manon_goals)
-    
-            #3 manon_bot table
-            # Set 4 AM as default last_reset_time
-            now = datetime.now(tz=BERLIN_TZ)
-            unformatted_time = now.replace(hour=4, minute=0, second=0, microsecond=0) - timedelta(days=1)
-            four_am_last_night = unformatted_time.strftime("'%Y-%m-%d %H:%M:%S'")  # Note the added quotes
 
-
-            await conn.execute(f'''
-                CREATE TABLE IF NOT EXISTS manon_bot (
-                    last_reset_time TIMESTAMPTZ DEFAULT {four_am_last_night}
-                )
-            ''')
-
-            #4 scheduled messages table
-            await conn.execute('''
-                CREATE TABLE IF NOT EXISTS manon_scheduled_messages (
-                    id BIGSERIAL PRIMARY KEY,
-                    user_id BIGINT,
-                    chat_id BIGINT,
-                    goal_text TEXT NOT NULL,
-                    completion_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                    goal_type TEXT NOT NULL DEFAULT 'personal', -- 'personal' or 'challenges'
-                    challenge_from BIGINT,  -- NULL for personal goals, user_id of challenger for challenges
-                    FOREIGN KEY (user_id, chat_id) REFERENCES manon_users(user_id, chat_id) ON DELETE CASCADE,
-                    FOREIGN KEY (challenge_from, chat_id) REFERENCES manon_users(user_id, chat_id) ON DELETE CASCADE
-                )
-            ''')
         logging.info("Database tables initialized successfully")
 
     except Exception as e:
@@ -443,7 +416,7 @@ async def fetch_long_term_goals(chat_id, user_id):
 
 async def register_user(context, user_id, chat_id):
     try:
-        first_name = await get_first_name(user_id)
+        first_name = await get_first_name(context, user_id, chat_id)
         
         async with Database.acquire() as conn:
             # Check if the user already exists in the users table
@@ -459,7 +432,7 @@ async def register_user(context, user_id, chat_id):
                     VALUES ($1, $2, $3)
                 """, user_id, chat_id, first_name)
                 logging.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
-                await context.bot.send_message(chat_id, text=f"_Registered new user with user_id: {user_id}\nchat_id: {chat_id}\nfirst_name: {first_name}_")
+                await context.bot.send_message(chat_id, text=f"_Registered new user ({user_id}) in chat ({chat_id}) as '{first_name}'_", parse_mode="Markdown")
             elif result['first_name'] is None:
                 # User exists but first_name is missing, update it
                 await conn.execute("""
@@ -618,7 +591,7 @@ async def validate_goal_constraints(goal_id: int, conn) -> dict:
     return {'valid': True, 'message': 'Goal is valid.'}
 
 
-async def get_first_name(user_id):
+async def get_first_name(context, user_id, chat_id):
     try:
         async with Database.acquire() as conn:
             query = "SELECT first_name FROM manon_users WHERE user_id = $1"
@@ -626,7 +599,8 @@ async def get_first_name(user_id):
             if row and row.get("first_name"):
                 return row["first_name"]
             else:
-                return "Josefientje" 
+                chat_member = await context.bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+                return chat_member.user.first_name
     except Exception as e:
         logging.error(f"Error fetching first name for user_id {user_id}: {e}")
         return "Valentijntje"

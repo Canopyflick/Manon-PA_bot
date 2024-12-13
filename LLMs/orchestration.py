@@ -1,5 +1,5 @@
 ﻿from re import A
-from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button
+from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal
 import logging, os, asyncio
@@ -137,7 +137,10 @@ async def start_initial_classification(update, context):
         input_vars = await get_input_variables(update)
         initial_classification = await run_chain("initial_classification", input_vars)        
         
-        await update.message.reply_text(f"initial_classification result: \n{initial_classification}")
+        debug_message = await update.message.reply_text(f"Initial Classification Result: \n{initial_classification}")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        
         await process_classification_result(update, context, initial_classification)
 
     except Exception as e:
@@ -202,7 +205,10 @@ async def handle_goal_classification(update, context, smarter=False):
             goal_classification = await run_chain("goal_classification", input_vars)   
         
         parsed_goal_classification = GoalClassification.model_validate(goal_classification)
-        await update.message.reply_text(f"goal_classification: \n{parsed_goal_classification}")
+        debug_message = await update.message.reply_text(f"goal_classification: \n{parsed_goal_classification}")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        
         
         goal_result = parsed_goal_classification.classification
 
@@ -232,7 +238,9 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
         goal_setting_analysis = await run_chain("goal_setting_analysis", input_vars)
         parsed_goal_analysis = SetGoalAnalysis.model_validate(goal_setting_analysis)
         
-        await update.message.reply_text(f"parsed_goal_analysis: \n{parsed_goal_analysis}")
+        debug_message = await update.message.reply_text(f"parsed_goal_analysis: \n{parsed_goal_analysis}")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
         recurrence_type = parsed_goal_analysis.evaluation_frequency
         timeframe = parsed_goal_analysis.timeframe
@@ -272,14 +280,14 @@ async def goal_valuation(update, context, goal_id, recurrence_type="one-time", s
         if recurrence_type == 'recurring':
             await update.message.reply_text(f"complete recurring in goal_valuation")
             goal_valuation = await run_chain("recurring_goal_valuation", input_vars)
-            await update.message.reply_text(f"🧚‍♀️Goal Valuation: \n{parsed_goal_valuation}")
             parsed_goal_valuation = GoalInstanceAssessment.model_validate(goal_valuation)
         elif recurrence_type == 'one-time':
             goal_valuation = await run_chain("goal_valuation", input_vars)
-            await update.message.reply_text(f"🧚‍♀️Goal Valuation: \n{parsed_goal_valuation}")
             parsed_goal_valuation = GoalAssessment.model_validate(goal_valuation)
             
-        await update.message.reply_text(f"Parsed Goal Valuation: \n{parsed_goal_valuation}")
+        debug_message = await update.message.reply_text(f"Parsed Goal Valuation: \n{parsed_goal_valuation}")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         await add_user_context_to_goals(
             context,
@@ -313,7 +321,9 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
                 output = await run_chain("schedule_goal", input_vars)
                 parsed_planning = Schedule.model_validate(output)
 
-        await update.message.reply_text(f"prepare_goal_proposal: \n{parsed_planning}")  
+        debug_message = await update.message.reply_text(f"prepare_goal_proposal: \n{parsed_planning}") 
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         await add_user_context_to_goals(
             context,
