@@ -10,7 +10,6 @@ from utils.db import (
     complete_limbo_goal,
 )
 from LLMs.config import chains
-from langchain.memory import ConversationBufferMemory
 from LLMs.classes import (
     DummyClass,
     InitialClassification,
