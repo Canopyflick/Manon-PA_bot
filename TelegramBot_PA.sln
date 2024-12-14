@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "TelegramBot_Takentovenaar", "TelegramBot_Takentovenaar.pyproj", "{DE51712E-CDE6-4364-95A1-4F64D1826288}"
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "Manon_PA_bot", "..\..\repos_temp\Manon_PA_bot\Manon_PA_bot.pyproj", "{524A35A8-C23C-4EB4-94B1-39CCDC5ADDA0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,8 +11,8 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{DE51712E-CDE6-4364-95A1-4F64D1826288}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DE51712E-CDE6-4364-95A1-4F64D1826288}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{524A35A8-C23C-4EB4-94B1-39CCDC5ADDA0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{524A35A8-C23C-4EB4-94B1-39CCDC5ADDA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
