@@ -14,7 +14,7 @@ class InitialClassification(BaseModel):
 
 
 class GoalClassification(BaseModel):
-    classification: Literal['Set', 'Report_done', 'Report_failed', 'Postpone', 'Cancel', 'Pause', 'None']
+    classification: Literal['Set', 'Report_done', 'Report_failed', 'Edit', 'Cancel', 'Pause', 'None']
 
 # Goal setting #1
 class SetGoalAnalysis(BaseModel):
@@ -89,3 +89,24 @@ class Translations(BaseModel):
     casual: str
     degenerate: str
     
+class GoalID(BaseModel):
+    ID: int
+
+class UpdatedGoalData(BaseModel):
+    goal_description: str
+    status: Literal['limbo', 'prepared', 'pending', 'paused' 'archived_done', 'archived_failed', 'archived_canceled']
+    recurrence_type: Literal['one-time', 'recurring']
+    timeframe: Literal['today', 'by_date', 'open-ended']
+    goal_value: float
+    penalty: float
+    reminder_scheduled: bool
+    reminder_time: Union[str, None] = Field(
+        default=None,
+        description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
+    )
+    deadlines: List[str]
+    summary_of_changes: str
+
+
+
+

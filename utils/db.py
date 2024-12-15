@@ -171,8 +171,9 @@ async def setup_database():
 		            impact_multiplier FLOAT DEFAULT NULL,
                     penalty FLOAT DEFAULT NULL,
                     total_penalty FLOAT DEFAULT NULL,
-                    iteration INTEGER DEFAULT 1,            -- N+1, either for tracking attempts at one-time goals (retries), or index of recurring
-                    final_iteration TEXT DEFAULT 'not_applicable',  -- The last iteration of a recurring goal. Can be used to prompt evaluation of extension ('not_applicable', 'yes', 'not yet')
+                    attempt INTEGER DEFAULT 1,                      -- N+1, for tracking attempts (retries)
+                    iteration INTEGER DEFAULT NULL,                 -- N+1 iteration of instances of individual (sub)goals that belong to the same group of one recurring goal
+                    final_iteration TEXT DEFAULT 'not applicable',  -- The last in the series of this group_id: final iteration of this recurring goal. Can be used to prompt evaluation of extension ('not_applicable', 'yes', 'not yet')
                     goal_category TEXT[] DEFAULT NULL,            -- eg work, productivity, chores, relationships, hobbies, self-development, wealth, impact (EA), health, fun, other       
                     completion_time TIMESTAMPTZ DEFAULT NULL,                           -- Time when the goal was completed
                     FOREIGN KEY (user_id, chat_id) REFERENCES manon_users (user_id, chat_id)
@@ -180,6 +181,9 @@ async def setup_database():
             ''')
             desired_columns_manon_goals = {
                 'goal_id': 'SERIAL PRIMARY KEY',
+                'attempt': 'INTEGER DEFAULT 1',
+                'iteration': 'INTEGER DEFAULT NULL',
+                'final_iteration': 'TEXT DEFAULT "not applicable"' 
             }
             await add_missing_columns(conn, 'manon_goals', desired_columns_manon_goals)
 
@@ -343,7 +347,7 @@ async def create_limbo_goal(update, context):
         return None
         
 
-async def complete_limbo_goal(update, context, goal_id):
+async def complete_limbo_goal(update, context, goal_id, initial_update=True):
     chat_id=update.effective_chat.id
     """
     Completes a limbo goal's records in the database (should only have a goal_id and status as of yet, was only created a few seconds ago).
@@ -374,7 +378,7 @@ async def complete_limbo_goal(update, context, goal_id):
             "deadline": (goal_data.get("evaluation_deadline")) if goal_data.get("evaluation_deadline") else None,
             "interval": goal_data.get("interval"),
             "reminder_time": (goal_data.get("reminder_time")) if goal_data.get("reminder_time") else None,
-            "reminder_scheduled": goal_data.get("schedule_reminder"),
+            "reminder_scheduled": goal_data.get("schedule_reminder", goal_data.get("reminder_scheduled")), # fallback is for adjustment cases, where reminder_scheduled is already the name of the key that's used
             "time_investment_value": goal_data.get("time_investment_value"),
             "difficulty_multiplier": goal_data.get("difficulty_multiplier"),
             "impact_multiplier": goal_data.get("impact_multiplier"),
@@ -385,12 +389,13 @@ async def complete_limbo_goal(update, context, goal_id):
             "deadlines": goal_data.get("deadlines"),
             "reminders_times": goal_data.get("reminders_times"),
             "interval": goal_data.get("interval"),
+            "group_id": (goal_data.get("group_id")) if goal_data.get("group_id") else None,
         }
-        if kwargs.get("goal_recurrence_type") == "recurring":
-            kwargs["group_id"] = goal_data.get("goal_id")  # Add the group_id field for recurring goals
+        if kwargs.get("goal_recurrence_type") == "recurring" and initial_update:
+            kwargs["group_id"] = goal_data.get("goal_id")  # Add the group_id field for recurring goals, if the goal can indeed be assumed to be the only iteration yet (only the case for initial updates)
 
         # Update the goal data in the database
-        await update_goal_data(goal_id, initial_update=True, **kwargs)
+        await update_goal_data(goal_id, initial_update, **kwargs)
         
         # Validate goal constraints
         async with Database.acquire() as conn:
@@ -402,7 +407,10 @@ async def complete_limbo_goal(update, context, goal_id):
                 return
 
         # Notify the user of success
-        await update.message.reply_text(f"Limbo Goal with ID {goal_id} has been successfully created in the Database! {PA}")
+        await update.message.reply_text(
+            f"Limbo Goal with ID {goal_id} has been successfully "
+            f"{'created' if initial_update else 'updated'} in the Database! {PA}"
+        )
 
     except Exception as e:
         logging.error(f'Unexpected error in complete_limbo_goal(): \n{e}')
@@ -432,7 +440,7 @@ async def register_user(context, user_id, chat_id):
                     VALUES ($1, $2, $3)
                 """, user_id, chat_id, first_name)
                 logging.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
-                await context.bot.send_message(chat_id, text=f"_Registered new user ({user_id}) in chat ({chat_id}) as '{first_name}'_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text=f"_Registered new user\n{user_id}in chat\n{chat_id}as *{first_name}*_", parse_mode="Markdown")
             elif result['first_name'] is None:
                 # User exists but first_name is missing, update it
                 await conn.execute("""
@@ -505,18 +513,15 @@ async def fetch_template_data_from_db(context, goal_id):
             SELECT 
                 recurrence_type,
                 goal_description,
-                array_length(deadlines, 1) AS deadline_count,
-                deadlines AS formatted_deadlines,
+                deadline,
+                deadlines,
                 goal_value,
                 total_goal_value,
                 penalty,
                 total_penalty,
                 reminder_scheduled AS schedule_reminder,
                 array_length(reminders_times, 1) AS reminder_count,
-                reminders_times AS formatted_reminders,
-                goal_id,
                 reminders_times,
-                deadlines,
                 time_investment_value,
                 difficulty_multiplier
             FROM manon_goals
@@ -526,10 +531,11 @@ async def fetch_template_data_from_db(context, goal_id):
             
             if not result:
                 raise ValueError(f"No goal found for goal_id: {goal_id}")
-            
+
             kwargs = dict(result)
-            if recurrence_type =="recurring":
-                goal_id = group_id      # maybe not essential, but might as well put it as a placeholder here to keep in mind for later that potentially ALL goal_ids with this group_id should be adjusted, for cases where the goal is not in limbo anymore and was already split up in deadlinte_count*N unique goals. Ah yes and ALL deadlines are only stored in the initial goal_id, the mother_goal_id which == group_id, so that IS the one we need to use for adjustments usuallyyyyyy, unless ... well think about this more later XXX
+            
+            # if recurrence_type =="recurring":
+            #     goal_id = group_id      # maybe not essential, but might as well put it as a placeholder here to keep in mind for later that potentially ALL goal_ids with this group_id should be adjusted, for cases where the goal is not in limbo anymore and was already split up in deadlinte_count*N unique goals. Ah yes and ALL deadlines are only stored in the initial goal_id, the mother_goal_id which == group_id, so that IS the one we need to use for adjustments usuallyyyyyy, unless ... well think about this more later XXX
             await add_user_context_to_goals(context, goal_id, **kwargs)
             
             return kwargs

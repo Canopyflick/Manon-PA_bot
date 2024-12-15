@@ -14,6 +14,8 @@ from LLMs.classes import (
     GoalAssessment,
     GoalInstanceAssessment,
     LanguageCheck,
+    GoalID,
+    UpdatedGoalData,
 )
 from LLMs.prompts import (
     dummy_template,
@@ -30,8 +32,11 @@ from LLMs.prompts import (
     recurring_schedule_template,
     one_time_schedule_template,
     language_check_template,
+    find_goal_id_template,
+    prepare_goal_changes_template
 )
-from langchain_openai import ChatOpenAI
+
+from langchain_openai import ChatOpenAI   
 
 # Initialize LLMs and temperatures
 LOW = 0.2
@@ -135,6 +140,16 @@ chain_configs = {
     "language_check": {
         "template": language_check_template,
         "class": LanguageCheck,
+        "llm": llms["mini"],
+    },
+    "find_goal_id": {
+        "template": find_goal_id_template,
+        "class": GoalID,
+        "llm": llms["mini"],
+    },
+    "prepare_goal_changes": {
+        "template": prepare_goal_changes_template,
+        "class": UpdatedGoalData,
         "llm": llms["mini"],
     },
 }

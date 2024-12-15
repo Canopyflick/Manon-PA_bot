@@ -15,9 +15,8 @@ BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
 PA_options = [
     '🦄', '🐯', '🐲', '🕷️', '🧌', '🧓', '🤴', '🎅',
-    '👮‍♀️', '👮', '💂', '💂‍♂️', '💂‍♀️', '🥷', '🧑‍💼', '🔬',
-    '🧜‍♀️', '🧜', '🧚‍♀️', '🧚‍♂️', '🧚',
-    '🕴️', '🌞', '🌬️', '☃️', '💖'
+    '🥷', '🧑‍💼', '🕴️', '🌞', '☃️', '💖', '👮‍♀️',
+    '🧜‍♀️', '🧜', '🧚‍♀️', '🧚‍♂️', '🧚'
 ]
 PA = random.choice(PA_options)
 
@@ -458,25 +457,21 @@ async def send_user_context(update, context):
                 # Special handling for `goals` sub-keys
                 for goal_id, goal_data in value.items():
                     formatted_message = (
-                        f"{PA} *Here is your context for goal:* `{goal_id}`\n"
+                        f"{PA} HERE IS YOU CONTEXT FOR GOAL #{goal_id}\n"
                         + pformat(goal_data, indent=6)
                     )
-                    context_message = await update.message.reply_text(
-                        formatted_message, parse_mode="Markdown"
-                    )
+                    context_message = await update.message.reply_text(formatted_message)
                     asyncio.create_task(delete_message(update, context, context_message.message_id, 180))
                     await add_delete_button(update, context, context_message.message_id)
             else:
                 # Handle other top-level keys
-                formatted_message = f"{PA} *Here is your context for:* *{key}*\n"
+                formatted_message = f"{PA} Here is your context for KEY: {key}\n"
                 if isinstance(value, dict):
                     formatted_message += "\n" + pformat(value, indent=10)
                 else:
                     formatted_message += f" {value}"
 
-                context_message = await update.message.reply_text(
-                    formatted_message, parse_mode="Markdown"
-                )
+                context_message = await update.message.reply_text(formatted_message)
                 asyncio.create_task(delete_message(update, context, context_message.message_id, 180))
                 await add_delete_button(update, context, context_message.message_id)
     else:

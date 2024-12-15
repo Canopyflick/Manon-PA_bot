@@ -9,11 +9,6 @@ from jinja2 import Template
 
 
 
-
-async def process_new_goal(update, context, user_message, goal_description, timeframe, recurrence_type, assistant_response):
-    await goal_proposal(update, goal_description, recurrence_type, assistant_response)
-
-
 async def format_datetime_list(datetime_input):
     """
     Formats datetime inputs that can be None, a string, or a list of strings.
@@ -27,6 +22,7 @@ async def format_datetime_list(datetime_input):
         - Second element is a list of formatted datetime strings
     """
     # Handle None case
+    logging.critical(f"Datetime input in formatting function = {datetime_input}")
     if datetime_input is None:
         return 0, []
     
@@ -67,11 +63,12 @@ async def format_datetime_list(datetime_input):
     return len(datetime_input), formatted_datetimes
     
 
-async def send_goal_proposal(update, context, goal_id):     # Only for the initial sending, when no proposal exists yet for this goal
+async def send_goal_proposal(update, context, goal_id, adjust=False):
     try:
-        message_text, keyboard = await draft_goal_proposal_message(update, context, goal_id, adjust=False)
-                
-        await complete_limbo_goal(update, context, goal_id) # Storing the full goal in db for the first time
+        message_text, keyboard = await draft_goal_proposal_message(update, context, goal_id, adjust)
+        
+        if not adjust: 
+            await complete_limbo_goal(update, context, goal_id) # Storing the full goal in db for the first time
        
         # Send message with buttons
         await update.message.reply_text(message_text, reply_markup=keyboard, parse_mode="Markdown")
@@ -89,12 +86,21 @@ TEMPLATE_TEXT = """{{ PA }}‍ *{{ recurrence_type | capitalize }} Goal Proposal
 
 ⚡ Goal Value: {{ goal_value | round(1) }} {% if total_goal_value is not none %}({{ total_goal_value | round(0) | int }} total){% endif %}
 🌚 Potential Penalty: {{ penalty | round(1) }} {% if total_penalty is not none %}({{ total_penalty | round(0) | int }} total){% endif %}
-{% if schedule_reminder and reminder_count > 0 %}\n⏰ {{ "Reminder" if reminder_count == 1 else reminder_count ~ " Reminders" }}:\n{{ formatted_reminders }}\n{% endif %}#_{{ ID }}_"""
+{% if (schedule_reminder | default(reminder_scheduled | default(False))) and reminder_count > 0 %}
+\n⏰ {{ "Reminder" if reminder_count == 1 else reminder_count ~ " Reminders" }}:
+{{ formatted_reminders }}
+{% endif %}#_{{ ID }}_
+"""
 
         
 async def populate_goal_template(update, context, goal_id):
     try:
-        goal_data = context.user_data["goals"].get(goal_id) # In case of an adjustment, goal_data should have already been fetched from db in calculate_goal_values (called in draft_goal_proposal_message)      
+        goal_data = context.user_data["goals"].get(goal_id) # In case of an adjustment, goal_data should have already been fetched from db in prepare_goal_changes()
+
+        # Log all keys and their values
+        logging.info(f"Logging entire goal_data before populating template\n:")
+        for key, value in goal_data.items():
+            logging.info(f"Key: {key}, Value: {value}, Type: {type(value)}")
 
         template = Template(TEMPLATE_TEXT)
         return template.render(**goal_data)
@@ -102,20 +108,19 @@ async def populate_goal_template(update, context, goal_id):
         logging.error(f"Error in populate_goal_template(): {e}")
         
 
-async def draft_goal_proposal_message(update, context, goal_id, adjust):
+async def draft_goal_proposal_message(update, context, goal_id, adjust=False):
     try:
-        if not adjust:      # for first initialization of the goal proposal, retrieving data from user context
-            goal_data = context.user_data["goals"].get(goal_id)
-            logging.critical(f"Goal Data in draft_goal_proposal_message: {goal_data}")
-            await calculate_goal_values(context, goal_id, goal_data, adjust)        # adds the final template parameters to User Context
-        
-            message_text = await populate_goal_template(update, context, goal_id)
-            logging.critical(f"Message text:\n{message_text}")
-            keyboard = await create_proposal_keyboard(goal_id)
+            
+        goal_data = context.user_data["goals"].get(goal_id)    
 
-            return message_text, keyboard
-        else:               # for adjustment of a previously initialized goal proposal, retrieving data from db
-            print(f"Get That Shit FROM THE DATABASE! ???? hm this happens in calculate_goal_values already wouldn't it??'")
+        logging.critical(f"Goal Data in draft_goal_proposal_message:\n{goal_data}")
+        await calculate_goal_values(context, goal_id, goal_data, adjust)        # adds the final template parameters to User Context
+        
+        message_text = await populate_goal_template(update, context, goal_id)
+        keyboard = await create_proposal_keyboard(goal_id)
+
+        return message_text, keyboard
+    
     except Exception as e:
         await update.message.reply_text(f"Error in draft_goal_proposal_message(): {e}")
         logging.error(f"Error in draft_goal_proposal_message(): {e}")
@@ -127,7 +132,6 @@ async def run_algorithm(context, goal_id, goal_data, deadline_count):
     impact = goal_data.get("impact_multiplier")
     
     goal_value = time * effort * impact
-    total_goal_value = goal_value * deadline_count
         
     penalty = 1
     penalty_field = goal_data.get("failure_penalty")    # Directly stored from the parsed_goal_valuation Classes output
@@ -136,8 +140,12 @@ async def run_algorithm(context, goal_id, goal_data, deadline_count):
         penalty = 1.5 * goal_value
     elif penalty_field == "big":
         penalty = 6 * goal_value
-        
-    total_penalty = penalty * deadline_count
+    
+    total_goal_value = None
+    total_penalty = None
+    if deadline_count > 1:
+        total_goal_value = goal_value * deadline_count
+        total_penalty = penalty * deadline_count
     
     await add_user_context_to_goals(context, goal_id, penalty=penalty, goal_value=goal_value, total_penalty=total_penalty, total_goal_value=total_goal_value)
         
@@ -145,20 +153,22 @@ async def run_algorithm(context, goal_id, goal_data, deadline_count):
 async def calculate_goal_values(context, goal_id, goal_data=None, adjust=True):
     try:            
         reminder_times = None
-        if adjust:
-            await fetch_template_data_from_db(context, goal_id)
-            print(f"Get That Shit FROM THE DATABASE! en put into goal_data")
             
-        schedule_reminder = goal_data.get("schedule_reminder")
-        deadlines = goal_data.get("evaluation_deadlines") or [goal_data.get("evaluation_deadline")]
-        reminder_times = goal_data.get("reminder_times") or [goal_data.get("reminder_time")]
+        schedule_reminder = goal_data.get("schedule_reminder") or goal_data.get("reminder_scheduled")
+        deadlines = (
+            goal_data.get("evaluation_deadlines")
+            or goal_data.get("evaluation_deadline")
+            or goal_data.get("deadlines")
+        )
+        reminder_times = goal_data.get("reminder_times") or goal_data.get("reminder_time")
         
         if schedule_reminder:
-            reminder_times = goal_data.get("reminder_times") or [goal_data.get("reminder_time")]
+            reminder_times = goal_data.get("reminder_times") or goal_data.get("reminder_time")
 
         deadline_count, formatted_deadlines = await format_datetime_list(deadlines)
         reminder_count, formatted_reminders = await format_datetime_list(reminder_times if schedule_reminder else None)
         
+
         if not adjust:  # penalty and goal_value algorithm must only be run once on initialization of proposal, not for later adjustments
             await run_algorithm(context, goal_id, goal_data, deadline_count)
             

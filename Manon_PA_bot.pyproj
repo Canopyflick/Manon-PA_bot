@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>524a35a8-c23c-4eb4-94b1-39ccdc5adda0</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>Manon_PA_bot.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,7 +21,26 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Manon_PA_bot.py" />
+    <Compile Include="LLMs\classes.py" />
+    <Compile Include="LLMs\config.py" />
+    <Compile Include="LLMs\orchestration.py" />
+    <Compile Include="LLMs\prompts.py" />
+    <Compile Include="main.py" />
+    <Compile Include="modules\commands.py" />
+    <Compile Include="modules\goals.py" />
+    <Compile Include="modules\reminders.py" />
+    <Compile Include="test\concatenate_test.py" />
+    <Compile Include="test\__init__.py" />
+    <Compile Include="utils\db.py" />
+    <Compile Include="utils\helpers.py" />
+    <Compile Include="utils\listener.py" />
+    <Compile Include="utils\scheduler.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="LLMs\" />
+    <Folder Include="modules\" />
+    <Folder Include="test\" />
+    <Folder Include="utils\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

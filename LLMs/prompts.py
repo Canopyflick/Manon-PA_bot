@@ -25,7 +25,7 @@ initial_classification_template = ChatPromptTemplate([
     Any message where the user is setting an intention to do something, 
     wants to report about something they already have done, or is otherwise goal-related, no matter the timeframe. 
     A 'Goals' message might also discuss wanting to declare finished, declare failed, cancel, pause, 
-    or update the deadline of a goal.
+    update the deadline of or otherwise edit a goal.
 
     ## Reminders
     Only messages that explicitly ask you to remind the user or talk about not forgetting should be classified as reminders.
@@ -57,10 +57,10 @@ goal_classification_template = ChatPromptTemplate([
     # Task
     You are {bot_name}, personal assistant of {first_name} in a Telegram group. It is currently: {weekday}, {now}
     Please judge {first_name}'s intention with their goals-related message. Pick one of the following classifications:
-    'Set', 'Report_done', 'Report_failed', 'Postpone', 'Cancel', 'Pause'
+    'Set', 'Report_done', 'Report_failed', 'Edit', 'Cancel', 'Pause', 'None'.
 
     ## Set
-    Any message that primarily indicates that the user is setting a new intention to do something, regardless of timeframe. 
+    Any message where the user says they want or plan to do something, regardless of timeframe. 
 
     ## Report_done
     Any message reporting that an activity or goal is finished, done.
@@ -81,7 +81,7 @@ goal_classification_template = ChatPromptTemplate([
     Any message that doesn't fit any of the other categories.
         
     # Answer structure
-    Classify the goals message with the exact term that is most fitting: 'Set', 'Report_done', 'Report_failed', 'Postpone', 'Cancel', or 'Pause'.
+    Classify the goals message with the exact term that is most fitting: 'Set', 'Report_done', 'Report_failed', 'Edit', 'Cancel', or 'Pause'.
     """),
     
     ("human", """
@@ -105,9 +105,9 @@ goal_setting_analysis_template = ChatPromptTemplate([
     Examples of goals that should be evaluated recurrently: "I want to X every day for a month"; "I want to X at 9am and at 9pm".
     
     ## Timeframe
-    By default and if it's feasible that the user wants to finish their goal today, pick 'today'. ("I want to read in my book")
-    If the user is vague about the planning of their goal, and it's super unlikely that they mean to set it for today, pick 'open-ended'. Open-ended is for when the user 'wants to do it at some point', 'once', 'in the future'. ("eventually I want to run a marathon")
-    If the user does have some idea about a timeframe, even if it's just "this year", or "soon", pick 'by_date'. ("I want to visit my parents in spring")
+    By default and if it's feasible that the user wants to set their goal for today, pick 'today', examples: "I want to read in my book", "I want to fast until 15:00" (if the current time is before 15:00).
+    If the user is vague about the planning of their goal, and it's super unlikely that they mean to set it for today, pick 'open-ended'. Open-ended is for when the user 'wants to do it at some point', 'once', 'in the future'. Examples: "eventually I want to run a marathon", "I'd love to learn woodworking at some point".
+    If the user does have some more idea about a timeframe, even if it's just "this year", or "soon", pick 'by_date'. Examples: "I want to visit my parents in spring", "I need to start preparing for my test soon".
     
     ## Category 
     Pick one or more fitting tags that characterize the goal, choose only from: 'productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'travel', or 'other'.
@@ -418,7 +418,7 @@ recurring_goal_split_template = ChatPromptTemplate([
     
     ("human", """
     Goal details: 
-    {goal_details}"
+    {goal_details}
     """),
 ])
 
@@ -435,7 +435,7 @@ language_correction_template = ChatPromptTemplate([
     
     ("human", """
     User message:
-    {user_message}"
+    {user_message}
     """),
 ]) 
 
@@ -470,6 +470,34 @@ language_check_template = ChatPromptTemplate([
     
     ("human", """
     User message:
-    {user_message}"
+    {user_message}
+    """),
+])
+
+find_goal_id_template = ChatPromptTemplate([
+    ("system", """
+    A user wants to edit something about one of their goals. It is your task to map their request onto the relevant goal they're talking about. For this, only refer to the correct goal_id, which is an integer that servers as a goal's unique identifier. 
+    Generally, Goal IDs are displayed like this: #<goal_id>.
+    Pick the best matching Goal ID by evaluating all of the context available. If you have nothing to go off (for example when there's no goal IDs in the available context), pick 0 as a fallback value.
+    """),
+    
+    ("human", """
+    User message:
+    {user_message}
+    """),
+])
+
+
+prepare_goal_changes_template = ChatPromptTemplate([
+    ("system", """
+    A user wants to edit something about one of their goals. It is your task to process this request. 
+    Return all of the input exactly as given, except for the changes the user wants to make: give updated values for those. For the deadlines field, give one or more deadline timestamp(s) in ISO 8601 format. 
+    """),
+    
+    ("human", """
+    User Request:
+    {user_message}
+    Goal's Current Data: 
+    {goal_data} 
     """),
 ])

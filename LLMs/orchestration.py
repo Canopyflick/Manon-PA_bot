@@ -4,6 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal
 import logging, os, asyncio
 from utils.db import (
+    fetch_goal_data,
     fetch_long_term_goals,
     update_goal_data,
     create_limbo_goal,
@@ -24,6 +25,8 @@ from LLMs.classes import (
     Planning,
     GoalAssessment,
     GoalInstanceAssessment,
+    GoalID,
+    UpdatedGoalData,
 )
 
 #########################################################################
@@ -40,7 +43,7 @@ def log_emoji_details(emoji, source="Unknown"):
 
 
 
-async def get_input_variables(update, source_text=None, target_language="English"):
+async def get_input_variables(update, source_text=None, target_language="English", goal_data=None):
     now = datetime.now(tz=BERLIN_TZ)
     weekday = now.strftime("%A")  # Full weekday name
     tomorrow = (now + timedelta(days=1)).strftime("%A")
@@ -54,7 +57,12 @@ async def get_input_variables(update, source_text=None, target_language="English
     long_term_goals = await fetch_long_term_goals(chat_id, user_id)
     user_message = source_text if source_text else update.message.text
     response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
+    goal_data = goal_data if goal_data else "No goal_data passed as argument"
+
     
+    if response_text:
+        user_message = f"{user_message}\n\n(As a reply to message: {response_text})"
+        
     return {
         "first_name": first_name,
         "bot_name": bot_name,
@@ -70,6 +78,7 @@ async def get_input_variables(update, source_text=None, target_language="English
         "target_language": target_language,
         "tomorrow": tomorrow,
         "next_year": next_year,
+        "goal_data": goal_data,
     }
 
 
@@ -119,7 +128,9 @@ async def dummy_call(update, context):
         parsed_output = DummyClass.model_validate(output)
         dummy_field = parsed_output.dummy_field
         
-        await update.message.reply_text(f"classification_result: \n{output}")
+        debug_message = await update.message.reply_text(f"classification_result: \n{output}")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         if dummy_field == "something in particular":
             await next_step(update, context, output)
@@ -128,7 +139,6 @@ async def dummy_call(update, context):
     except Exception as e:
         await update.message.reply_text(f"Error in dummy_call():\n {e}")
         logging.error(f"\n\n🚨 Error in dummy_call(): {e}\n\n")
-        
 
 
 async def start_initial_classification(update, context):
@@ -179,15 +189,15 @@ async def process_classification_result(update, context, initial_classification)
         elif initial_classification == "Reminders":
             preset_reaction = "🫡"
             await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
-            await update.message.reply_text("Your message has been classified as a reminder.")                                  # < < < < <
+            await update.message.reply_text("Your message has been classified as a reminder.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                                  # < < < < <
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
         elif initial_classification == "Meta":
             preset_reaction = "💩"
-            await update.message.reply_text("This is a meta query about the bot.")                                              # < < < < <
+            await update.message.reply_text("This is a meta query about the bot.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                                              # < < < < <
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
         else:
             preset_reaction = "😘"
-            await update.message.reply_text("Your message doesn't fall into any specific category.")                            # < < < < <
+            await update.message.reply_text("Your message doesn't fall into any specific category.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                           # < < < < <
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
 
     except Exception as e:
@@ -224,9 +234,11 @@ async def handle_goal_classification(update, context, smarter=False):
             context.user_data["goals"][goal_id] = {}
             
             await goal_setting_analysis(update, context, goal_id, smarter)                                                                        # < < < < <
-            
+        elif goal_result == "Edit":
+            logging.info(f"User wants to edit a goal >> find_goal_id()")
+            await find_goal_id(update, context)
         else: 
-            await update.message.reply_text(f"_goal result {goal_result} not yet implemented_", parse_mode="Markdown")
+            await update.message.reply_text(f"_Goal result '{goal_result}' not yet implemented_", parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"Error in handle_goal_classification():\n {e}")
         logging.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")
@@ -278,7 +290,6 @@ async def goal_valuation(update, context, goal_id, recurrence_type="one-time", s
         input_vars = await get_input_variables(update)
         parsed_goal_valuation = None
         if recurrence_type == 'recurring':
-            await update.message.reply_text(f"complete recurring in goal_valuation")
             goal_valuation = await run_chain("recurring_goal_valuation", input_vars)
             parsed_goal_valuation = GoalInstanceAssessment.model_validate(goal_valuation)
         elif recurrence_type == 'one-time':
@@ -287,7 +298,7 @@ async def goal_valuation(update, context, goal_id, recurrence_type="one-time", s
             
         debug_message = await update.message.reply_text(f"Parsed Goal Valuation: \n{parsed_goal_valuation}")
         await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 200))     # Clean chat, clean life
         
         await add_user_context_to_goals(
             context,
@@ -395,7 +406,7 @@ async def language_correction(update, context):
         
         parsed_output = LanguageCorrection.model_validate(output)
         corrected_text = parsed_output.corrected_text
-        changes = parsed_output.changes
+        changes = parsed_output.changes     # not doing anything with this right now, would be nice to be able to request it with an emoji reaction 
         
         await update.message.reply_text(f"classification_result: \n{parsed_output}")
         await update.message.reply_text(f"*{corrected_text}*", parse_mode="Markdown")
@@ -421,3 +432,58 @@ async def check_language(update, context, source_text):
     except Exception as e:
         await update.message.reply_text(f"Error in check_language():\n {e}")
         logging.error(f"\n\n🚨 Error in check_language(): {e}\n\n")
+
+
+# for now, this only works for (replies to) messages that contain the goal_id in plaintext. Should later be expanded with some database content (with the user's recently set goals) that provide potentially relevant goal ids as sadditional context
+async def find_goal_id(update, context):
+    try:
+        input_vars = await get_input_variables(update)      
+        output = await run_chain("find_goal_id", input_vars)
+        
+        parsed_output = GoalID.model_validate(output)
+        goal_id = parsed_output.ID
+        
+        debug_message = await update.message.reply_text(f"Found Goal ID that should be edited: \n*#{output}*", parse_mode = "Markdown")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        
+        if goal_id == 0:
+            logging.warning(f"\n\n🚨 Goal ID not found: {e}\n\n")
+            return
+            # await next_step(update, context, output)
+        else: 
+            await prepare_goal_changes(update, context, goal_id)
+    except Exception as e:
+        await update.message.reply_text(f"🚨 Goal ID not found:\n {e}")
+        logging.error(f"\n\n🚨 Goal ID not found): {e}\n\n")
+        
+
+async def prepare_goal_changes(update, context, goal_id):
+    try:
+        # retrieve all goal data the user might want to adjust
+        columns = "goal_description, status, recurrence_type, timeframe, goal_value, penalty, reminder_scheduled, reminder_time, deadline, deadlines"
+        # template_required_columns = "goal_description, status, recurrence_type"
+        rows_dictionary = await fetch_goal_data(goal_id, columns=columns)
+        
+        input_vars = await get_input_variables(update, goal_data=rows_dictionary)      
+        output = await run_chain("prepare_goal_changes", input_vars)
+        
+        parsed_output = UpdatedGoalData.model_validate(output)
+        changes_summary = parsed_output.summary_of_changes
+        
+        debug_message = await update.message.reply_text(f"Summary of changes the llm wants to make: \n{changes_summary}", parse_mode = "Markdown")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+
+
+        logging.critical(f"here's the parsed output: {parsed_output}")
+
+
+        # put everything in user context
+        await add_user_context_to_goals(context, goal_id, **parsed_output.model_dump())     # flattens the dictionary, to be accepted as **kwargs
+        
+        await send_goal_proposal(update, context, goal_id, adjust=True)
+
+    except Exception as e:
+        await update.message.reply_text(f"🚨 prepare_goal_changes:\n {e}")
+        logging.error(f"\n\n🚨 prepare_goal_changes:\n {e}\n\n")
