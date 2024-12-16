@@ -4,8 +4,8 @@ from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from utils.helpers import get_btc_price
 from telegram.ext import ContextTypes, CallbackContext
-from LLMs.orchestration import process_other_language, check_language, handle_goal_classification
-from utils.db import register_user
+from LLMs.orchestration import process_other_language, check_language, handle_goal_classification, start_initial_classification
+from utils.db import get_first_name, register_user
 from utils.listener import roll_dice
 from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
 
@@ -57,6 +57,7 @@ async def stopwatch_command(update, context):
         
     else:  # Invalid input
         await update.message.reply_text(f"Please provide time as minutes or minutes:seconds {PA}")
+        await start_initial_classification(update, context)
         return
 
 
@@ -69,7 +70,7 @@ async def help_command(update, context):
         '🉑 /translate - 肏你妈\n'
         '🎲 /dice - 1-6\n'
         '🗒️🚧 /profile - What I know about you\n'
-        '💭🚧 /filosofie - Get inspired\n\n'
+        '💭🚧 /wow - Get inspired\n\n'
         '*Info about your goals*\n'
         f'| /today | /tomorrow | /24 | /overdue |\n\n'
         '*Trigger words*\n'
@@ -91,22 +92,82 @@ async def profile_command(update, context):
     await update.message.reply_text("will show all the user-specific settings, like long term goals, preferences, constitution ... + edit-button")
     
 
-async def stats_command(update, context):
+async def stats_command(update, context, ready=False):
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    
+    first_name = await get_first_name(context, user_id, chat_id)
+    # Unpack the retrieved stats
+    if ready:
+        # Fetch all stats data from the database
+        stats = await get_user_stats(update.effective_user.id)
+        goals_finished_week = stats["goals_finished_week"]
+        goals_failed_week = stats["goals_failed_week"]
+        goals_pending_week = stats["goals_pending_week"]
+        points_remaining = stats["points_remaining"]
+        penalties_remaining = stats["penalties_remaining"]
+        all_time_success = stats["all_time_success"]
+        monthly_success = stats["monthly_success"]
+    demographics = ["listeners", f"people named {first_name}", "go-getters", "real humans", "people", "people", "chosen subjects", "things-with-a-hearbeat", "beings", "selected participants", "persons", "white young males", "mankind", "the populace", "the disenfranchized", "sapient specimen", "bipeds", "people-pleasers", "saviors", "heroes", "members", "Premium members", "earth dwellers", "narcissists", "cuties", "handsome motherfuckers", "Goal Gangsters", "good guys", "bad bitches", "OG VIP Hustlers", "readers", "lust objects"]
+    demographic = random.choice(demographics)
+    second_demographic = random.choice(demographics)
+    percents = ["5%", "0.0069%", "7%", "83%", "20th percentile", "1%", "0.0420%", "111%", "6.2%", "0.12%", "half", "cohort"]
+    percent = random.choice(percents)
+    regions = [" globally", " worldwide", " in Wassenaar", " locally", " in the nation", ", hypothetically speaking", ", maybe!", " in the Netherlands", " (or maybe not)", " in Europe", " today", " this lunar year", " tomorrow", " for a while", " (... for now, anyways)", " this side of the Atlantic", " in the observable universe"]
+    region = random.choice(regions)
+    adverbs = [" quite possibly ", " definitely ", " (it just so happens) ", ", presumably, ", ", without a doubt, ", ", so help us God, ", " (maybe) ", ", fugaciously, ", ", reconditely, ", " hitherto ", " (polyamorously) "]
+    adverb = " "
+    special_handcrafted_nonesense = ["You're in the top 1%!!!", "What a champ..!", "That's amazing!", "You could do better...", "You're in Enkhuizen!", "You're off-the-charts!", "You're well-positioned!", "You could do worse!", "You are unique!", "You are loved!", "You are on earth!", "The kids are not alright.", "You're alright.", "You're outperforming!", "You're better than France!", "You're semi-succesful!"]
+    if random.random() > 0.97:
+        nonsense_message = random.choice(special_handcrafted_nonesense)
+    else:
+        if random.random() > 0.8:
+            adverb = random.choice(adverbs)
+        verbs = ["might be ", "have the potential to one day end up ", "will soon find yourself ", "are on course to being ", "deserve to be ", "should be ", "could've been ", "haven't been ", "stand a good chance of being ", "are exactly ", "are statistically unlikely to be ", f"are (much unlike other {second_demographic}) ", f"are, quite unlike other {second_demographic}, ", f"are (at least compared to other {second_demographic}) ", "are destined to be "]
+        verb = "are"
+        if random.random() > 0.8:
+            verb = random.choice(verbs)
+        top_or_bottom = "top"
+        if random.random() > 0.8:
+            top_or_bottom = "bottom"
+        you_or_them = "You"
+        if random.random() > 0.9:
+            verb = ""     # Because many of these don't work with plural
+            if random.random() > 0.6:
+                you_or_them = "Your enemies are"
+            else:
+                you_or_them = "Your friends are"
+        in_the = " in the "
+        if random.random() > 0.94:
+            if random.random() > 0.8:
+                in_the = " better than the "
+            else:
+                in_the = " worse than the "
+        closing_remark = ""
+        if random.random() > 0.96:
+            closing_remarks = ["Whoa...", "Just think of the implications!!", "That's insane!", "Not bad.", "... profit?!??", "Huh, could be worse!", "Can you believe it?", "That's quite something.", "Be grateful for that."]
+            closing_remark = random.choice(closing_remarks)
+        nonsense_messages = [f"{you_or_them}{adverb}{verb}{in_the}{top_or_bottom} {percent} of {demographic}{region}! {closing_remark}", "", "", "", "", ""]     # ~5 million unique options
+        nonsense_message = nonsense_messages[0]
+    
+    nonsense_message = nonsense_message.replace("  ", " ")
+    logging.warning(f"Nonsense message >>> {nonsense_message}")
+    # nonsense_message = random.choice(nonsense_messages)
+
+    # Construct the message
     stats_message = (
-        '*Your Statistics:* 📊\n'
-        '👤 *Username:* {username_placeholder}\n'
-        '🎯 *Goals Set:* {goals_set_placeholder}\n'
-        '✅ *Goals Completed:* {goals_completed_placeholder}\n'
-        '🔥 *Success Rate:* {success_rate_placeholder}%\n'
-        '🏆 *Rank:* {rank_placeholder}\n'
-        '\nKeep up the good work! {PA} '
+        f"👤 *{first_name}*\n"
+        f"✅ This week: [goals_finished_week] done\n"
+        f"❌ [goals_failed_week] failed\n"
+        f"🔄 [goals_pending_week] pending\n"
+        f"🎯  [points_remaining] | ⚠️ [penalties_remaining] remaining on line\n"
+        f"🔥 All-time: [all_time_success:.1f]%\n"
+        f"📅 Monthly: [monthly_success:.1f]%\n\n"
+        f"_{nonsense_message}_"
     )
-    chat_type = update.effective_chat.type
-    if chat_type == 'private':
-        help_message += f"\n\nHoi trouwens... 👋{PA} Stiekem ben ik een beetje verlegen. Praat met me in een chat waar Ben bij zit, pas dan voel ik me op mijn gemak.\n\n\nPS: je kunt hier wel allerhande boodschappen ter feedback achterlaten, dan geef ik die door aan Ben (#privacy)."
-        await update.message.reply_text(help_message, parse_mode="Markdown")
-    else:  
-        await update.message.reply_text(help_message, parse_mode="Markdown")
+    
+    # Send the message
+    await update.message.reply_text(stats_message, parse_mode="Markdown")
     
 
 async def profile_command(update, context):
@@ -165,7 +226,7 @@ async def process_emojis(escaped_emoji_string, escaped_pending_emojis):
 
 
 
-async def filosofie_command(update, context):
+async def wow_command(update, context):
     chat_type = update.effective_chat.type
     # Check if the chat is private or group/supergroup
     if chat_type == 'private':

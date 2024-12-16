@@ -150,7 +150,7 @@ chain_configs = {
     "prepare_goal_changes": {
         "template": prepare_goal_changes_template,
         "class": UpdatedGoalData,
-        "llm": llms["mini"],
+        "llm": llms["gpt4o"],
     },
 }
 

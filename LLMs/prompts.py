@@ -412,7 +412,7 @@ recurring_schedule_template = ChatPromptTemplate([
 
 recurring_goal_split_template = ChatPromptTemplate([
     ("system", """
-    You are {bot_name}, helping {first_name} manage their recurring goal. Split the recurring goal into several individual tasks.
+    It is currently: {weekday}, {now}. You are {bot_name}, helping {first_name} manage their recurring goal. Split the recurring goal into several individual tasks.
     Provide the updated list of tasks.
     """),
     
@@ -476,7 +476,7 @@ language_check_template = ChatPromptTemplate([
 
 find_goal_id_template = ChatPromptTemplate([
     ("system", """
-    A user wants to edit something about one of their goals. It is your task to map their request onto the relevant goal they're talking about. For this, only refer to the correct goal_id, which is an integer that servers as a goal's unique identifier. 
+    It is currently: {weekday}, {now}. A user wants to edit something about one of their goals. It is your task to map their request onto the relevant goal they're talking about. For this, only refer to the correct goal_id, which is an integer that servers as a goal's unique identifier. 
     Generally, Goal IDs are displayed like this: #<goal_id>.
     Pick the best matching Goal ID by evaluating all of the context available. If you have nothing to go off (for example when there's no goal IDs in the available context), pick 0 as a fallback value.
     """),
@@ -490,7 +490,7 @@ find_goal_id_template = ChatPromptTemplate([
 
 prepare_goal_changes_template = ChatPromptTemplate([
     ("system", """
-    A user wants to edit something about one of their goals. It is your task to process this request. 
+    It is currently: {weekday}, {now}. A user wants to edit something about one of their goals. It is your task to process this request. 
     Return all of the input exactly as given, except for the changes the user wants to make: give updated values for those. For the deadlines field, give one or more deadline timestamp(s) in ISO 8601 format. 
     """),
     

@@ -96,7 +96,7 @@ def get_bot_token() -> str:
 # Register bot commands and handlers
 def register_handlers(application):
     from modules.commands import (
-    start_command, help_command, stats_command, filosofie_command, btc_command, 
+    start_command, help_command, stats_command, wow_command, btc_command, 
     bitcoin_command, smarter_command, translate_command, profile_command, overdue_command,
     stopwatch_command, tea_command, dice_command, today_command, twenty_four_hours_command,
     tomorrow_command
@@ -104,7 +104,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
-    application.add_handler(CommandHandler(["filosofie", "philosophy"], filosofie_command))
+    application.add_handler(CommandHandler(["wow", "inspiration", "filosofie", "philosophy"], wow_command))
     application.add_handler(CommandHandler("profile", profile_command))
     application.add_handler(CommandHandler(["stopwatch", "timer"], stopwatch_command))
     application.add_handler(CommandHandler(["tea"], tea_command))

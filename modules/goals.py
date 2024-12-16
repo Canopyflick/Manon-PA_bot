@@ -84,8 +84,8 @@ TEMPLATE_TEXT = """{{ PA }}‍ *{{ recurrence_type | capitalize }} Goal Proposal
 📅 {{ "Deadline" if deadline_count == 1 else deadline_count ~ " Deadlines" }}:
 {{ formatted_deadlines }}
 
-⚡ Goal Value: {{ goal_value | round(1) }} {% if total_goal_value is not none %}({{ total_goal_value | round(0) | int }} total){% endif %}
-🌚 Potential Penalty: {{ penalty | round(1) }} {% if total_penalty is not none %}({{ total_penalty | round(0) | int }} total){% endif %}
+⚡ Goal Value: {{ goal_value | round(1) }} {% if total_goal_value | default(None) is not none %}({{ total_goal_value | round(0) | int }} total){% endif %}
+🌚 Potential Penalty: {{ penalty | round(1) }} {% if total_penalty | default(None) is not none %}({{ total_penalty | round(0) | int }} total){% endif %}
 {% if (schedule_reminder | default(reminder_scheduled | default(False))) and reminder_count > 0 %}
 \n⏰ {{ "Reminder" if reminder_count == 1 else reminder_count ~ " Reminders" }}:
 {{ formatted_reminders }}

@@ -479,7 +479,10 @@ async def prepare_goal_changes(update, context, goal_id):
         logging.critical(f"here's the parsed output: {parsed_output}")
 
 
-        # put everything in user context
+        # put everything in user context (clear first)
+        if "Goals" in context.user_data:
+            # Remove the specific goal_id subkey if it exists
+            context.user_data["Goals"].pop(goal_id, None)
         await add_user_context_to_goals(context, goal_id, **parsed_output.model_dump())     # flattens the dictionary, to be accepted as **kwargs
         
         await send_goal_proposal(update, context, goal_id, adjust=True)
