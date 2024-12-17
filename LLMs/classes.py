@@ -100,7 +100,7 @@ class UpdatedGoalData(BaseModel):
     goal_value: float
     penalty: float
     reminder_scheduled: bool
-    reminder_time: Union[str, None] = Field(
+    reminders_times: Union[str, None] = Field(
         default=None,
         description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
     )

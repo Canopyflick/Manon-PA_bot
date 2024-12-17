@@ -6,7 +6,7 @@ from utils.helpers import get_btc_price, PA, BERLIN_TZ, datetime, timedelta
 from datetime import time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
-from utils.db import Database, get_first_name
+from utils.db import Database, get_first_name, fetch_upcoming_goals
 import asyncio, random, re, logging
 
 
@@ -101,96 +101,7 @@ async def send_morning_message(bot, specific_chat_id=None):
         logging.error(f"Error sending daily message: {e}")
 
 
-# fetches all pending goals today, in 1 overview (deadline between now and until {timeframe}AM tomorrow, OR 24 hours into the future, and puts them all in one message 
-async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches until 6am tomorrow by default
-    try:
-        async with Database.acquire() as conn:
-            # Prepare base query with placeholders
-            base_query = '''
-                SELECT 
-                    goal_description, 
-                    deadline, 
-                    goal_value, 
-                    penalty, 
-                    reminder_scheduled, 
-                    final_iteration
-                FROM manon_goals
-                WHERE chat_id = $1 
-                AND user_id = $2
-                AND status = 'pending'
-            '''        
-            
-            # Dynamic time condition logic
-            if timeframe == "24hs":
-                time_condition = """
-                AND deadline >= NOW()
-                AND deadline <= NOW() + INTERVAL '24 hours'
-                """
-            elif timeframe == "rest_of_day":
-                time_condition = """
-                AND deadline >= NOW()
-                AND deadline <= DATE_TRUNC('day', NOW()) + INTERVAL '28 hours'
-                """
-            elif timeframe == "tomorrow":
-                time_condition = """
-                AND deadline >= DATE_TRUNC('day', NOW() + INTERVAL '1 day') + INTERVAL '4 hours'
-                AND deadline <= DATE_TRUNC('day', NOW() + INTERVAL '1 day') + INTERVAL '28 hours'
-                """
-            else:
-                time_condition = f"""
-                AND deadline >= NOW()
-                AND deadline <= DATE_TRUNC('day', NOW() + INTERVAL '1 day') + INTERVAL '{timeframe} hours'
-                """
-                
-            # Build query
-            query = base_query + time_condition
-            params = [chat_id, user_id]
-            query += " ORDER BY deadline ASC"
-            logging.critical(f"Query: {query}")
-            logging.critical(f"Parameters: {params}")
 
-
-            # Execute the query
-            rows = await conn.fetch(query, *params)
-
-            # Format the results
-            if not rows:
-                return "You have no deadlines between now and tomorrow morning ☃️", 0, 0, 0
-
-        upcoming_goals = []
-        total_goal_value = 0
-        total_penalty = 0 
-        today = datetime.now(BERLIN_TZ).date()
-        goals_count = 0
-        for row in rows:
-            goals_count =+ 1
-            description = row["goal_description"] or "No description found... 👻"
-            deadline_dt = row["deadline"].astimezone(BERLIN_TZ)
-            deadline_date = deadline_dt.date()
-            # Format the deadline
-            if deadline_date == today:
-                deadline = f"{deadline_dt.strftime('%H:%M')} today"
-            else:
-                deadline = f"{deadline_dt.strftime('%a %H:%M')}"
-            goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
-            penalty = f"{row['penalty']:.1f}" if row["penalty"] is not None else "N/A"
-            reminder = "⏰" if row["reminder_scheduled"] else ""
-            final_iteration = " (Last in series)" if row["final_iteration"] == "yes" else ""
-            
-            total_goal_value += float(goal_value)
-            total_penalty += float(penalty) 
-
-            # Create a formatted string for each goal
-            upcoming_goals.append(
-                f"*{description}*{final_iteration}\n"
-                f"  📅 Deadline: {deadline} {reminder}\n"
-                f"  ⚡ {goal_value} | 🌚 {penalty}\n"
-            )
-
-        return "\n\n".join(upcoming_goals), round(total_goal_value, 1), round(total_penalty, 1), goals_count
-    except Exception as e:
-        logging.error(f"Error fetching goals for chat_id {chat_id}, user_id {user_id}: {e}")
-        return "An error occurred while fetching your goals. Please try again later."
 
 
 async def send_goals_today(update, context, chat_id, user_id, timeframe):

@@ -266,10 +266,10 @@ one_time_schedule_template = ChatPromptTemplate([
     Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain, in order for the goal to make sense on the day of the goal itself. Examples: "I want to meditate tomorrow morning" should become -> "You want to meditate in the morning", "I'm gonna climb mount everest before 18 December/next Wednesday" -> "You're gonna climb mount everest".
        
     ## Evaluation deadline: when should the goal be evaluated?
-    Unless otherwise specified, assume the user wants to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
+    When in doubt, assume the user wants to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
     If there's no indication of the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify exact moments or times of day they want to do the thing, adapt your deadlines accordingly.    
-    Examples: for the goal "I want to end my workday by 6 latest", if today were Monday, 2024-12-09, the best evaluation deadline would be "[2024-12-09T18:01:00]".
-    And for the goal "I want to meditate Wednesday morning", the best evaluation deadline would be "[2024-12-12T12:00:00]".
+    Examples: for the goal "I want to end my workday by 6 latest", if today were Monday, 2024-12-09 15:00, the best evaluation deadline would be "[2024-12-09T18:01:00]". But if it's already past 18:00 today, assume they want to do this tomorrow: "[2024-12-10T18:01:00]".
+    And for the goal "I want to meditate Wednesday morning", a fitting evaluation deadline would be "[2024-12-12T12:00:00]".
      
     ## schedule_reminder: bool
     Only schedule a reminder if the deadline is after tomorrow, for a goal where it would be helpful to the user to be reminded of the goal on a day other than the days of the deadline itself. For example, for a goal that might require some planning or that might span multiple days of effort.

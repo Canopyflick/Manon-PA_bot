@@ -67,9 +67,10 @@ async def send_goal_proposal(update, context, goal_id, adjust=False):
     try:
         message_text, keyboard = await draft_goal_proposal_message(update, context, goal_id, adjust)
         
+        if adjust:
+            await complete_limbo_goal(update, context, goal_id, initial_update=False)     # Storing the full goal in db (for the first time or upon adjustment)
         if not adjust: 
-            await complete_limbo_goal(update, context, goal_id) # Storing the full goal in db for the first time
-       
+            await complete_limbo_goal(update, context, goal_id, initial_update=True)
         # Send message with buttons
         await update.message.reply_text(message_text, reply_markup=keyboard, parse_mode="Markdown")
     
@@ -297,7 +298,8 @@ async def accept_goal_proposal(update, context):
             logging.info(f"⏰ Goal ID {goal_id} complies with all constraints: {validation_result['valid']}")
             
             # Update message
-            updated_message = f"You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ Description"
+            description = fetch_goal_data(goal_id, columns="description", single_value=True)
+            updated_message = f"You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ {description}"
             await query.edit_message_text(updated_message, parse_mode="Markdown")
 
     except Exception as e:
@@ -315,8 +317,9 @@ async def reject_goal_proposal(update, context):
         goal_id = int(match.group(1))
     try:
         await update_goal_data(goal_id, status="archived_canceled")
-
-        updated_message = f"You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ Description"
+        
+        description = fetch_goal_data(goal_id, columns="description", single_value=True)
+        updated_message = f"You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ {description}"
     
         await query.edit_message_text(updated_message, parse_mode="Markdown")
         return     
@@ -342,7 +345,6 @@ async def report_goal_progress(update, context):
     goal_id = int(match.group(2))  # The goal_id as an integer
     if action == "postpone":
         postpone_to_day = match.group(3)    # not yet implemented
-
     # Perform actions based on the extracted data
     if action == "finished":
         await handle_goal_completion(update, goal_id)
@@ -379,9 +381,10 @@ async def report_goal_progress(update, context):
             "postponed": "⏭️"
         }
         emoji = emojis[action]
-        text = f"Goal {'' if action == 'postponed' else 'filed as '}{action.capitalize()} {emoji}"
+        description = await fetch_goal_data(goal_id, columns=description, single_value=True)
+        text = f"Goal {'' if action == 'postponed' else 'filed as '}{action.capitalize()} {emoji}\n✍️ {description}"     # Translate to past tense later
         if action == "postponed":
-            text += f" to {tomorrow_formatted}"
+            text += f" moved to {tomorrow_formatted}"
         text += f"\n#{goal_id}"
         await query.edit_message_text(
             text=text,

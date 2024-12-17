@@ -1,7 +1,9 @@
-﻿from utils.helpers import add_user_context_to_goals, datetime, timedelta, BERLIN_TZ, PA
+﻿from reprlib import recursive_repr
+from utils.helpers import add_user_context_to_goals, datetime, timedelta, BERLIN_TZ, PA
 import logging, asyncpg, os, re, pytz
 from contextlib import asynccontextmanager
-from dateutil.parser import parse  
+from dateutil.parser import parse
+from datetime import time  
 
 
 
@@ -173,7 +175,7 @@ async def setup_database():
                     total_penalty FLOAT DEFAULT NULL,
                     attempt INTEGER DEFAULT 1,                      -- N+1, for tracking attempts (retries)
                     iteration INTEGER DEFAULT NULL,                 -- N+1 iteration of instances of individual (sub)goals that belong to the same group of one recurring goal
-                    final_iteration TEXT DEFAULT 'not applicable',  -- The last in the series of this group_id: final iteration of this recurring goal. Can be used to prompt evaluation of extension ('not_applicable', 'yes', 'not yet')
+                    final_iteration TEXT DEFAULT 'not applicable',  -- The last in the series of this group_id: final iteration of this recurring goal. Can be used to prompt evaluation of extension ('not applicable', 'yes', 'not yet')
                     goal_category TEXT[] DEFAULT NULL,            -- eg work, productivity, chores, relationships, hobbies, self-development, wealth, impact (EA), health, fun, other       
                     completion_time TIMESTAMPTZ DEFAULT NULL,                           -- Time when the goal was completed
                     FOREIGN KEY (user_id, chat_id) REFERENCES manon_users (user_id, chat_id)
@@ -367,44 +369,58 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
             return
         
        
-        # Extract the required fields from the goal data
+        # Extract the required fields from the goal data, same whether initial update or not:
         kwargs = {
             "recurrence_type": goal_data.get("recurrence_type"),
             "timeframe": goal_data.get("timeframe"),
             "goal_value": goal_data.get("goal_value"),
-            "total_goal_value": goal_data.get("total_goal_value"),
-            "goal_description": goal_data.get("goal_description"),
-            # Parse deadline as a timestamp with timezone
-            "deadline": (goal_data.get("evaluation_deadline")) if goal_data.get("evaluation_deadline") else None,
-            "interval": goal_data.get("interval"),
-            "reminder_time": (goal_data.get("reminder_time")) if goal_data.get("reminder_time") else None,
             "reminder_scheduled": goal_data.get("schedule_reminder", goal_data.get("reminder_scheduled")), # fallback is for adjustment cases, where reminder_scheduled is already the name of the key that's used
-            "time_investment_value": goal_data.get("time_investment_value"),
-            "difficulty_multiplier": goal_data.get("difficulty_multiplier"),
-            "impact_multiplier": goal_data.get("impact_multiplier"),
+            "goal_description": goal_data.get("goal_description"),           
             "penalty": goal_data.get("penalty"),
-            "total_penalty": goal_data.get("total_penalty"),
-            "goal_category": goal_data.get("category"),
-            "set_time": datetime.now(tz=BERLIN_TZ),  # Set the current time for when the goal is first fully recorded (update later if accepted)
-            "deadlines": goal_data.get("deadlines"),
             "reminders_times": goal_data.get("reminders_times"),
-            "interval": goal_data.get("interval"),
             "group_id": (goal_data.get("group_id")) if goal_data.get("group_id") else None,
         }
-        if kwargs.get("goal_recurrence_type") == "recurring" and initial_update:
-            kwargs["group_id"] = goal_data.get("goal_id")  # Add the group_id field for recurring goals, if the goal can indeed be assumed to be the only iteration yet (only the case for initial updates)
+
+        if initial_update:      # All of these aren't changed during adjustments
+            kwargs["deadline"] = goal_data.get("evaluation_deadline") if goal_data.get("evaluation_deadline") else None
+            kwargs["deadlines"] = goal_data.get("evaluation_deadlines") if goal_data.get("evaluation_deadlines") else None
+            kwargs["total_goal_value"] = goal_data.get("total_goal_value")
+            kwargs["total_penalty"] = goal_data.get("total_penalty")
+            kwargs["interval"] = goal_data.get("interval")
+            kwargs["reminder_time"] = goal_data.get("reminder_time") if goal_data.get("reminder_time") else None
+            kwargs["reminders_times"] = goal_data.get("reminders_times")
+            kwargs["time_investment_value"] = goal_data.get("time_investment_value")
+            kwargs["difficulty_multiplier"] = goal_data.get("difficulty_multiplier")
+            kwargs["impact_multiplier"] = goal_data.get("impact_multiplier")
+            kwargs["goal_category"] = goal_data.get("category")
+            kwargs["set_time"] = datetime.now(tz=BERLIN_TZ)  # Set the current time for when the goal is first fully recorded
+
+        if not initial_update:  # upon adjustments, deadlines and reminders are all put into the same field, so need to get distinguished here based on recurrence_type of goal
+            reminders = goal_data.get("reminders_times", [])
+            reminders_count = len(reminders) if isinstance(reminders, list) else 0
+            if reminders_count == 1:
+                kwargs["reminder_time"] = goal_data.get("reminders_times")
+            if reminders_count > 1:
+                kwargs["reminders_times"] = goal_data.get("reminders_times")
+     
+            recurrence_type = goal_data.get("recurrence_type")
+            if recurrence_type == "recurring":
+                kwargs["deadlines"] = goal_data.get("deadlines")
+            else:
+                kwargs["deadline"] = goal_data.get("deadlines")             
 
         # Update the goal data in the database
         await update_goal_data(goal_id, initial_update, **kwargs)
         
         # Validate goal constraints
-        async with Database.acquire() as conn:
-            validation_result = await validate_goal_constraints(goal_id, conn)
-            if not validation_result['valid']:
-                error_msg = f"{PA} Goal ID {goal_id} has issues:\n{validation_result['errors']}"
-                logging.error(error_msg)
-                await context.bot.send_message(chat_id=chat_id, text=f"{error_msg}")
-                return
+        if initial_update:      # don't know how to make this work for adjustments yet (would have to update the function I think and account for initial_update value inside it)
+            async with Database.acquire() as conn:
+                validation_result = await validate_goal_constraints(goal_id, conn)
+                if not validation_result['valid']:
+                    error_msg = f"{PA} Goal ID {goal_id} has issues:\n{validation_result['errors']}"
+                    logging.error(error_msg)
+                    await context.bot.send_message(chat_id=chat_id, text=f"{error_msg}")
+                    return
 
         # Notify the user of success
         await update.message.reply_text(
@@ -585,7 +601,7 @@ async def validate_goal_constraints(goal_id: int, conn) -> dict:
     if goal_data['timeframe'] == 'open-ended' and goal_data['deadline']:
         errors.append('Deadline must not be set for "open-ended" timeframe.')
 
-    if goal_data['final_iteration'] not in ('not_applicable', 'false', 'true', None):
+    if goal_data['final_iteration'] not in ('not applicable', 'not yet', 'yes', None):
         errors.append('Invalid final iteration value.')
 
     if goal_data['goal_category'] is None or not isinstance(goal_data['goal_category'], list):
@@ -652,4 +668,200 @@ async def fetch_goal_data(goal_id, columns="*", conditions=None, single_value=Fa
     except Exception as e:
         logging.error(f"Error in fetch_goal_data() for goal_id {goal_id}: {e}")
         return None
+    
 
+async def fetch_user_stats(update, context, user_id):
+    chat_id = update.effective_chat.id
+    columns = "pending_goals, finished_goals, failed_goals, score, penalties_accrued"
+    
+    results = await fetch_user_data(user_id, columns=columns)
+    # goals_set_today = await fetch_goal_data(goal_id )
+    
+    next_seven_days = await fetch_upcoming_goals(chat_id, user_id, timeframe="next week")
+    goals_count = next_seven_days[-1] if next_seven_days else 0 # Access the last element directly, with [-1]
+
+    results["next_seven_days"] = goals_count
+    
+    return results
+        
+    
+
+async def fetch_user_data(user_id, columns="*", conditions=None, single_value=False):
+    """
+    Fetch specified columns for a given user_id from the manon_goals table.
+
+    Args:
+        user_id (int): The ID of the goal to fetch data for.
+        columns (str): Comma-separated column names to fetch (default is '*').
+        conditions (str, optional): Additional SQL conditions to apply to the query.
+
+    Returns:
+        dict: A dictionary containing the fetched data, or simply the value if only one column is requested, or None if an error occurs.
+    """
+    try:
+        async with Database.acquire() as conn:
+            # Build the query dynamically
+            base_query = f'''
+                SELECT {columns}
+                FROM manon_users
+                WHERE user_id = $1
+            '''
+            if conditions:
+                base_query += f" AND {conditions}"
+
+            # Execute the query
+            result = await conn.fetchrow(base_query, user_id)
+
+            if not result:
+                raise ValueError(f"No data found for user_id: {user_id} with conditions: {conditions or 'None'}")
+            
+            # Return a single value if requested and a single column is being fetched
+            if single_value and len(result) == 1:
+                return list(result.values())[0]
+
+            # Return the result as a dictionary
+            return dict(result)
+
+    except Exception as e:
+        logging.error(f"Error in fetch_user_data() for user_id {user_id}: {e}")
+        return None
+
+
+async def fetch_pending_goals_count_between_times(chat_id=None):
+    """
+    Fetches the count of 'pending' goals with set_time between 4 AM today and 4 AM the next day.
+
+    Args:
+        today_tz (datetime): Current datetime with timezone awareness.
+        chat_id (int, optional): Filter by chat_id if provided.
+
+    Returns:
+        int: The count of matching goals.
+    """
+    try:
+        # Define the time range (4 AM today to 4 AM the next day)
+        berlin_tz = pytz.timezone("Europe/Berlin")
+        today = today_tz.astimezone(berlin_tz).date()
+        start_time = berlin_tz.localize(datetime.combine(today, time(4, 0, 0)))
+        end_time = start_time + timedelta(days=1)
+
+        # Build conditions and query dynamically
+        conditions = "status = 'pending' AND set_time BETWEEN $1 AND $2"
+        params = [start_time, end_time]
+
+        if chat_id:
+            conditions += " AND chat_id = $3"
+            params.append(chat_id)
+
+        async with Database.acquire() as conn:
+            query = f'''
+                SELECT COUNT(*)
+                FROM manon_goals
+                WHERE {conditions}
+            '''
+
+            # Execute the query and fetch result
+            result = await conn.fetchval(query, *params)
+            return result
+
+    except Exception as e:
+        logging.error(f"Error in fetch_pending_goals_count_between_times(): {e}")
+        return None
+
+
+# fetches all pending goals today, in 1 overview (deadline between now and until {timeframe}AM tomorrow, OR 24 hours into the future, and puts them all in one message 
+async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches until 6am tomorrow by default
+    try:
+        async with Database.acquire() as conn:
+            # Prepare base query with placeholders
+            base_query = '''
+                SELECT 
+                    goal_description, 
+                    deadline, 
+                    goal_value, 
+                    penalty, 
+                    reminder_scheduled, 
+                    final_iteration
+                FROM manon_goals
+                WHERE chat_id = $1 
+                AND user_id = $2
+                AND status = 'pending'
+            '''        
+            
+            # Dynamic time condition logic
+            if timeframe == "24hs":
+                time_condition = """
+                AND deadline >= NOW()
+                AND deadline <= NOW() + INTERVAL '24 hours'
+                """
+            elif timeframe == "rest_of_day":
+                time_condition = """
+                AND deadline >= NOW()
+                AND deadline <= DATE_TRUNC('day', NOW()) + INTERVAL '28 hours'
+                """
+            elif timeframe == "tomorrow":
+                time_condition = """
+                AND deadline >= DATE_TRUNC('day', NOW() + INTERVAL '1 day') + INTERVAL '4 hours'
+                AND deadline <= DATE_TRUNC('day', NOW() + INTERVAL '1 day') + INTERVAL '28 hours'
+                """
+            elif timeframe == "next week":
+                time_condition = """
+                AND deadline >= DATE_TRUNC('day', NOW())
+                AND deadline < DATE_TRUNC('day', NOW() + INTERVAL '8 days') -- captures the full 7 days
+                """
+            else:
+                time_condition = f"""
+                AND deadline >= NOW()
+                AND deadline <= DATE_TRUNC('day', NOW() + INTERVAL '1 day') + INTERVAL '{timeframe} hours'
+                """
+                
+            # Build query
+            query = base_query + time_condition
+            params = [chat_id, user_id]
+            query += " ORDER BY deadline ASC"
+            logging.critical(f"Query: {query}")
+            logging.critical(f"Parameters: {params}")
+
+
+            # Execute the query
+            rows = await conn.fetch(query, *params)
+
+            # Format the results
+            if not rows:
+                logging.info(f"No rows retrieved in fetch_upcoming_goals()")
+                return "You have no deadlines between now and tomorrow morning ☃️", 0, 0, 0
+
+        upcoming_goals = []
+        total_goal_value = 0
+        total_penalty = 0 
+        today = datetime.now(BERLIN_TZ).date()
+        goals_count = 0
+        for row in rows:
+            goals_count += 1
+            description = row["goal_description"] or "No description found... 👻"
+            deadline_dt = row["deadline"].astimezone(BERLIN_TZ)
+            deadline_date = deadline_dt.date()
+            # Format the deadline
+            if deadline_date == today:
+                deadline = f"{deadline_dt.strftime('%H:%M')} today"
+            else:
+                deadline = f"{deadline_dt.strftime('%a %H:%M')}"
+            goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
+            penalty = f"{row['penalty']:.1f}" if row["penalty"] is not None else "N/A"
+            reminder = "⏰" if row["reminder_scheduled"] else ""
+            final_iteration = " (Last in series)" if row["final_iteration"] == "yes" else ""
+            
+            total_goal_value += float(goal_value)
+            total_penalty += float(penalty) 
+
+            # Create a formatted string for each goal
+            upcoming_goals.append(
+                f"*{description}*{final_iteration}\n"
+                f"  📅 Deadline: {deadline} {reminder}\n"
+                f"  ⚡ {goal_value} | 🌚 {penalty}\n"
+            )
+
+        return "\n\n".join(upcoming_goals), round(total_goal_value, 1), round(total_penalty, 1), goals_count
+    except Exception as e:
+        logging.error(f"Error fetching goals for chat_id {chat_id}, user_id {user_id}: {e}")
+        return "An error occurred while fetching your goals. Please try again later."

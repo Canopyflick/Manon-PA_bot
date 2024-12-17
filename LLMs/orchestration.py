@@ -1,7 +1,7 @@
 ﻿from re import A
 from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from modules.goals import send_goal_proposal
+from modules.goals import send_goal_proposal, handle_goal_completion
 import logging, os, asyncio
 from utils.db import (
     fetch_goal_data,
@@ -236,7 +236,10 @@ async def handle_goal_classification(update, context, smarter=False):
             await goal_setting_analysis(update, context, goal_id, smarter)                                                                        # < < < < <
         elif goal_result == "Edit":
             logging.info(f"User wants to edit a goal >> find_goal_id()")
-            await find_goal_id(update, context)
+            await find_goal_id(update, context, type="edit")
+        elif goal_result == "Report_done":
+            logging.info(f"User wants to report a goal as done >> find_goal_id()")
+            await find_goal_id(update, context, type="done")
         else: 
             await update.message.reply_text(f"_Goal result '{goal_result}' not yet implemented_", parse_mode="Markdown")
     except Exception as e:
@@ -435,7 +438,7 @@ async def check_language(update, context, source_text):
 
 
 # for now, this only works for (replies to) messages that contain the goal_id in plaintext. Should later be expanded with some database content (with the user's recently set goals) that provide potentially relevant goal ids as sadditional context
-async def find_goal_id(update, context):
+async def find_goal_id(update, context, type=None):
     try:
         input_vars = await get_input_variables(update)      
         output = await run_chain("find_goal_id", input_vars)
@@ -448,11 +451,14 @@ async def find_goal_id(update, context):
         asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         if goal_id == 0:
-            logging.warning(f"\n\n🚨 Goal ID not found: {e}\n\n")
+            update.message.reply_text(f"Couldn't find goal {PA}", parse_mode = "Markdown")
+            logging.warning(f"\n\n🚨 Goal ID not found\n\n")
             return
-            # await next_step(update, context, output)
-        else: 
-            await prepare_goal_changes(update, context, goal_id)
+        else:
+            if type == "edit":
+                await prepare_goal_changes(update, context, goal_id)
+            if type == "done":
+                await handle_goal_completion(update, goal_id)
     except Exception as e:
         await update.message.reply_text(f"🚨 Goal ID not found:\n {e}")
         logging.error(f"\n\n🚨 Goal ID not found): {e}\n\n")
@@ -480,9 +486,9 @@ async def prepare_goal_changes(update, context, goal_id):
 
 
         # put everything in user context (clear first)
-        if "Goals" in context.user_data:
+        if "goals" in context.user_data:
             # Remove the specific goal_id subkey if it exists
-            context.user_data["Goals"].pop(goal_id, None)
+            context.user_data["goals"].pop(goal_id, None)
         await add_user_context_to_goals(context, goal_id, **parsed_output.model_dump())     # flattens the dictionary, to be accepted as **kwargs
         
         await send_goal_proposal(update, context, goal_id, adjust=True)

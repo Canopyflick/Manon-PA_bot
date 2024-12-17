@@ -197,7 +197,12 @@ def main():
         logging.info("Using *dev bot* (@TestManon_bot)" if local_flag else "Using & *prod bot* (@Manon_PA_bot)\n")
         
         # Create the bot application with ApplicationBuilder
-        application = ApplicationBuilder().token(token).post_init(setup).build()
+        application = ApplicationBuilder() \
+            .token(token) \
+            .connect_timeout(20) \
+            .read_timeout(20) \
+            .post_init(setup) \
+            .build()
 
         # Set the global bot instance
         global global_bot
