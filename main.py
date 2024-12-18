@@ -159,8 +159,8 @@ async def setup(application):
         
         logging.info("Database initialization completed.")
 
-        scheduler.add_job(send_morning_message, CronTrigger(hour=6, minute=6), args=[application.bot])
-        scheduler.add_job(send_evening_message, CronTrigger(hour=evening_message_hours, minute=evening_message_minutes), args=[application.bot])
+        scheduler.add_job(send_morning_message, CronTrigger(hour=6, minute=6), args=[application.bot], misfire_grace_time=7200, coalesce=True)
+        scheduler.add_job(send_evening_message, CronTrigger(hour=evening_message_hours, minute=evening_message_minutes), args=[application.bot], misfire_grace_time=7200, coalesce=True)
         scheduler.start()
         logging.info("Scheduler started successfully")
         

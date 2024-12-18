@@ -283,7 +283,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
             # Format the results
             if not rows:
                 logging.info(f"No overdue goals!")
-                return None, None, None, None
+                return [], 0, 0, 0
 
         pending_goals = []
         total_goal_value = 0
