@@ -298,7 +298,7 @@ async def accept_goal_proposal(update, context):
             logging.info(f"⏰ Goal ID {goal_id} complies with all constraints: {validation_result['valid']}")
             
             # Update message
-            description = fetch_goal_data(goal_id, columns="description", single_value=True)
+            description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
             updated_message = f"You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ {description}"
             await query.edit_message_text(updated_message, parse_mode="Markdown")
 
@@ -318,7 +318,7 @@ async def reject_goal_proposal(update, context):
     try:
         await update_goal_data(goal_id, status="archived_canceled")
         
-        description = fetch_goal_data(goal_id, columns="description", single_value=True)
+        description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
         updated_message = f"You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ {description}"
     
         await query.edit_message_text(updated_message, parse_mode="Markdown")
@@ -343,8 +343,7 @@ async def report_goal_progress(update, context):
 
     action = match.group(1)  # finished, failed, or postpone
     goal_id = int(match.group(2))  # The goal_id as an integer
-    if action == "postpone":
-        postpone_to_day = match.group(3)    # not yet implemented
+        
     # Perform actions based on the extracted data
     if action == "finished":
         await handle_goal_completion(update, goal_id)
@@ -354,45 +353,27 @@ async def report_goal_progress(update, context):
         await query.answer("🌚")
         # Add logic to handle a failed goal
     elif action == "postpone":
-        # Calculate the new deadline
-        overdue_deadline = await fetch_goal_data(goal_id, columns="deadline", single_value=True)
-
-        logging.critical(f"overdue deadline: {overdue_deadline}")
-        if overdue_deadline is None:
-            raise ValueError(f"Deadline not found for goal ID: {goal_id}")
-        # Ensure overdue_deadline is a datetime object
-        if not isinstance(overdue_deadline, datetime):
-            raise TypeError(f"Expected datetime object for deadline, got {type(overdue_deadline).__name__}")
-        tomorrow = overdue_deadline + timedelta(days=1)
-        tomorrow_formatted = tomorrow.strftime('%a, %d %B')
+        action = 'postponed'
+        await handle_goal_push(update, goal_id, query)
+        await query.answer("New day, new youuu")        
         
-        # set new deadline and increment goal
-        await update_goal_data(goal_id, deadline=tomorrow, increment_iteration=True)        # Still need to implement ~75% penalty charging
-        await query.answer("New day, new youuu")
-        # Add logic to handle a postponed goal
-
     # edit the original message
     try:
-        if action == "postpone":
-            action = "postponed"
         emojis = {
             "finished": "✅",
             "failed": "❌",
             "postponed": "⏭️"
         }
         emoji = emojis[action]
-        description = await fetch_goal_data(goal_id, columns=description, single_value=True)
-        text = f"Goal {'' if action == 'postponed' else 'filed as '}{action.capitalize()} {emoji}\n✍️ {description}"     # Translate to past tense later
-        if action == "postponed":
-            text += f" moved to {tomorrow_formatted}"
-        text += f"\n#{goal_id}"
+        description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
+        text = f"Goal #{goal_id} is being {'' if action == 'postponed' else 'filed as '}{action.capitalize()} {emoji}\n✍️ {description}"     # Translate to past tense later
+
         await query.edit_message_text(
             text=text,
-            reply_markup=None  # removes the buttons
+            reply_markup=None  
         )
     except Exception as e:
-        logging.error(f"couldn't edit expiration message for {goal_id}: {e}'")
-
+        logging.error(f"couldn't edit expiration message for {goal_id}: {e}")
     
 
 async def handle_goal_completion(update, goal_id):
@@ -421,5 +402,38 @@ async def handle_goal_failure(update, goal_id):
         logging.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
     
 
+async def handle_goal_push(update, goal_id, query):
+    try:
+        # Calculate the new deadline
+        overdue_deadline = await fetch_goal_data(goal_id, columns="deadline", single_value=True)
+        # postpone_to_day = match.group(3)    # not yet implemented
+        logging.critical(f"overdue deadline: {overdue_deadline}")
+        if overdue_deadline is None:
+            raise ValueError(f"Deadline not found for goal ID: {goal_id}")
+        # Ensure overdue_deadline is a datetime object
+        if not isinstance(overdue_deadline, datetime):
+            raise TypeError(f"Expected datetime object for deadline, got {type(overdue_deadline).__name__}")
+        tomorrow = overdue_deadline + timedelta(days=1)
+        tomorrow_formatted = tomorrow.strftime('%a, %d %B')
+    
+        description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
 
-
+        # set new deadline and increment goal
+        await update_goal_data(goal_id, deadline=tomorrow, increment_iteration=True)      
+    
+        # charge penalty
+        postpone_multiplier = 0.65
+        penalty = await fetch_goal_data(goal_id, columns="penalty", single_value=True) * postpone_multiplier
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        score_change = penalty * postpone_multiplier * -1
+        await update_user_data(user_id, chat_id, increment_score=score_change, increment_penalties_accrued=penalty)
+        
+        text = f"⏭️ Postponed goal #{goal_id} to {tomorrow_formatted}. Charged a partial penalty: score {score_change} {PA}\n\n✍️ _{description}_"
+        await asyncio.sleep(6)
+        await query.edit_message_text(
+                text=text,
+                parse_mode="Markdown"
+        )
+    except Exception as e:
+        logging.info(f"Error postponing goal: {e}")

@@ -307,14 +307,12 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 deadline = f"{deadline_dt.strftime('%H:%M')} today"
                 postpone_to_day = "tomorrow"
             elif deadline_date == yesterday:
-                
-
                 deadline = f"{deadline_dt.strftime('%H:%M')} yesterday"
                 postpone_to_day = "today"
             else:
                 deadline = f"{deadline_dt.strftime('%a, %d %B')}"
             goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
-            penalty = f"{row['penalty']:.1f}" if row["penalty"] is not None else "N/A"
+            penalty = float(f"{row['penalty']:.1f}") if row["penalty"] is not None else 0  # Use 0.0 as a default
             reminder = "⏰" if row["reminder_scheduled"] else ""
             final_iteration = " (❗Last in series)" if row["final_iteration"] == "yes" else ""
             
@@ -329,6 +327,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 f"#{goal_id}"
             )
 
+            cost_to_postpone = round(penalty * 0.65, 1)
             
             # Inline keyboard buttons for each goal
             buttons = InlineKeyboardMarkup([
@@ -337,7 +336,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                     InlineKeyboardButton("❌ Failed", callback_data=f"failed_{goal_id}")
                 ],
                 [
-                    InlineKeyboardButton(f"⏭️ {postpone_to_day.capitalize()}..!", callback_data=f"postpone_{goal_id}_{postpone_to_day}")
+                    InlineKeyboardButton(f"⏭️ {postpone_to_day.capitalize()}..! (-{cost_to_postpone})", callback_data=f"postpone_{goal_id}_{postpone_to_day}")
                 ]
             ])
             # Append each goal as a dictionary with text and buttons
