@@ -183,7 +183,7 @@ async def send_evening_message(bot, specific_chat_id=None):
                 
             first_name = user["first_name"] or "Sardientje"  # Fallback if first_name is NULL or empt
             
-            overdue_goals, total_goal_value, total_penalty, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="yesterday")   # only check goals that overdue yesterday
+            overdue_goals, total_goal_value, total_penalty, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="today")   # only check goals that overdue yesterday
             logging.debug(f"overdue goals for user_id {user_id}: {overdue_goals}")
 
             if isinstance(overdue_goals, str):
