@@ -62,7 +62,7 @@ async def send_morning_message(bot, specific_chat_id=None):
             morning_message = (
                 f"{announcement}\n\n{goals_today}\n\n"
             )
-            stakes_message = f"_Go get some (⚡{total_goal_value}) ..!\n... or lose some ({total_penalty}🌚 )_\n"
+            stakes_message = f"_Go get some (⚡{total_goal_value}) ..!\n... or lose some ({total_penalty}🌚)_\n"
             if total_goal_value == 0 or goals_count == 1:
                 stakes_message = ''
             if goals_count == 0:

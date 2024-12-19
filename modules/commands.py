@@ -97,9 +97,11 @@ async def stats_command(update, context, ready=False):
     chat_id = update.effective_chat.id
     
     first_name = await get_first_name(context, user_id, chat_id)
-    # Unpack the retrieved stats
+    
     stats = await fetch_user_stats(update, context, user_id)
     logging.info(f"Stats retrieved:\n{stats}")
+    
+    # Unpack the retrieved stats
     pending_goals = stats.get("pending_goals")
     finished_goals = stats.get("finished_goals")
     failed_goals = stats.get("failed_goals")
@@ -120,8 +122,7 @@ async def stats_command(update, context, ready=False):
 
     # Construct the message
     stats_message = (
-        f"{PA}"
-        f"👤 *{first_name}*\n"
+        f"*Stats for 👤{first_name}* {PA}\n"
         f"🔄 Pending: {pending_goals}\n"
         f"✅ Finished: {finished_goals}\n"
         f"❌ Failed: {failed_goals} (🌚 {round(penalties_accrued, 1)})\n"
