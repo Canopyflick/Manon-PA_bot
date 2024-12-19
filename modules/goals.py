@@ -318,7 +318,7 @@ async def accept_goal_proposal(update, context):
             
             # Update message
             description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
-            updated_message = f"✅ You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ {description}"
+            updated_message = f"You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_ ✅\n\n✍️ {description}"
             await query.edit_message_text(updated_message, parse_mode="Markdown")
 
     except Exception as e:
@@ -339,7 +339,7 @@ async def reject_goal_proposal(update, context):
         await update_goal_data(goal_id, status="archived_canceled")
         
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
-        updated_message = f"❌ You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ {description}"
+        updated_message = f"You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_ ❌\n\n✍️ {description}"
     
         await query.edit_message_text(updated_message, parse_mode="Markdown")
         return     
