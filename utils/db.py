@@ -347,6 +347,34 @@ async def create_limbo_goal(update, context):
     except Exception as e:
         logging.error(f'Unexpected error in create_limbo_goal(): \n{e}')
         return None
+    
+
+async def create_recurring_goal_instance(**kwargs):
+    try:
+        async with Database.acquire() as conn:
+            # Dynamically build the query based on kwargs
+            columns = ', '.join(kwargs.keys())  # Extract column names
+            placeholders = ', '.join(f'${i+1}' for i in range(len(kwargs)))  # Create $1, $2, ..., $N placeholders
+            values = list(kwargs.values())  # Extract values
+
+            query = f'''
+                INSERT INTO manon_goals ({columns})
+                VALUES ({placeholders})
+                RETURNING goal_id;
+            '''
+            # Execute the query
+            brand_new_goal_id = await conn.fetchval(query, *values)
+
+            logging.info(f"New goal created with ID: {brand_new_goal_id}")
+            return brand_new_goal_id
+
+    except asyncpg.PostgresError as e:
+        logging.error(f"Database error in create_recurring_goal_instance: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Unexpected error in create_recurring_goal_instance: {e}")
+        return None
+
         
 
 async def complete_limbo_goal(update, context, goal_id, initial_update=True):

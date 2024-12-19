@@ -1,6 +1,16 @@
 ﻿from jinja2.utils import F
 from utils.helpers import BERLIN_TZ, add_user_context_to_goals, PA
-from utils.db import update_goal_data, complete_limbo_goal, adjust_penalty_or_goal_value, fetch_template_data_from_db, Database, validate_goal_constraints, update_user_data, fetch_goal_data
+from utils.db import(
+    update_goal_data, 
+    complete_limbo_goal, 
+    adjust_penalty_or_goal_value, 
+    fetch_template_data_from_db, 
+    Database, 
+    validate_goal_constraints, 
+    update_user_data, 
+    fetch_goal_data,
+    create_recurring_goal_instance,
+)
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import logging, re, asyncio
 from datetime import datetime, timedelta
@@ -79,7 +89,7 @@ async def send_goal_proposal(update, context, goal_id, adjust=False):
         logging.error(f"Error in send_goal_proposal(): {e}")
     
         
-TEMPLATE_TEXT = """{{ PA }}‍ *{{ recurrence_type | capitalize }} Goal Proposal*
+TEMPLATE_TEXT = """*{{ recurrence_type | capitalize }} Goal Proposal* {{ PA }}‍ 
 ✍️ {{ goal_description }}
 
 📅 {{ "Deadline" if deadline_count == 1 else deadline_count ~ " Deadlines" }}:
@@ -283,10 +293,19 @@ async def accept_goal_proposal(update, context):
             goal_id = int(match.group(1))
         
         # Update goal status
-        await update_goal_data(goal_id, status="pending")
-        await update_user_data(user_id, chat_id, increment_pending_goals=1)
+        recurrence_type = await fetch_goal_data(goal_id, columns="recurrence_type", single_value=True)    
+        if recurrence_type == "recurring":
+            deadlines = await fetch_goal_data(goal_id, columns="deadlines", single_value=True)
+            first_deadline = deadlines[0]
+            await accept_recurring_goals(update, context, goal_id, query)
+            await update_goal_data(goal_id, status="pending", deadline=first_deadline, iteration=1)
         
-        # Validate goal constraints
+        if recurrence_type == "one-time":
+            await update_goal_data(goal_id, status="pending")
+            await update_user_data(user_id, chat_id, increment_pending_goals=1)
+            
+
+        # Validate goal constraints (either for goup goal's first, or for one-time goal)
         async with Database.acquire() as conn:
             validation_result = await validate_goal_constraints(goal_id, conn)
             if not validation_result['valid']:
@@ -304,7 +323,8 @@ async def accept_goal_proposal(update, context):
 
     except Exception as e:
         logging.warning(f"Error accepting goal proposal: {e}")
-        raise  # You might want to add this to propagate the error
+        await query.edit_message_text(f"er ging iets mis: {e}")
+        raise 
    
 
 async def reject_goal_proposal(update, context):
@@ -374,6 +394,7 @@ async def report_goal_progress(update, context):
         )
     except Exception as e:
         logging.error(f"couldn't edit expiration message for {goal_id}: {e}")
+        await query.edit_message_text(f"er ging iets mis: {e}")
     
 
 async def handle_goal_completion(update, goal_id):
@@ -381,7 +402,7 @@ async def handle_goal_completion(update, goal_id):
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         await update_goal_data(goal_id, status="archived_done", completion_time=datetime.now(tz=BERLIN_TZ))
-        goal_value  = await fetch_goal_data(goal_id, columns="goal_value", single_value=True)
+        goal_value = await fetch_goal_data(goal_id, columns="goal_value", single_value=True)
         await update_user_data(user_id, chat_id, increment_score=goal_value, increment_finished_goals=1, increment_pending_goals=-1)
         logging.info(f"✅ Goal #{goal_id} completed: archived and user score increased by {goal_value}")
     except Exception as e:
@@ -437,3 +458,74 @@ async def handle_goal_push(update, goal_id, query):
         )
     except Exception as e:
         logging.info(f"Error postponing goal: {e}")
+        await query.edit_message_text(f"er ging iets mis: {e}")
+
+
+async def accept_recurring_goals(update, context, goal_id, query):
+    try:
+        # Fetch goal data
+        columns = "user_id, chat_id, group_id, goal_value, penalty, interval, deadlines, goal_description, total_goal_value, goal_category"
+        set_time = datetime.now(tz=BERLIN_TZ)
+
+        goal_data = await fetch_goal_data(goal_id, columns=columns)
+        user_id = goal_data["user_id"]
+        chat_id = goal_data["chat_id"]
+        group_id = goal_data["group_id"]
+        goal_value = goal_data["goal_value"]
+        penalty = goal_data["penalty"]
+        interval = goal_data["interval"]
+        deadlines = goal_data["deadlines"]
+        goal_description = goal_data["goal_description"]
+        goal_category = goal_data["goal_category"]
+        total_goal_value = goal_data["total_goal_value"]
+
+        deadlines_count = len(deadlines)
+        
+        logging.info(f"Iterating over {deadlines_count} deadlines to accept recurring goals.")
+
+        new_goal_ids = []
+        
+        # Loop through deadlines and create goals
+        for i, deadline in enumerate(deadlines, start=1):
+            iteration = i      # Calculate iteration based on loop index: first deadline from the goals is also index 1
+            if i == 1:         # This Group mother goal has already been logged before, so skip
+                continue
+            
+            final_iteration = "yes" if i == deadlines_count else "not yet"
+            logging.info(f"Inserting goal {i}/{deadlines_count}, final_iteration = {final_iteration}")
+
+            goal_kwargs = {
+                "user_id": user_id,
+                "chat_id": chat_id,
+                "group_id": group_id,
+                "goal_value": goal_value,
+                "penalty": penalty,
+                "interval": interval,
+                "deadline": deadline,
+                "goal_description": goal_description,
+                "goal_category": goal_category,
+                "total_goal_value": total_goal_value,
+                "set_time": set_time.isoformat(),
+                "final_iteration": final_iteration,
+                "status": "pending",
+                "timeframe": "by_date",
+                "recurrence_type": "recurring",
+                "iteration": iteration
+            }
+            
+            new_goal_id = await create_recurring_goal_instance(**goal_kwargs)
+            if new_goal_id:
+                new_goal_ids.append(new_goal_id)
+
+            await update_user_data(user_id, chat_id, increment_pending_goals=1)
+
+        logging.info(f"All goals created successfully: {new_goal_ids}")     
+        
+        await update_user_data(user_id, chat_id, increment_pending_goals=deadlines_count)
+            
+        return new_goal_ids # not used at the moment
+
+    except Exception as e:
+        logging.info(f"Error accept_recurring_goals(): {e}")
+        await query.edit_message_text(f"er ging iets mis: {e}")
+        
