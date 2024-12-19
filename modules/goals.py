@@ -298,7 +298,7 @@ async def accept_goal_proposal(update, context):
             deadlines = await fetch_goal_data(goal_id, columns="deadlines", single_value=True)
             first_deadline = deadlines[0]
             await accept_recurring_goals(update, context, goal_id, query)
-            await update_goal_data(goal_id, status="pending", deadline=first_deadline, iteration=1)
+            await update_goal_data(goal_id, status="pending", deadline=first_deadline, iteration=1, group_id=goal_id)
         
         if recurrence_type == "one-time":
             await update_goal_data(goal_id, status="pending")
@@ -318,7 +318,7 @@ async def accept_goal_proposal(update, context):
             
             # Update message
             description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
-            updated_message = f"You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ {description}"
+            updated_message = f"✅ You *Accepted* Goal Proposal #{goal_id}\n> > > _progressed to pending status_\n\n✍️ {description}"
             await query.edit_message_text(updated_message, parse_mode="Markdown")
 
     except Exception as e:
@@ -339,7 +339,7 @@ async def reject_goal_proposal(update, context):
         await update_goal_data(goal_id, status="archived_canceled")
         
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
-        updated_message = f"You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ {description}"
+        updated_message = f"❌ You *Rejected* Goal Proposal #{goal_id}\n> > > _filed in Archived:Canceled_\n\n✍️ {description}"
     
         await query.edit_message_text(updated_message, parse_mode="Markdown")
         return     
@@ -464,13 +464,12 @@ async def handle_goal_push(update, goal_id, query):
 async def accept_recurring_goals(update, context, goal_id, query):
     try:
         # Fetch goal data
-        columns = "user_id, chat_id, group_id, goal_value, penalty, interval, deadlines, goal_description, total_goal_value, goal_category"
+        columns = "user_id, chat_id, goal_value, penalty, interval, deadlines, goal_description, total_goal_value, goal_category"
         set_time = datetime.now(tz=BERLIN_TZ)
 
         goal_data = await fetch_goal_data(goal_id, columns=columns)
         user_id = goal_data["user_id"]
         chat_id = goal_data["chat_id"]
-        group_id = goal_data["group_id"]
         goal_value = goal_data["goal_value"]
         penalty = goal_data["penalty"]
         interval = goal_data["interval"]
@@ -497,7 +496,7 @@ async def accept_recurring_goals(update, context, goal_id, query):
             goal_kwargs = {
                 "user_id": user_id,
                 "chat_id": chat_id,
-                "group_id": group_id,
+                "group_id": goal_id,
                 "goal_value": goal_value,
                 "penalty": penalty,
                 "interval": interval,

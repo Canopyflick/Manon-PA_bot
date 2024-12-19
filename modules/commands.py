@@ -74,7 +74,7 @@ async def help_command(update, context):
         '*Info about your goals*\n'
         f'| /today | /tomorrow | /24 | /overdue |\n\n'
         '*Trigger words*\n'
-        '| gm | gn | emoji | pomodoro | !test | '
+        '| gm | gn | emoji | pomodoro | !test | usercontext | clearcontext |'
     )
     chat_type = update.effective_chat.type
     if chat_type == 'private':
@@ -120,11 +120,12 @@ async def stats_command(update, context, ready=False):
 
     # Construct the message
     stats_message = (
+        f"{PA}"
         f"👤 *{first_name}*\n"
         f"🔄 Pending: {pending_goals}\n"
         f"✅ Finished: {finished_goals}\n"
-        f"❌ Failed: {failed_goals} (🌚 {penalties_accrued})\n"
-        f"🎯 Score: {score}\n"
+        f"❌ Failed: {failed_goals} (🌚 {round(penalties_accrued, 1)})\n"
+        f"🎯 Score: {round(score, 1)}\n"
         f"📅 Next 7 days: {next_seven_days}\n\n"
         f"_{nonsense_message}_"
     )

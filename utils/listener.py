@@ -29,6 +29,7 @@ async def handle_triggers(update, context, trigger_text):
         await send_user_context(update, context)
     elif trigger_text == "clearcontext":
         context.user_data.clear()
+        await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="🫡")
     elif trigger_text == "gm":    
         bot=context.bot
         chat_id=update.message.chat_id

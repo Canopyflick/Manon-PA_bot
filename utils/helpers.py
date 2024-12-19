@@ -14,8 +14,8 @@ from pprint import pformat
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
 PA_options = [
-    '🦄', '🐯', '🐲', '🕷️', '🧌', '🧓', '🤴', '🎅',
-    '🥷', '🧑‍💼', '🕴️', '🌞', '☃️', '💖', '👮‍♀️',
+    '🦄', '🐲', '🕷️', '🧌', '🧓', '🎅',
+    '🥷', '🧑‍💼', '🕴️', '☃️', '💖', '👮‍♀️',
     '🧜‍♀️', '🧜', '🧚‍♀️', '🧚‍♂️', '🧚'
 ]
 PA = random.choice(PA_options)
