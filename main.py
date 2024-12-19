@@ -99,7 +99,7 @@ def register_handlers(application):
     start_command, help_command, stats_command, wow_command, btc_command, 
     bitcoin_command, smarter_command, translate_command, profile_command, overdue_command,
     stopwatch_command, tea_command, dice_command, today_command, twenty_four_hours_command,
-    tomorrow_command
+    tomorrow_command, diary_command
     )
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
@@ -113,6 +113,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler(["24", "24hs"], twenty_four_hours_command))
     application.add_handler(CommandHandler(["overdue", "expired"], overdue_command))
     application.add_handler(CommandHandler(["tomorrow", "morgen"], tomorrow_command))
+    application.add_handler(CommandHandler(["diary", "header"], diary_command))
     
     # /btc /bitcoin command handler
     application.add_handler(CommandHandler("btc", btc_command))
@@ -142,8 +143,6 @@ def register_handlers(application):
     application.add_handler(CallbackQueryHandler(reject_goal_proposal, pattern=r"^reject_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^(finished|failed)_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^postpone_(\d+)_(today|tomorrow)$"))
-
-
 
 
     

@@ -16,6 +16,7 @@ from LLMs.classes import (
     LanguageCheck,
     GoalID,
     UpdatedGoalData,
+    DiaryHeader,
 )
 from LLMs.prompts import (
     dummy_template,
@@ -33,7 +34,8 @@ from LLMs.prompts import (
     one_time_schedule_template,
     language_check_template,
     find_goal_id_template,
-    prepare_goal_changes_template
+    prepare_goal_changes_template,
+    diary_header_template
 )
 
 from langchain_openai import ChatOpenAI   
@@ -152,7 +154,13 @@ chain_configs = {
         "class": UpdatedGoalData,
         "llm": llms["gpt4o"],
     },
+    "diary_header": {
+        "template": diary_header_template,
+        "class": DiaryHeader,
+        "llm": llms["gpt4o"],
+    },
 }
+
 
 # Function to create chains
 def create_chain(config):

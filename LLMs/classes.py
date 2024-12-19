@@ -106,6 +106,11 @@ class UpdatedGoalData(BaseModel):
     )
     deadlines: List[str]
     summary_of_changes: str
+    
+
+class DiaryHeader(BaseModel):
+    preparatory_calculations: str
+    header: str
 
 
 

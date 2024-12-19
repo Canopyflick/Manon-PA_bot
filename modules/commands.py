@@ -4,7 +4,7 @@ from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from utils.helpers import get_btc_price
 from telegram.ext import ContextTypes, CallbackContext
-from LLMs.orchestration import process_other_language, check_language, handle_goal_classification, start_initial_classification
+from LLMs.orchestration import diary_header, process_other_language, check_language, handle_goal_classification, start_initial_classification
 from utils.db import get_first_name, register_user, fetch_user_stats
 from utils.listener import roll_dice
 from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
@@ -381,6 +381,7 @@ async def overdue_command(update, context):
             parse_mode="Markdown"
         )
         
+
 async def tomorrow_command(update, context):
     try:
         chat_id = update.message.chat_id
@@ -396,6 +397,21 @@ async def tomorrow_command(update, context):
             
     except Exception as e:
         logging.error(f"Error in today_command: {e}")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="An error occurred while processing your request. Please try again later.",
+            parse_mode="Markdown"
+        )
+        
+
+async def diary_command(update, context):
+    try:
+        
+        chat_id = update.effective_chat.id
+        await diary_header(update, context)
+            
+    except Exception as e:
+        logging.error(f"Error in diary_command: {e}")
         await context.bot.send_message(
             chat_id=chat_id,
             text="An error occurred while processing your request. Please try again later.",

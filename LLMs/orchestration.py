@@ -27,6 +27,7 @@ from LLMs.classes import (
     GoalInstanceAssessment,
     GoalID,
     UpdatedGoalData,
+    DiaryHeader,
 )
 
 #########################################################################
@@ -496,3 +497,39 @@ async def prepare_goal_changes(update, context, goal_id):
     except Exception as e:
         await update.message.reply_text(f"🚨 prepare_goal_changes:\n {e}")
         logging.error(f"\n\n🚨 prepare_goal_changes:\n {e}\n\n")
+
+header_top ="""
+---
+Heading: 
+Wellbeing: 
+Work: 
+Comfort: 
+Home (Leipzig): true
+Walk >30mins.: 
+Whereabouts:
+Sports: 
+Drugs: 
+E: 
+Purchases: 
+Meditate: 
+Interessant: 
+Finished:
+---
+"""
+async def diary_header(update, context):
+    try:
+        input_vars = await get_input_variables(update)
+        output = await run_chain("diary_header", input_vars)
+        
+        parsed_output = DiaryHeader.model_validate(output)
+        dates_header = parsed_output.header
+        
+        header = f"{header_top}{dates_header}" 
+
+        debug_message = await update.message.reply_text(f"{header}")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        
+    except Exception as e:
+        await update.message.reply_text(f"Error in diary_header():\n {e}")
+        logging.error(f"\n\n🚨 Error in diary_header(): {e}\n\n")
