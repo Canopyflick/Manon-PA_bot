@@ -87,6 +87,7 @@ async def help_command(update, context):
 
 async def tea_command(update, context):
     await emoji_stopwatch(update, context, mode="tea_short")
+    
 
 async def profile_command(update, context):
     await update.message.reply_text("will show all the user-specific settings, like long term goals, preferences, constitution ... + edit-button")
@@ -120,16 +121,22 @@ async def stats_command(update, context, ready=False):
     nonsense_message = await nonsense(update, context, first_name)
     logging.warning(f"Nonsense message >>> {nonsense_message}")
 
-    # Construct the message
+    weekly_pending_goals = "🚧"
+    weekly_finished_goals = "🚧"
+    weekly_failed_goals = "🚧"
+
+    # Construct the message with aligned columns
     stats_message = (
         f"*Stats for 👤{first_name}* {PA}\n"
-        f"🔄 Pending: {pending_goals}\n"
-        f"✅ Finished: {finished_goals}\n"
-        f"❌ Failed: {failed_goals} (🌚 {round(penalties_accrued, 1)})\n"
-        f"🎯 Score: {round(score, 1)}\n"
-        f"📅 Next 7 days: {next_seven_days}\n\n"
+        f"{'':<20} {'WEEKLY':>10} | {'TOTAL':>10}\n"
+        f"🔄 Pending:        {weekly_pending_goals:>10} | {pending_goals:>10}\n"
+        f"✅ Finished:       {weekly_finished_goals:>10} | {finished_goals:>10}\n"
+        f"❌ Failed:         {weekly_failed_goals:>10} | {failed_goals:>10} (🌚 {round(penalties_accrued, 1)})\n"
+        f"🎯 Score:          {round(score, 1):>10} | {round(score, 1):>10}\n"
+        f"📅 Next 7 days:    {next_seven_days:>10}\n\n"
         f"_{nonsense_message}_"
     )
+
     
     # Send the message
     await update.message.reply_text(stats_message, parse_mode="Markdown")

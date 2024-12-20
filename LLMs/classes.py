@@ -112,6 +112,3 @@ class DiaryHeader(BaseModel):
     preparatory_calculations: str
     header: str
 
-
-
-

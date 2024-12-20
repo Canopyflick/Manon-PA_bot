@@ -302,6 +302,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
             deadline_dt = row["deadline"]
             logging.critical(f"😴 Deadline for goal_id {goal_id}: {deadline_dt}, tzinfo: {deadline_dt.tzinfo}")
             deadline_date = deadline_dt.date()
+            postpone_to_day = "some day"
             # Format the deadline
             if deadline_date == today:
                 deadline = f"{deadline_dt.strftime('%H:%M')} today"
