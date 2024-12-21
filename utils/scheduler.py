@@ -291,27 +291,32 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
         today = datetime.now().date()
         yesterday = (datetime.now() - timedelta(days=1)).date()
         goals_count = 0
-
-        
-
+        now = datetime.now(tz=BERLIN_TZ)
+        one_hour_from_now = now + timedelta(hours=1)
 
         for row in rows:
-            goals_count =+ 1
+            goals_count += 1
             goal_id = row ["goal_id"]
             description = row["goal_description"] or "No description found... 👻"
             deadline_dt = row["deadline"]
             logging.critical(f"😴 Deadline for goal_id {goal_id}: {deadline_dt}, tzinfo: {deadline_dt.tzinfo}")
+
             deadline_date = deadline_dt.date()
-            postpone_to_day = "some day"
+            postpone_to_day = "mañana"
+            # Determine postpone_to_day based on time comparison
+            if deadline_dt <= one_hour_from_now:
+                postpone_to_day = "tomorrow"
+            else:
+                postpone_to_day = "today"
+
             # Format the deadline
             if deadline_date == today:
                 deadline = f"{deadline_dt.strftime('%H:%M')} today"
-                postpone_to_day = "tomorrow"
             elif deadline_date == yesterday:
                 deadline = f"{deadline_dt.strftime('%H:%M')} yesterday"
-                postpone_to_day = "today"
             else:
                 deadline = f"{deadline_dt.strftime('%a, %d %B')}"
+
             goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
             penalty = float(f"{row['penalty']:.1f}") if row["penalty"] is not None else 0  # Use 0.0 as a default
             reminder = "⏰" if row["reminder_scheduled"] else ""

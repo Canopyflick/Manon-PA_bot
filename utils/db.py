@@ -235,9 +235,9 @@ async def update_goal_data(goal_id, initial_update=False, **kwargs):
 
         # Handle special expressions for SQL updates
         special_updates = []
-        if "increment_iteration" in kwargs:
-            special_updates.append("iteration = iteration + 1")
-            del kwargs["increment_iteration"]
+        if "increment_attempt" in kwargs:
+            special_updates.append("attempt = attempt + 1")
+            del kwargs["increment_attempt"]
 
             
         regular_updates = ', '.join(f"{key} = ${i+2}" for i, key in enumerate(kwargs.keys()))

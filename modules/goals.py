@@ -349,76 +349,72 @@ async def reject_goal_proposal(update, context):
     
 
 async def report_goal_progress(update, context):
-    query = update.callback_query
-    callback_data = query.data
-
-    # Extract the action and goal_id using the regex groups
-    match = (
-    re.match(r"^(finished|failed)_(\d+)$", callback_data) or
-    re.match(r"^(postpone)_(\d+)_(today|tomorrow)$", callback_data)
-    )
-    if not match:
-        await query.answer("Invalid action.")
-        return
-
-    action = match.group(1)  # finished, failed, or postpone
-    goal_id = int(match.group(2))  # The goal_id as an integer
-        
-    # Perform actions based on the extracted data
-    if action == "finished":
-        await handle_goal_completion(update, goal_id)
-        await query.answer("🥂")
-    elif action == "failed":
-        await handle_goal_failure(update, goal_id)
-        await query.answer("🌚")
-        # Add logic to handle a failed goal
-    elif action == "postpone":
-        action = 'postponed'
-        await handle_goal_push(update, goal_id, query)
-        await query.answer("New day, new youuu")        
-        
-    # edit the original message
     try:
-        emojis = {
-            "finished": "✅",
-            "failed": "❌",
-            "postponed": "⏭️"
-        }
-        emoji = emojis[action]
-        description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
-        text = f"Goal #{goal_id} is being {'' if action == 'postponed' else 'filed as '}{action.capitalize()} {emoji}\n✍️ {description}"     # Translate to past tense later
+        query = update.callback_query
+        callback_data = query.data
 
-        await query.edit_message_text(
-            text=text,
-            reply_markup=None  
+        # Extract the action and goal_id using the regex groups
+        match = (
+        re.match(r"^(finished|failed)_(\d+)$", callback_data) or
+        re.match(r"^(postpone)_(\d+)_(today|tomorrow)$", callback_data)
         )
+        if not match:
+            await query.answer("Invalid action.")
+            return
+
+        action = match.group(1)  # finished, failed, or postpone
+        goal_id = int(match.group(2))  # The goal_id as an integer
+        
+        # Perform actions based on the extracted data
+        if action == "finished":
+            await query.answer("🥂")
+            await handle_goal_completion(update, goal_id, query)
+        elif action == "failed":
+            await query.answer("🌚")
+            await handle_goal_failure(update, goal_id, query)
+            # Add logic to handle a failed goal
+        elif action == "postpone":
+            await query.answer("New day, new youuu") 
+            await handle_goal_push(update, goal_id, query)       
+
     except Exception as e:
         logging.error(f"couldn't edit expiration message for {goal_id}: {e}")
         await query.edit_message_text(f"er ging iets mis: {e}")
     
 
-async def handle_goal_completion(update, goal_id):
+async def handle_goal_completion(update, goal_id, query):
     try:
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         await update_goal_data(goal_id, status="archived_done", completion_time=datetime.now(tz=BERLIN_TZ))
         goal_value = await fetch_goal_data(goal_id, columns="goal_value", single_value=True)
+        description = await fetch_goal_data(goal_id, columns="description", single_value=True)
         await update_user_data(user_id, chat_id, increment_score=goal_value, increment_finished_goals=1, increment_pending_goals=-1)
         logging.info(f"✅ Goal #{goal_id} completed: archived and user score increased by {goal_value}")
+        await query.edit_message_text(
+                text=f"✅ Goal #{goal_id} completed: archived and user score increased by {round(goal_value, 1)}n\n✍️_{description}_",
+            reply_markup=None,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logging.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")   
     
     
-    
-async def handle_goal_failure(update, goal_id):
+async def handle_goal_failure(update, goal_id, query):
     try:
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         await update_goal_data(goal_id, status="archived_failed", completion_time=datetime.now(tz=BERLIN_TZ))
-        penalty  = await fetch_goal_data(goal_id, columns="penalty", single_value=True)
+        penalty = await fetch_goal_data(goal_id, columns="penalty", single_value=True)
+        description = await fetch_goal_data(goal_id, columns="description", single_value=True)
         score_decrease = penalty * -1
         await update_user_data(user_id, chat_id, increment_score=score_decrease, increment_penalties_accrued=penalty, increment_failed_goals=1, increment_pending_goals=-1)
-        logging.info(f"✅ Goal #{goal_id}'s 'failure completed: archived and {score_decrease} penalty charged ")
+        logging.info(f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged")
+        await query.edit_message_text(
+            text=f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged\n\n✍️_{description}_",
+            reply_markup=None,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logging.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
     
@@ -434,13 +430,20 @@ async def handle_goal_push(update, goal_id, query):
         # Ensure overdue_deadline is a datetime object
         if not isinstance(overdue_deadline, datetime):
             raise TypeError(f"Expected datetime object for deadline, got {type(overdue_deadline).__name__}")
+        
+        # Make overdue_deadline timezone-aware if it is naive
+        if overdue_deadline.tzinfo is None:
+            overdue_deadline = overdue_deadline.replace(tz=BERLIN_TZ)
+        
         tomorrow = overdue_deadline + timedelta(days=1)
+        while tomorrow <= datetime.now(tz=BERLIN_TZ):
+            tomorrow += timedelta(days=1)
         tomorrow_formatted = tomorrow.strftime('%a, %d %B')
     
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
 
         # set new deadline and increment goal
-        await update_goal_data(goal_id, deadline=tomorrow, increment_iteration=True)      
+        await update_goal_data(goal_id, deadline=tomorrow, increment_attempt=True)      
     
         # charge penalty
         postpone_multiplier = 0.65
@@ -450,8 +453,7 @@ async def handle_goal_push(update, goal_id, query):
         score_change = penalty * postpone_multiplier * -1
         await update_user_data(user_id, chat_id, increment_score=score_change, increment_penalties_accrued=penalty)
         
-        text = f"⏭️ Postponed goal #{goal_id} to {tomorrow_formatted}. Charged a partial penalty: score {score_change} {PA}\n\n✍️ _{description}_"
-        await asyncio.sleep(6)
+        text = f"⏭️ Postponed goal #{goal_id} to {tomorrow_formatted}. Charged a partial penalty: score {round(score_change, 1)} {PA}\n\n✍️ _{description}_"
         await query.edit_message_text(
                 text=text,
                 parse_mode="Markdown"
