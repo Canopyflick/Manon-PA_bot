@@ -392,7 +392,7 @@ async def handle_goal_completion(update, goal_id, query):
         await update_user_data(user_id, chat_id, increment_score=goal_value, increment_finished_goals=1, increment_pending_goals=-1)
         logging.info(f"✅ Goal #{goal_id} completed: archived and user score increased by {goal_value}")
         await query.edit_message_text(
-                text=f"✅ Goal #{goal_id} completed: archived and user score increased by {round(goal_value, 1)}n\n✍️_{description}_",
+                text=f"✅ Goal #{goal_id} completed: archived and user score increased by {round(goal_value, 1)}\n\n✍️_{description}_",
             reply_markup=None,
             parse_mode="Markdown"
         )
@@ -411,7 +411,7 @@ async def handle_goal_failure(update, goal_id, query):
         await update_user_data(user_id, chat_id, increment_score=score_decrease, increment_penalties_accrued=penalty, increment_failed_goals=1, increment_pending_goals=-1)
         logging.info(f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged")
         await query.edit_message_text(
-            text=f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged\n\n✍️_{description}_",
+            text=f"❌ Goal #{goal_id}'s marked failed: archived and {round(score_decrease, 1)} penalty charged\n\n✍️_{description}_",
             reply_markup=None,
             parse_mode="Markdown"
         )
