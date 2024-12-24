@@ -3,12 +3,14 @@ from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_go
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal, handle_goal_completion
 import logging, os, asyncio
+from dateutil.parser import parse
 from utils.db import (
     fetch_goal_data,
     fetch_long_term_goals,
     update_goal_data,
     create_limbo_goal,
     complete_limbo_goal,
+    record_reminder,
 )
 from LLMs.config import chains
 from LLMs.classes import (
@@ -28,6 +30,7 @@ from LLMs.classes import (
     GoalID,
     UpdatedGoalData,
     DiaryHeader,
+    Reminder
 )
 
 #########################################################################
@@ -190,7 +193,7 @@ async def process_classification_result(update, context, initial_classification)
         elif initial_classification == "Reminders":
             preset_reaction = "🫡"
             await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
-            await update.message.reply_text("Your message has been classified as a reminder.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                                  # < < < < <
+            await reminder_setting(update, context)                                  # < < < < <
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
         elif initial_classification == "Meta":
             preset_reaction = "💩"
@@ -533,3 +536,30 @@ async def diary_header(update, context):
     except Exception as e:
         await update.message.reply_text(f"Error in diary_header():\n {e}")
         logging.error(f"\n\n🚨 Error in diary_header(): {e}\n\n")
+        
+
+async def reminder_setting(update, context):
+    try:
+        input_vars = await get_input_variables(update)
+        output = await run_chain("reminder_setting", input_vars)
+        
+        parsed_output = Reminder.model_validate(output)
+        
+        # Parse the time string into a datetime object
+        reminder_time = parse(parsed_output.time)
+        if reminder_time.tzinfo is None:
+                reminder_time = reminder_time.replace(tzinfo=BERLIN_TZ)
+
+        now = datetime.now(tz=BERLIN_TZ)
+        if reminder_time.date() == now.date():
+            logging.warning(f"reminder requested on the same day")
+        
+        debug_message = await update.message.reply_text(f"Reminder setting result: \n{output}")
+        await add_delete_button(update, context, debug_message.message_id)
+        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        
+        await record_reminder(update, context, output)
+    
+    except Exception as e:
+        await update.message.reply_text(f"Error in reminder_setting():\n {e}")
+        logging.error(f"\n\n🚨 Error in reminder_setting(): {e}\n\n")

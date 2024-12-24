@@ -6,7 +6,6 @@ from dateutil.parser import parse
 from datetime import time  
 
 
-
 # Initialization of connection and database tables
 # create a pool during application startup
 def redact_password(url):
@@ -188,6 +187,25 @@ async def setup_database():
                 'final_iteration': 'TEXT DEFAULT "not applicable"' 
             }
             await add_missing_columns(conn, 'manon_goals', desired_columns_manon_goals)
+            
+            #3 manon_reminders table
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS manon_reminders (
+                    reminder_id SERIAL PRIMARY KEY, 
+                    user_id BIGINT NOT NULL,                -- Foreign key to identify the user
+                    chat_id BIGINT NOT NULL,                -- Foreign key to identify the chat       
+                    reminder_text TEXT DEFAULT NULL,
+                    reminder_category TEXT[] DEFAULT NULL,       
+                    set_time TIMESTAMPTZ DEFAULT NOW(),       -- Time when the reminder was set/requested
+                    time TIMESTAMPTZ DEFAULT NULL,
+                    FOREIGN KEY (user_id, chat_id) REFERENCES manon_users (user_id, chat_id)
+                )
+            ''')
+            desired_columns_manon_reminders = {
+                'reminder_id': 'SERIAL PRIMARY KEY',
+                'user_id': 'BIGINT NOT NULL'
+            }
+            await add_missing_columns(conn, 'manon_reminders', desired_columns_manon_reminders)
 
         logging.info("Database tables initialized successfully")
 
@@ -770,7 +788,7 @@ async def fetch_pending_goals_count_between_times(chat_id=None):
         # Define the time range (4 AM today to 4 AM the next day)
         berlin_tz = pytz.timezone("Europe/Berlin")
         today = today_tz.astimezone(berlin_tz).date()
-        start_time = berlin_tz.localize(datetime.combine(today, time(4, 0, 0)))
+        start_time = berlin_tz.localize(datetime.combine(today, time(4, 0, 0))) #(localize doesn't work prolly)
         end_time = start_time + timedelta(days=1)
 
         # Build conditions and query dynamically
@@ -893,3 +911,91 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
     except Exception as e:
         logging.error(f"Error fetching goals for chat_id {chat_id}, user_id {user_id}: {e}")
         return "An error occurred while fetching your goals. Please try again later."
+    
+
+async def record_reminder(update, context, output):
+    """Record a reminder in the manon_reminders table"""
+    try:
+        # Get user information
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        
+        # Parse the reminder time
+        try:
+            reminder_time = parse(output.time)
+            # Ensure the time is timezone-aware
+            if reminder_time.tzinfo is None:
+                reminder_time = reminder_time.replace(tzinfo=BERLIN_TZ)
+        except ValueError as e:
+            await update.message.reply_text("Invalid time format provided.")
+            logging.error(f"Time parsing error: {e}")
+            return
+
+        async with Database.acquire() as conn:
+            query = """
+                INSERT INTO manon_reminders 
+                (user_id, chat_id, reminder_text, reminder_category, time)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING reminder_id
+            """
+            
+            result = await conn.fetchrow(
+                query,
+                user_id,
+                chat_id,
+                output.reminder_text,
+                output.reminder_category,
+                reminder_time.isoformat()
+            )
+            
+            reminder_id = result['reminder_id']
+
+            # Format the confirmation message
+            formatted_time = reminder_time.strftime("%A, %B %d, %Y at %H:%M")
+            confirmation_message = (
+                f"✅ Reminder #{reminder_id} set successfully!\n\n"
+                f"📝 Text: {output.reminder_text}\n"
+                f"🗓 Time: {formatted_time}\n"
+                f"📋 Category: {output.reminder_category}"
+            )
+
+            # Send confirmation message
+            await update.message.reply_text(
+                confirmation_message,
+                parse_mode='HTML'
+            )
+            
+            # Schedule the reminder immediately if it's within the next 24 hours
+            now = datetime.now(tz=BERLIN_TZ)
+            if reminder_time <= now + timedelta(days=1):
+                reminder_data = {
+                    'reminder_id': reminder_id,
+                    'user_id': user_id,
+                    'chat_id': chat_id,
+                    'reminder_text': output.reminder_text,
+                    'time': reminder_time
+                }
+                # Local import to avoid circular import on boot
+                from utils.scheduler import scheduler
+                from modules.reminders import send_reminder
+
+                scheduler.add_job(
+                    send_reminder,
+                    'date',
+                    run_date=reminder_time,
+                    args=[context.bot, reminder_data],
+                    id=f"regularreminder_{reminder_id}",
+                    replace_existing=True
+                )
+                logging.info(f"Scheduled immediate reminder #{reminder_id} for {formatted_time}")
+
+            return reminder_id
+
+    except Exception as e:
+        error_message = f"Failed to set reminder: {str(e)}"
+        await update.message.reply_text(error_message)
+        logging.error(f"Error in record_reminder: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return None
+    

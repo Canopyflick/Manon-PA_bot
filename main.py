@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from utils.helpers import BERLIN_TZ, PA, monitor_btc_price
 from utils.db import setup_database, Database
 from utils.scheduler import send_morning_message, scheduler, AsyncIOScheduler, CronTrigger, DateTrigger, IntervalTrigger, send_evening_message, evening_message_hours, evening_message_minutes
+from modules.reminders import check_upcoming_reminders
 
 print(f"... STARTING ... {PA}  \n\n")
 
@@ -160,6 +161,14 @@ async def setup(application):
 
         scheduler.add_job(send_morning_message, CronTrigger(hour=6, minute=6), args=[application.bot], misfire_grace_time=7200, coalesce=True)
         scheduler.add_job(send_evening_message, CronTrigger(hour=evening_message_hours, minute=evening_message_minutes), args=[application.bot], misfire_grace_time=7200, coalesce=True)
+        scheduler.add_job(
+            check_upcoming_reminders, 
+            CronTrigger(hour=0, minute=0),  # Run at midnight
+            args=[application.bot],
+            misfire_grace_time=7200,
+            coalesce=True
+        )
+
         scheduler.start()
         logging.info("Scheduler started successfully")
         

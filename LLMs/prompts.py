@@ -543,3 +543,19 @@ diary_header_template = ChatPromptTemplate([
     {user_message}
     """),
 ])
+
+
+reminder_setting_template = ChatPromptTemplate([
+    ("system", """
+    It is currently: {weekday}, {now}. A user wants you to remind them about something, it is your task to plan the scheduling now.
+    For the time field, give one or more deadline timestamp(s) in ISO 8601 format. If no other specific time is mentioned or implied, schedule the reminder for 7:30 in the morning. 
+    The Reminder Text should be a short text message that will be sent to the user at that moment. It will be inserted into the following template:
+    Reminder for [{first_name}](tg://user?id={user_id}):\n\n"<reminder_text>"
+    For category, pick one or several from the list. 
+    """),
+    
+    ("human", """
+    User Request:
+    {user_message}
+    """),
+])

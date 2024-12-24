@@ -112,3 +112,10 @@ class DiaryHeader(BaseModel):
     preparatory_calculations: str
     header: str
 
+
+class Reminder(BaseModel):
+    reminder_text: str
+    reminder_category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]
+    time: str
+    
+
