@@ -400,21 +400,34 @@ async def handle_goal_completion(update, goal_id, query):
         logging.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")   
     
     
-async def handle_goal_failure(update, goal_id, query):
+async def handle_goal_failure(update, goal_id, query, bot=None):
     try:
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
+        if update == 1.5:
+            user_id = await fetch_goal_data(goal_id, columns="user_id", single_value=True)
+            chat_id = await fetch_goal_data(goal_id, columns="chat_id", single_value=True)
+        else:
+            user_id = update.effective_user.id
+            chat_id = update.effective_chat.id
+            
         await update_goal_data(goal_id, status="archived_failed", completion_time=datetime.now(tz=BERLIN_TZ))
         penalty = await fetch_goal_data(goal_id, columns="penalty", single_value=True)
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
         score_decrease = penalty * -1
         await update_user_data(user_id, chat_id, increment_score=score_decrease, increment_penalties_accrued=penalty, increment_failed_goals=1, increment_pending_goals=-1)
         logging.info(f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged")
-        await query.edit_message_text(
-            text=f"❌ Goal #{goal_id}'s marked failed: archived and {round(score_decrease, 1)} penalty charged\n\n✍️_{description}_",
-            reply_markup=None,
-            parse_mode="Markdown"
-        )
+        if update == 1.5:   # in case of scheduled archiving job 
+            await bot.send_message(
+                chat_id,
+                text=f"❌ Goal #{goal_id} was marked as failed after no progress was reported for 26 hours. {round(score_decrease, 1)} penalty charged. \n\n✍️_{description}_",
+                reply_markup=None,
+                parse_mode="Markdown"
+            )
+        else:
+            await query.edit_message_text(
+                text=f"❌ Goal #{goal_id} was marked failed: archived and {round(score_decrease, 1)} penalty charged\n\n✍️_{description}_",
+                reply_markup=None,
+                parse_mode="Markdown"
+            )
     except Exception as e:
         logging.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
     

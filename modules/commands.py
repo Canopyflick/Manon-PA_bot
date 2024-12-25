@@ -74,7 +74,7 @@ async def help_command(update, context):
         '*Info about your goals*\n'
         f'| /today | /tomorrow | /24 | /overdue |\n\n'
         '*Trigger words*\n'
-        '| gm | gn | emoji | pomodoro | !test | usercontext | clearcontext |'
+        '| gm | gn | emoji | pomodoro | !test | usercontext | clearcontext | resolve |'
     )
     chat_type = update.effective_chat.type
     if chat_type == 'private':

@@ -6,7 +6,8 @@ from utils.helpers import get_btc_price, PA, BERLIN_TZ, datetime, timedelta
 from datetime import time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
-from utils.db import Database, get_first_name, fetch_upcoming_goals
+from modules.goals import handle_goal_failure
+from utils.db import Database, fetch_goal_data, get_first_name, fetch_upcoming_goals, update_goal_data
 import asyncio, random, re, logging
 
 
@@ -255,7 +256,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 time_condition = """
                 AND deadline <= NOW()
                 """
-            elif timeframe == "overdue_today":    # all pending goals that overdue today: for /today-command
+            elif timeframe == "overdue_today":    # all pending goals that went overdue today: for /today-command
                 time_condition = """
                 AND deadline >= DATE_TRUNC('day', NOW()) + INTERVAL '4 hours'
                 AND deadline <= NOW()
@@ -268,6 +269,14 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 time_condition = """
                 AND DEADLINE <= NOW()
                 AND deadline >= DATE_TRUNC('day', NOW()) + INTERVAL '4 hours'
+                """
+            elif timeframe == "older":      # For the midday penalization warning message. 
+                time_condition = """
+                AND DEADLINE <= NOW() - INTERVAL '1 day'
+                """
+            elif timeframe == "older_followup":      # For the midday penalization, deleting all overdue goals older than 26 hours
+                time_condition = """
+                AND DEADLINE <= NOW() - INTERVAL '26 hours'
                 """
             else:
                 raise ValueError(f"Invalid timeframe: {timeframe}")
@@ -292,7 +301,6 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
         yesterday = (datetime.now() - timedelta(days=1)).date()
         goals_count = 0
         now = datetime.now(tz=BERLIN_TZ)
-        one_hour_from_now = now + timedelta(hours=1)
 
         for row in rows:
             goals_count += 1
@@ -303,11 +311,23 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
 
             deadline_date = deadline_dt.date()
             postpone_to_day = "mañana"
-            # Determine postpone_to_day based on time comparison
-            if deadline_dt <= one_hour_from_now:
-                postpone_to_day = "tomorrow"
-            else:
-                postpone_to_day = "today"
+            # Determine if the goal should be postponed to today or tomorrow
+            if deadline_dt.date() < now.date():
+                # Overdue from a previous day
+                if deadline_dt.time() < now.time():
+                    # Deadline earlier in the day than the current time 
+                    postpone_to_day = "tomorrow"
+                else:
+                    # Deadline later in the day
+                    postpone_to_day = "today"
+            elif deadline_dt.date() == now.date():
+                # Due today but overdue
+                if deadline_dt.time() < now.time():
+                    # Deadline earlier in the day
+                    postpone_to_day = "tomorrow"
+                else:
+                    # Deadline later in the day
+                    postpone_to_day = "today"
 
             # Format the deadline
             if deadline_date == today:
@@ -354,3 +374,91 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
         logging.error(f"Error fetching overdue goals for chat_id {chat_id}, user_id {user_id}: {e}")
         return "An error occurred while fetching your overdue goals. Please try again later.", None, None, None
         
+
+async def fail_goals_warning(bot, chat_id=None):
+    delete_all_expired_goals = False
+    try:
+        async with Database.acquire() as conn:
+            # Fetch all unique user_id/chat_id pairs
+            if not chat_id:
+                users = await conn.fetch("SELECT user_id, chat_id, first_name FROM manon_users")
+            else: 
+                delete_all_expired_goals = True
+                users = await conn.fetch(f"SELECT user_id, first_name FROM manon_users WHERE chat_id = {chat_id}")  # Like this, with the unparameterized SQL query, the code could be susceptible to SQL injection attacks #security. Could be fun to try to hack myself
+        warning_emojis = ["⚠️", "👮‍♀️"]
+        random_emoji = random.choice(warning_emojis)
+        
+        now = datetime.now(tz=BERLIN_TZ)
+        ultimatum_time = now + timedelta(hours=2)
+        if chat_id:
+            ultimatum_time = now + timedelta(minutes=1)
+        formatted_ultimatum_time = ultimatum_time.strftime('%M:%H')
+
+        # 2. Loop through each user row and send a personalized message
+        for user in users:
+            user_id = user["user_id"]
+            if chat_id:
+                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # overdue for more than 24 hours
+            elif not chat_id:
+                chat_id = user["chat_id"]
+                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="older")   # overdue for more than 24 hours
+            first_name = user["first_name"] or "Katja"  # Fallback if first_name is NULL or empt
+            # 3. Check any >24hs old overdue goals (or all overdue goals, if trigger-word-triggered)
+             
+            logging.debug(f"overdue goals for user_id {user_id}: {overdue_goals}")
+
+            if overdue_goals:
+                greeting = (
+                    f"Hi {first_name}, you have "
+                    f"{'one older /overdue goal' if goals_count == 1 else f'{goals_count} older /overdue goals'} open {PA}\n\n"
+                    f"Report on {"it" if goals_count == 1 else "them"} by {formatted_ultimatum_time} today if you want to avoid automatic archiving and penalization 🍆 🌚"
+                )            
+                # 4. send messages
+                if random.random() < 0.0273972603:  # once per year if triggered every 10 days
+                    greeting += "\n_Oh yeah, and also: mindfulness could be a great option right now. Same goes for right now, by the way"
+                try:
+                    await bot.send_message(chat_id, random_emoji)
+                    await bot.send_message(chat_id, greeting, parse_mode="Markdown")
+                    for goal in overdue_goals:
+                        if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
+                            continue
+                        await asyncio.sleep(1)
+                        await bot.send_message(
+                            chat_id=chat_id,
+                            text=goal["text"],
+                            reply_markup=goal["buttons"],
+                            parse_mode="Markdown" 
+                        )
+                        
+                        goal_id = goal["goal_id"]
+                        # Extract hour and minute for the CronTrigger, then schedule archiving/penalizing job
+                        ultimatum_hour = ultimatum_time.hour
+                        ultimatum_minute = ultimatum_time.minute
+                        scheduler.add_job(
+                            scheduled_goal_archival, 
+                            CronTrigger(hour=ultimatum_hour, minute=ultimatum_minute),
+                            args=[bot, goal_id, ultimatum_time, delete_all_expired_goals],
+                            misfire_grace_time=3600,
+                            coalesce=True
+                        )
+                    if not chat_id:
+                        logging.info(f"Daily older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+                    elif chat_id:
+                        logging.info(f"Trigger-word-triggered older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+                except Exception as e:
+                    logging.error(f"Error sending overdue goals warning message to chat_id {chat_id}: {e}")
+            
+    except Exception as e:
+        logging.error(f"Error sending overdue goals warning message: {e}")
+
+
+async def scheduled_goal_archival(bot, goal_id, ultimatum_time, delete_all_expired_goals):
+    try:
+        status = await fetch_goal_data(goal_id, columns="status", single_value=True)
+        if status == "pending":
+            update = 1.5 
+            await handle_goal_failure(update, goal_id, query=None, bot=bot)
+        else:
+            logging.info(f"Goal #{goal_id} was not archived at {ultimatum_time}, because it was not pending anymore (user processed it themselves)")
+    except Exception as e:
+        logging.error(f"Error in schedule_goal_deletion(): {e}")

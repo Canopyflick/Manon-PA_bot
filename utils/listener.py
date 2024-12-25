@@ -3,10 +3,11 @@ from LLMs.orchestration import start_initial_classification
 from typing import Literal, List, Union
 import asyncio, logging
 from telegram import Bot
-from utils.scheduler import send_evening_message, send_morning_message
+from utils.scheduler import send_evening_message, send_morning_message, fail_goals_warning
 
 
-triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn"]
+triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", 
+            "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve"]
 
 async def handle_triggers(update, context, trigger_text):
     if trigger_text == "SeintjeNatuurlijk":
@@ -38,6 +39,10 @@ async def handle_triggers(update, context, trigger_text):
         bot=context.bot
         chat_id=update.message.chat_id
         await send_evening_message(bot, specific_chat_id=chat_id)
+    elif trigger_text == "resolve":    
+        bot=context.bot
+        chat_id=update.message.chat_id
+        await fail_goals_warning(bot, chat_id=chat_id)
 
 
 

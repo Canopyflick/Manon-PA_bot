@@ -5,7 +5,18 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHan
 from datetime import datetime, timezone
 from utils.helpers import BERLIN_TZ, PA, monitor_btc_price
 from utils.db import setup_database, Database
-from utils.scheduler import send_morning_message, scheduler, AsyncIOScheduler, CronTrigger, DateTrigger, IntervalTrigger, send_evening_message, evening_message_hours, evening_message_minutes
+from utils.scheduler import (
+    send_morning_message, 
+    scheduler, 
+    AsyncIOScheduler, 
+    CronTrigger, 
+    DateTrigger, 
+    IntervalTrigger, 
+    send_evening_message, 
+    evening_message_hours, 
+    evening_message_minutes,
+    fail_goals_warning,
+)
 from modules.reminders import check_upcoming_reminders
 
 print(f"... STARTING ... {PA}  \n\n")
@@ -164,6 +175,14 @@ async def setup(application):
         scheduler.add_job(
             check_upcoming_reminders, 
             CronTrigger(hour=0, minute=0),  # Run at midnight
+            args=[application.bot],
+            misfire_grace_time=7200,
+            coalesce=True
+        )
+        # Check and warn for >22hs overdue goals (2hs later schedule_goal_deletion)
+        scheduler.add_job(
+            fail_goals_warning, 
+            CronTrigger(hour=11, minute=11),
             args=[application.bot],
             misfire_grace_time=7200,
             coalesce=True

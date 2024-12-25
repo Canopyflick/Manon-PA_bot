@@ -275,7 +275,7 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
         if timeframe == "open-ended":
             # await goal_proposal?
             await update.message.reply_text(
-                f"Next step for open-ended: save with status 'prepared'"
+                f"Next step for open-ended not yet implemented: save with status 'prepared'"
             )
             return
         
@@ -285,7 +285,7 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
             await goal_valuation(update, context, goal_id, "recurring", smarter)
         else:
             await update.message.reply_text(
-                f"Next step for ANDERS: ???"
+                f"Next step for ANDERS not yet implemented: ???"
             )
     except Exception as e:
         await update.message.reply_text(f"Error in goal_setting_analysis():\n {e}")

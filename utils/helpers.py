@@ -57,18 +57,21 @@ async def check_chat_owner(update: Update, context):
     return False
 
 
-# Security check: am I in the chat where the bot is used?
+# Security check: am I or Anne-Cathrine in the chat where the bot is used?
 async def is_ben_in_chat(update, context):
-    USER_ID = 1875436366
+    USER_IDS = [1875436366, 279184266]
     chat_id = update.effective_chat.id
     try:
         # Get information about your status in the chat
-        member = await context.bot.get_chat_member(chat_id, USER_ID)
-        # Check if you're a member, administrator, or have any active role in the chat
-        if member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]:
-            return True
-        else:
-            return False
+        for USER_ID in USER_IDS:
+            member = await context.bot.get_chat_member(chat_id, USER_ID)
+            # Check if you're a member, administrator, or have any active role in the chat
+            if member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]:
+                return True
+            else:
+                return False
+            
+        
     except Exception as e:
         logging.error(f"Error checking chat member: {e}")
         return False
