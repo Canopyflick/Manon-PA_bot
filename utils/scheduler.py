@@ -391,14 +391,14 @@ async def fail_goals_warning(bot, chat_id=None):
         now = datetime.now(tz=BERLIN_TZ)
         ultimatum_time = now + timedelta(hours=2)
         if chat_id:
-            ultimatum_time = now + timedelta(minutes=1)
-        formatted_ultimatum_time = ultimatum_time.strftime('%M:%H')
+            ultimatum_time = now + timedelta(minutes=5)
+        formatted_ultimatum_time = ultimatum_time.strftime('%H:%M')
 
         # 2. Loop through each user row and send a personalized message
         for user in users:
             user_id = user["user_id"]
             if chat_id:
-                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # overdue for more than 24 hours
+                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # all overdue goalmore than 24 hours
             elif not chat_id:
                 chat_id = user["chat_id"]
                 overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="older")   # overdue for more than 24 hours
@@ -412,7 +412,9 @@ async def fail_goals_warning(bot, chat_id=None):
                     f"Hi {first_name}, you have "
                     f"{'one older /overdue goal' if goals_count == 1 else f'{goals_count} older /overdue goals'} open {PA}\n\n"
                     f"Report on {"it" if goals_count == 1 else "them"} by {formatted_ultimatum_time} today if you want to avoid automatic archiving and penalization 🍆 🌚"
-                )            
+                )     
+                if delete_all_expired_goals:
+                    greeting.replace("older ", "")
                 # 4. send messages
                 if random.random() < 0.0273972603:  # once per year if triggered every 10 days
                     greeting += "\n_Oh yeah, and also: mindfulness could be a great option right now. Same goes for right now, by the way"
@@ -420,6 +422,8 @@ async def fail_goals_warning(bot, chat_id=None):
                     await bot.send_message(chat_id, random_emoji)
                     await bot.send_message(chat_id, greeting, parse_mode="Markdown")
                     for goal in overdue_goals:
+                        logging.warning(f"Overdue goals for user_id {user_id}: {overdue_goals}")
+
                         if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
                             continue
                         await asyncio.sleep(1)
@@ -430,7 +434,15 @@ async def fail_goals_warning(bot, chat_id=None):
                             parse_mode="Markdown" 
                         )
                         
-                        goal_id = goal["goal_id"]
+                        # Extract goal_id from the callback_data of the first button
+                        try:
+                            first_button = goal["buttons"].inline_keyboard[0][0]  # First row, first button
+                            callback_data = first_button.callback_data
+                            goal_id = int(callback_data.split('_')[-1])  # Assuming goal_id is after the last '_'
+                        except (AttributeError, IndexError, ValueError) as e:
+                            logging.error(f"Failed to extract 'goal_id' from goal: {goal}, error: {e}")
+                            continue
+                        
                         # Extract hour and minute for the CronTrigger, then schedule archiving/penalizing job
                         ultimatum_hour = ultimatum_time.hour
                         ultimatum_minute = ultimatum_time.minute
@@ -455,9 +467,9 @@ async def fail_goals_warning(bot, chat_id=None):
 async def scheduled_goal_archival(bot, goal_id, ultimatum_time, delete_all_expired_goals):
     try:
         status = await fetch_goal_data(goal_id, columns="status", single_value=True)
-        if status == "pending":
+        if status == "pending":     # only needs to be actually run if the user didn't report anything after the warning
             update = 1.5 
-            await handle_goal_failure(update, goal_id, query=None, bot=bot)
+            await handle_goal_failure(update, goal_id, query=None, bot=bot, delete_all_expired_goals=delete_all_expired_goals)
         else:
             logging.info(f"Goal #{goal_id} was not archived at {ultimatum_time}, because it was not pending anymore (user processed it themselves)")
     except Exception as e:

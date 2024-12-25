@@ -400,7 +400,7 @@ async def handle_goal_completion(update, goal_id, query):
         logging.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")   
     
     
-async def handle_goal_failure(update, goal_id, query, bot=None):
+async def handle_goal_failure(update, goal_id, query, bot=None, delete_all_expired_goals=False):
     try:
         if update == 1.5:
             user_id = await fetch_goal_data(goal_id, columns="user_id", single_value=True)
@@ -418,7 +418,7 @@ async def handle_goal_failure(update, goal_id, query, bot=None):
         if update == 1.5:   # in case of scheduled archiving job 
             await bot.send_message(
                 chat_id,
-                text=f"❌ Goal #{goal_id} was marked as failed after no progress was reported for 26 hours. {round(score_decrease, 1)} penalty charged. \n\n✍️_{description}_",
+                text=f"❌ Goal #{goal_id} was marked as failed after no progress was reported{"" if delete_all_expired_goals else " for 26 hours"}. {round(score_decrease, 1)} penalty charged. \n\n✍️_{description}_",
                 reply_markup=None,
                 parse_mode="Markdown"
             )
