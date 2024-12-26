@@ -1,5 +1,5 @@
 ﻿from re import A
-from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message
+from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message, safe_set_reaction
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal, handle_goal_completion
 import logging, os, asyncio
@@ -176,7 +176,7 @@ async def process_classification_result(update, context, initial_classification)
 
         if language != "English" and language != "Dutch":
             preset_reaction = "💯"
-            await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
+            await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
             await process_other_language(update, context, user_message, language)
             # await asyncio.sleep(5)
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
@@ -186,23 +186,23 @@ async def process_classification_result(update, context, initial_classification)
         # Respond based on classification
         if initial_classification == "Goals":
             preset_reaction = "⚡"
-            await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
+            await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
             await handle_goal_classification(update, context)             # < < < < <
             # await asyncio.sleep(5)
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
         elif initial_classification == "Reminders":
             preset_reaction = "🫡"
-            await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
+            await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
             await reminder_setting(update, context)                                  # < < < < <
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
         elif initial_classification == "Meta":
             preset_reaction = "💩"
             await update.message.reply_text("This is a meta query about the bot.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                                              # < < < < <
-            # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
+            await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
         else:
             preset_reaction = "😘"
             await update.message.reply_text("Your message doesn't fall into any specific category.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                           # < < < < <
-            # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
+            await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
 
     except Exception as e:
         await update.message.reply_text(f"Error in process_classification_result():\n {e}")

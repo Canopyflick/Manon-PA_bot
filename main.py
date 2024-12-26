@@ -87,11 +87,13 @@ async def reset_things_on_startup():
 
 
 # Set up the database and environment
-async def initialize_environment():
+async def initialize_environment(app):
     try:
         # Initialize database tables
         await setup_database()
         await reset_things_on_startup()
+        await check_upcoming_reminders(app.bot)     # for any reminders that were scheduled for today at midnight, and were lost upon reboot
+
         logging.info("Environment initialized successfully")
     except Exception as e:
         logging.error(f"Error initializing environment: {e}")
@@ -179,6 +181,7 @@ async def setup(application):
             misfire_grace_time=7200,
             coalesce=True
         )
+        
         # Check and warn for >22hs overdue goals (2hs later schedule_goal_deletion)
         scheduler.add_job(
             fail_goals_warning, 
@@ -191,9 +194,8 @@ async def setup(application):
         scheduler.start()
         logging.info("Scheduler started successfully")
         
-
-        # Initialize database and reset necessary data
-        await initialize_environment()
+        # Initialize database, reinitialize reminders and reset necessary data
+        await initialize_environment(application)
         
         # Start the bitcoin price monitor
         chat_id = -4788252476  # PA test channel
