@@ -25,6 +25,8 @@ async def check_upcoming_reminders(bot):
     try:
         now = datetime.now(tz=BERLIN_TZ)
         tomorrow = now + timedelta(days=1)
+        now_str = now.isoformat()
+        tomorrow_str = tomorrow.isoformat()
         
         # Query for Goals' reminders in the next 24 hours
         goals_query = """
@@ -33,8 +35,8 @@ async def check_upcoming_reminders(bot):
             FROM manon_goals
             WHERE 
                 reminder_scheduled = True 
-                AND reminder_time AT TIME ZONE 'Europe/Berlin' >= $1 
-                AND reminder_time AT TIME ZONE 'Europe/Berlin' <= $2
+                AND reminder_time >= $1 
+                AND reminder_time <= $2
                 AND status = 'pending'
             ORDER BY reminder_time
         """
@@ -45,16 +47,16 @@ async def check_upcoming_reminders(bot):
                 reminder_id, user_id, chat_id, reminder_text, time
             FROM manon_reminders
             WHERE 
-                time AT TIME ZONE 'Europe/Berlin' >= $1 
-                AND time AT TIME ZONE 'Europe/Berlin' <= $2
-            ORDER BY reminder_time
+                time >= $1 
+                AND time <= $2
+            ORDER BY time
         """
         
         async with Database.acquire() as conn:
             # First query for goals' reminders
-            goals_rows = await conn.fetch(goals_query, now, tomorrow)
+            goals_rows = await conn.fetch(goals_query, now_str, tomorrow_str)
             # Second query for regular reminders
-            reminder_rows = await conn.fetch(reminders_query, now, tomorrow)
+            reminder_rows = await conn.fetch(reminders_query, now_str, tomorrow_str)
 
             # Schedule each Goals' reminder
             for row in goals_rows:

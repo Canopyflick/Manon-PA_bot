@@ -525,3 +525,13 @@ async def add_delete_button(update, context, message_id, delay=0):
         message_id=message_id,
         reply_markup=keyboard
     )
+
+
+async def safe_set_reaction(bot, chat_id, message_id, reaction):
+    """Safely set a message reaction, logging errors if the reaction is invalid (instead of breaking the flow)."""
+    try:
+        await bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
+    except Exception as e:
+        logging.warning(f"Failed to set reaction '{reaction}': {e}")
+        
+

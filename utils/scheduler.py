@@ -406,8 +406,10 @@ async def fail_goals_warning(bot, chat_id=None):
             # 3. Check any >24hs old overdue goals (or all overdue goals, if trigger-word-triggered)
              
             logging.debug(f"overdue goals for user_id {user_id}: {overdue_goals}")
-
-            if overdue_goals:
+            if not overdue_goals and delete_all_expired_goals:
+                await bot.send_message(chat_id, f"You have no overdue goals to resolve {PA}")
+                return
+            elif overdue_goals:
                 greeting = (
                     f"Hi {first_name}, you have "
                     f"{'one older /overdue goal' if goals_count == 1 else f'{goals_count} older /overdue goals'} open {PA}\n\n"
