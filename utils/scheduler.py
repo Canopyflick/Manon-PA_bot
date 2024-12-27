@@ -340,7 +340,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
             goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
             penalty = float(f"{row['penalty']:.1f}") if row["penalty"] is not None else 0  # Use 0.0 as a default
             reminder = "⏰" if row["reminder_scheduled"] else ""
-            final_iteration = " (❗Last in series)" if row["final_iteration"] == "yes" else ""
+            final_iteration = " (❗Last in series❗)" if row["final_iteration"] == "yes" else ""
             
             total_goal_value += float(goal_value)
             total_penalty += float(penalty) 

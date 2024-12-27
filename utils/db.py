@@ -207,6 +207,53 @@ async def setup_database():
             }
             await add_missing_columns(conn, 'manon_reminders', desired_columns_manon_reminders)
 
+            #4 stats_snapshots table
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS stats_snapshots (
+                    snapshot_id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,                -- Foreign key to identify the user
+                    chat_id BIGINT NOT NULL,                -- Foreign key to identify the chat
+                    date DATE NOT NULL,                     -- Date of the snapshot (without time)
+        
+                    -- Daily counts
+                    goals_set INTEGER DEFAULT 0,            -- Number of goals set on this date
+                    goals_finished INTEGER DEFAULT 0,       -- Number of goals completed on this date
+                    goals_failed INTEGER DEFAULT 0,         -- Number of goals failed on this date
+                    goals_pending INTEGER DEFAULT 0,        -- Number of goals still pending at snapshot time
+        
+                    -- Value metrics
+                    score_gained FLOAT DEFAULT 0,           -- Score earned on this date
+                    penalties_incurred FLOAT DEFAULT 0,     -- Penalties accrued on this date
+                    completion_rate FLOAT DEFAULT NULL,     -- Daily completion rate (percentage)
+        
+                    -- Time-based metrics
+                    avg_completion_time INTERVAL DEFAULT NULL,  -- Average time to complete goals on this date
+                    total_time_invested INTERVAL DEFAULT NULL,  -- Total time invested in goals on this date
+        
+                    -- Categories snapshot (optional, for future use)
+                    category_distribution JSONB DEFAULT NULL,   -- Distribution of goals across categories
+        
+                    -- Metadata
+                    snapshot_time TIMESTAMPTZ DEFAULT NOW(),   -- Exact time when snapshot was taken
+        
+                    FOREIGN KEY (user_id, chat_id) REFERENCES manon_users (user_id, chat_id),
+                    UNIQUE (user_id, chat_id, date)           -- Ensure one snapshot per user per day
+                )
+            ''')
+            desired_columns_stats_snapshots = {
+                'snapshot_id': 'SERIAL PRIMARY KEY',
+                'user_id': 'BIGINT NOT NULL',
+                'chat_id': 'BIGINT NOT NULL',
+                'date': 'DATE NOT NULL'
+            }
+            await add_missing_columns(conn, 'stats_snapshots', desired_columns_stats_snapshots)
+
+            # Create index for faster queries
+            await conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_stats_snapshots_user_date 
+                ON stats_snapshots (user_id, chat_id, date);
+            ''')
+
         logging.info("Database tables initialized successfully")
 
     except Exception as e:
@@ -502,7 +549,10 @@ async def register_user(context, user_id, chat_id):
                     VALUES ($1, $2, $3)
                 """, user_id, chat_id, first_name)
                 logging.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
-                await context.bot.send_message(chat_id, text=f"_Registered new user\n{user_id}in chat\n{chat_id}as *{first_name}*_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text=f"_Registered new user,_ *{first_name}*_, with User ID:_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text=f"_{user_id}_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text="_in chat:_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text=f"_{chat_id}_", parse_mode="Markdown")
             elif result['first_name'] is None:
                 # User exists but first_name is missing, update it
                 await conn.execute("""
@@ -895,7 +945,7 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
             goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
             penalty = f"{row['penalty']:.1f}" if row["penalty"] is not None else "N/A"
             reminder = "⏰" if row["reminder_scheduled"] else ""
-            final_iteration = " (Last in series)" if row["final_iteration"] == "yes" else ""
+            final_iteration = " (❗Last in series❗)" if row["final_iteration"] == "yes" else ""
             
             total_goal_value += float(goal_value)
             total_penalty += float(penalty) 

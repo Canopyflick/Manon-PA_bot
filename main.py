@@ -18,6 +18,7 @@ from utils.scheduler import (
     fail_goals_warning,
 )
 from modules.reminders import check_upcoming_reminders
+from modules.stats_manager import StatsManager
 
 print(f"... STARTING ... {PA}  \n\n")
 
@@ -187,6 +188,13 @@ async def setup(application):
             fail_goals_warning, 
             CronTrigger(hour=11, minute=11),
             args=[application.bot],
+            misfire_grace_time=7200,
+            coalesce=True
+        )
+        
+        scheduler.add_job(
+            StatsManager.update_daily_stats,
+            CronTrigger(hour=0, minute=1),  # Run at 00:01
             misfire_grace_time=7200,
             coalesce=True
         )

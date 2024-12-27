@@ -29,6 +29,7 @@
     <Compile Include="modules\commands.py" />
     <Compile Include="modules\goals.py" />
     <Compile Include="modules\reminders.py" />
+    <Compile Include="modules\stats_manager.py" />
     <Compile Include="test\concatenate_test.py" />
     <Compile Include="test\__init__.py" />
     <Compile Include="utils\db.py" />

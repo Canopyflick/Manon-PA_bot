@@ -8,6 +8,7 @@ from LLMs.orchestration import diary_header, process_other_language, check_langu
 from utils.db import get_first_name, register_user, fetch_user_stats
 from utils.listener import roll_dice
 from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
+from modules.stats_manager import StatsManager
 
 
 # Asynchronous command functions
@@ -93,53 +94,41 @@ async def profile_command(update, context):
     await update.message.reply_text("will show all the user-specific settings, like long term goals, preferences, constitution ... + edit-button")
     
 
-async def stats_command(update, context, ready=False):
+async def stats_command(update, context):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     
     first_name = await get_first_name(context, user_id, chat_id)
+
+    # Get comprehensive stats
+    stats = await StatsManager.get_comprehensive_stats(user_id, chat_id)
     
-    stats = await fetch_user_stats(update, context, user_id)
-    logging.info(f"Stats retrieved:\n{stats}")
+    # Format message with different time periods
+    message_parts = [f"*Stats for 👤{first_name}* {PA}\n"]
     
-    # Unpack the retrieved stats
-    pending_goals = stats.get("pending_goals")
-    finished_goals = stats.get("finished_goals")
-    failed_goals = stats.get("failed_goals")
-    score = stats.get("score")
-    penalties_accrued = stats.get("penalties_accrued")
-    next_seven_days = stats.get("next_seven_days")
+    for period, data in stats.items():
+        # Safely format values with null checking
+        total_goals = data.get('total_goals_set', 0) or 0
+        avg_daily = data.get('avg_daily_goals_set', 0) or 0
+        completion_rate = data.get('avg_completion_rate', 0) or 0
+        score_gained = data.get('total_score_gained', 0) or 0
+        penalties = data.get('total_penalties', 0) or 0
         
-    # goals_finished_week = stats["goals_finished_week"]
-    # goals_failed_week = stats["goals_failed_week"]
-    # goals_pending_week = stats["goals_pending_week"]
-    # points_remaining = stats["points_remaining"]
-    # penalties_remaining = stats["penalties_remaining"]
-    # all_time_success = stats["all_time_success"]
-    # monthly_success = stats["monthly_success"]
+        message_parts.extend([
+            f"Goals Set: {total_goals} (avg {avg_daily:.1f}/day)",
+            f"Completion Rate: {completion_rate:.1f}%",
+            f"Score Gained: {score_gained:.1f}",
+            f"Penalties: {penalties:.1f}"
+        ])
     
+    # Add nonsense message
     nonsense_message = await nonsense(update, context, first_name)
-    logging.warning(f"Nonsense message >>> {nonsense_message}")
-
-    weekly_pending_goals = "🚧"
-    weekly_finished_goals = "🚧"
-    weekly_failed_goals = "🚧"
-
-    # Construct the message with aligned columns
-    stats_message = (
-        f"*Stats for 👤{first_name}* {PA}\n"
-        f"{'':<20} {'WEEKLY':>10} | {'TOTAL':>10}\n"
-        f"🔄 Pending:        {weekly_pending_goals:>10} | {pending_goals:>10}\n"
-        f"✅ Finished:       {weekly_finished_goals:>10} | {finished_goals:>10}\n"
-        f"❌ Failed:         {weekly_failed_goals:>10} | {failed_goals:>10} (🌚 {round(penalties_accrued, 1)})\n"
-        f"🎯 Score:          {round(score, 1):>10} | {round(score, 1):>10}\n"
-        f"📅 Next 7 days:    {next_seven_days:>10}\n\n"
-        f"_{nonsense_message}_"
-    )
-
+    message_parts.append(f"\n_{nonsense_message}_")
     
-    # Send the message
-    await update.message.reply_text(stats_message, parse_mode="Markdown")
+    await update.message.reply_text(
+        "\n".join(message_parts),
+        parse_mode="Markdown"
+    )
     
 async def nonsense(update, context, first_name):
     demographics = ["listeners", f"people named {first_name}", "go-getters", "real humans", "people", "people", "chosen subjects", "things-with-a-hearbeat", "beings", "selected participants", "persons", "white young males", "mankind", "the populace", "the disenfranchized", "sapient specimen", "bipeds", "people-pleasers", "saviors", "heroes", "members", "Premium members", "earth dwellers", "narcissists", "cuties", "handsome motherfuckers", "Goal Gangsters", "good guys", "bad bitches", "OG VIP Hustlers", "readers", "lust objects"]
