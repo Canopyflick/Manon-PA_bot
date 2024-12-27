@@ -106,6 +106,140 @@ class StatsManager:
             }
 
     @staticmethod
+    async def get_today_stats(user_id: int, chat_id: int) -> dict:
+        """Get statistics for today"""
+        try:
+            today_start = datetime.now(BERLIN_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+
+            # Convert datetime objects to strings
+            today_start_str = today_start.isoformat()
+            today_end_str = today_end.isoformat()
+
+            async with Database.acquire() as conn:
+                # Update queries to use string parameters
+                pending_query = """
+                    SELECT COUNT(*) 
+                    FROM manon_goals 
+                    WHERE user_id = $1 
+                    AND chat_id = $2 
+                    AND status = 'pending'
+                    AND deadline >= $3::timestamptz
+                    AND deadline < $4::timestamptz
+                """
+                pending_count = await conn.fetchval(pending_query, user_id, chat_id, today_start_str, today_end_str)
+
+                # Update other queries similarly...
+                completed_query = """
+                    SELECT COUNT(*) 
+                    FROM manon_goals 
+                    WHERE user_id = $1 
+                    AND chat_id = $2 
+                    AND status = 'archived_done'
+                    AND completion_time >= $3::timestamptz
+                    AND completion_time < $4::timestamptz
+                """
+                completed_count = await conn.fetchval(completed_query, user_id, chat_id, today_start_str, today_end_str)
+
+                # Get failed goals
+                failed_query = """
+                    SELECT COUNT(*) 
+                    FROM manon_goals 
+                    WHERE user_id = $1 
+                    AND chat_id = $2 
+                    AND status = 'archived_failed'
+                    AND deadline >= $3::timestamptz
+                    AND deadline < $4::timestamptz
+                """
+                failed_count = await conn.fetchval(failed_query, user_id, chat_id, today_start_str, today_end_str)
+
+                # Get points gained today
+                points_query = """
+                    SELECT COALESCE(SUM(goal_value), 0)
+                    FROM manon_goals 
+                    WHERE user_id = $1 
+                    AND chat_id = $2 
+                    AND status = 'archived_done'
+                    AND completion_time >= $3::timestamptz
+                    AND completion_time < $4::timestamptz
+                """
+                points_gained = await conn.fetchval(points_query, user_id, chat_id, today_start_str, today_end_str)
+
+                # Get new goals set today
+                new_goals_query = """
+                    SELECT COUNT(*) 
+                    FROM manon_goals 
+                    WHERE user_id = $1 
+                    AND chat_id = $2 
+                    AND set_time >= $3::timestamptz
+                    AND set_time < $4::timestamptz
+                """
+                new_goals = await conn.fetchval(new_goals_query, user_id, chat_id, today_start_str, today_end_str)
+
+                return {
+                    'pending_goals': pending_count,
+                    'completed_goals': completed_count,
+                    'failed_goals': failed_count,
+                    'points_gained': points_gained,
+                    'new_goals_set': new_goals
+                }
+
+        except Exception as e:
+            logging.error(f"Error getting today's stats: {e}")
+            return {
+                'pending_goals': 0,
+                'completed_goals': 0,
+                'failed_goals': 0,
+                'points_gained': 0,
+                'new_goals_set': 0
+            }
+
+    @staticmethod
+    async def get_total_stats(user_id: int, chat_id: int) -> dict:
+        """Get all-time totals"""
+        try:
+            async with Database.acquire() as conn:
+                # Get total score from manon_users table
+                score_query = """
+                    SELECT score 
+                    FROM manon_users 
+                    WHERE user_id = $1 
+                    AND chat_id = $2
+                """
+                total_score = await conn.fetchval(score_query, user_id, chat_id)
+
+                # Get counts for different goal statuses
+                stats_query = """
+                    SELECT 
+                        COUNT(*) FILTER (WHERE status = 'pending') as total_pending,
+                        COUNT(*) FILTER (WHERE status = 'archived_done') as total_completed,
+                        COUNT(*) FILTER (WHERE status = 'archived_failed') as total_failed,
+                        COUNT(*) as total_goals_set
+                    FROM manon_goals 
+                    WHERE user_id = $1 
+                    AND chat_id = $2
+                """
+                stats = await conn.fetchrow(stats_query, user_id, chat_id)
+
+                return {
+                    'total_score': total_score or 0,
+                    'total_pending': stats['total_pending'] or 0,
+                    'total_completed': stats['total_completed'] or 0,
+                    'total_failed': stats['total_failed'] or 0,
+                    'total_goals_set': stats['total_goals_set'] or 0
+                }
+
+        except Exception as e:
+            logging.error(f"Error getting total stats: {e}")
+            return {
+                'total_score': 0,
+                'total_pending': 0,
+                'total_completed': 0,
+                'total_failed': 0,
+                'total_goals_set': 0
+            }
+
+    @staticmethod
     async def get_comprehensive_stats(user_id: int, chat_id: int) -> Dict:
         """Get stats for multiple time periods"""
         periods = {

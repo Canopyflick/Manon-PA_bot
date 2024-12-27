@@ -97,38 +97,158 @@ async def profile_command(update, context):
 async def stats_command(update, context):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    
     first_name = await get_first_name(context, user_id, chat_id)
 
     # Get comprehensive stats
     stats = await StatsManager.get_comprehensive_stats(user_id, chat_id)
     
-    # Format message with different time periods
-    message_parts = [f"*Stats for 👤{first_name}* {PA}\n"]
+    def get_trend_arrow(current, baseline):
+        """Returns emoji arrow based on comparison with weekly baseline"""
+        if current == baseline:
+            return "→"
+        # Invert logic for penalties (lower is better)
+        if metric_name == 'Penalties/Day':
+            return "🟢↑" if current < baseline else "🔴↓"
+        return "🟢↑" if current > baseline else "🔴↓"
+
+    def format_metric_line(metric_name: str, metric_values: dict, periods: list) -> str:
+        """Formats a single metric line with fixed-width columns"""
+        values = []
+        for period in periods:
+            value = metric_values.get(period, 0) or 0
+            trend = get_trend_arrow(value, metric_values['week'])
+            values.append(f"{value:7.1f}{trend}")
+        return f"{metric_name:<14} {' | '.join(values)}"
+
+    # Get both today's and total stats
+    today_stats = await StatsManager.get_today_stats(user_id, chat_id)
+    total_stats = await StatsManager.get_total_stats(user_id, chat_id)
+
+    # Calculate today's completion rate
+    today_completed = today_stats.get('completed_goals', 0)
+    today_failed = today_stats.get('failed_goals', 0)
+    today_total = today_completed + today_failed
+    today_completion_rate = (today_completed / today_total * 100) if today_total > 0 else 0
+
+    # Calculate all-time completion rate
+    total_completed = total_stats['total_completed']
+    total_failed = total_stats['total_failed']
+    total_all = total_completed + total_failed
+    total_completion_rate = (total_completed / total_all * 100) if total_all > 0 else 0
+
+    # Combined metrics dictionary
+    combined_metrics = {
+        'Pending': {
+            'today': today_stats.get('pending_goals', 0),
+            'total': total_stats.get('total_pending', 0)
+        },
+        'Completed': {
+            'today': today_completed,
+            'total': total_completed
+        },
+        'Failed': {
+            'today': today_failed,
+            'total': total_failed
+        },
+        'Points': {
+            'today': today_stats.get('points_gained', 0),
+            'total': total_stats['total_score']
+        },
+        'New Goals': {
+            'today': today_stats.get('new_goals_set', 0),
+            'total': total_stats.get('total_goals_set', 0)
+        },
+        'Success Rate': {
+            'today': today_completion_rate,
+            'total': total_completion_rate
+        }
+    }
+
+    # Format message
+    message_parts = [
+        f"<b>Stats for {first_name}</b> 👤{PA}\n",
+        "<b>📊 Today & Total</b>",
+        "<pre>",
+        "Metric          Today | All-time",
+        "──────────────────────────────"
+    ]
+
+    # Add combined metrics
+    for metric_name, values in combined_metrics.items():
+        if metric_name == 'Success Rate':
+            message_parts.append(
+                f"{metric_name:<14} {values['today']:6.1f}% | {values['total']:6.1f}%"
+            )
+        else:
+            message_parts.append(
+                f"{metric_name:<14} {values['today']:7.1f} | {values['total']:7.1f}"
+            )
+
+    message_parts.extend(["</pre>"])
+
+    # Trends section
+    message_parts.extend([
+        "<b>📈 Trends</b>",
+        "<pre>",
+        "Metric                7d | 30d",
+        "──────────────────────────────"
+    ])
+
+    # Calculate daily averages for each period
+    periods = ['week', 'month', 'quarter', 'year']
+    days_in_period = {'week': 7, 'month': 30, 'quarter': 91, 'year': 365}
+
+    metrics = {
+        'Goals/Day': {
+            period: stats[period].get('total_goals_set', 0) / days_in_period[period]
+            for period in periods
+        },
+        'Complete %': {
+            period: stats[period].get('avg_completion_rate', 0)
+            for period in periods
+        },
+        'Score/Day': {
+            period: stats[period].get('total_score_gained', 0) / days_in_period[period]
+            for period in periods
+        },
+        'Penalties/Day': {
+            period: stats[period].get('total_penalties', 0) / days_in_period[period]
+            for period in periods
+        }
+    }
+
+    # Add metrics for week/month
+    for metric_name, metric_data in metrics.items():
+        message_parts.append(format_metric_line(
+            metric_name, 
+            metric_data, 
+            ['week', 'month']
+        ))
+
+    message_parts.extend([
+        "",
+        "                      91d | 365d",
+        "──────────────────────────────"
+    ])
+
+    # Add metrics for quarter/year
+    for metric_name, metric_data in metrics.items():
+        message_parts.append(format_metric_line(
+            metric_name, 
+            metric_data, 
+            ['quarter', 'year']
+        ))
     
-    for period, data in stats.items():
-        # Safely format values with null checking
-        total_goals = data.get('total_goals_set', 0) or 0
-        avg_daily = data.get('avg_daily_goals_set', 0) or 0
-        completion_rate = data.get('avg_completion_rate', 0) or 0
-        score_gained = data.get('total_score_gained', 0) or 0
-        penalties = data.get('total_penalties', 0) or 0
-        
-        message_parts.extend([
-            f"Goals Set: {total_goals} (avg {avg_daily:.1f}/day)",
-            f"Completion Rate: {completion_rate:.1f}%",
-            f"Score Gained: {score_gained:.1f}",
-            f"Penalties: {penalties:.1f}"
-        ])
-    
-    # Add nonsense message
-    nonsense_message = await nonsense(update, context, first_name)
-    message_parts.append(f"\n_{nonsense_message}_")
-    
+    message_parts.extend([
+        "</pre>",
+        f"\n<i>{await nonsense(update, context, first_name)}</i>"
+    ])
+
     await update.message.reply_text(
         "\n".join(message_parts),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
+    
     
 async def nonsense(update, context, first_name):
     demographics = ["listeners", f"people named {first_name}", "go-getters", "real humans", "people", "people", "chosen subjects", "things-with-a-hearbeat", "beings", "selected participants", "persons", "white young males", "mankind", "the populace", "the disenfranchized", "sapient specimen", "bipeds", "people-pleasers", "saviors", "heroes", "members", "Premium members", "earth dwellers", "narcissists", "cuties", "handsome motherfuckers", "Goal Gangsters", "good guys", "bad bitches", "OG VIP Hustlers", "readers", "lust objects"]
