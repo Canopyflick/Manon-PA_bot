@@ -1,4 +1,4 @@
-﻿from utils.helpers import is_ben_in_chat, notify_ben, datetime, test_emojis_with_telegram, emoji_stopwatch, send_user_context, PA
+﻿from utils.helpers import delete_message, is_ben_in_chat, notify_ben, datetime, test_emojis_with_telegram, emoji_stopwatch, send_user_context, PA, delete_message
 from LLMs.orchestration import start_initial_classification
 from typing import Literal, List, Union
 import asyncio, logging
@@ -70,7 +70,9 @@ async def analyze_any_message(update, context):
                     return
             
             # Handle all other messages
-            regular_message = True    
+            regular_message = True
+            bot_reply_message = False
+            bot_mention_message = False
             if update.message.reply_to_message and update.message.reply_to_message.from_user.is_bot:
                 logging.info("Message received: Bot Reply\n")
                 regular_message = False   
@@ -78,7 +80,12 @@ async def analyze_any_message(update, context):
             if update.message and '@TestManon_bot' in update.message.text or '@Manon_PA_bot' in update.message.text:
                 logging.info("Message received: Bot Mention\n")
                 regular_message = False          
-            if regular_message or bot_reply_message:
+                bot_mention_message = True
+            if regular_message and update.message and '@' in update.message.text:   # For talking to other users in group chats or making personal notes that PA doesn't need to listen to
+                shutup_message = await update.message.reply_text(f"OOKAY I'll shut up for this one {PA}")
+                await delete_message(update, context, shutup_message.id, 3)
+                return
+            if regular_message or bot_reply_message or bot_mention_message:
                 logging.info("Message received: Regular Message\n")
                 await start_initial_classification(update, context)     # <<<
             
