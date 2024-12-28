@@ -127,7 +127,7 @@ async def analyze_any_message(update, context):
             # Final decision to respond
             if bot_response_wanted:
                 if regular_message or bot_reply_message or bot_mention_message:
-                    logging.info("Message received: Regular Message\n")
+                    logging.info("Message received that wants a bot reponse\n")
                     await start_initial_classification(update, context)                                     # < < <
             
         except Exception as e:

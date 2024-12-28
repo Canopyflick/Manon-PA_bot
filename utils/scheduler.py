@@ -172,7 +172,7 @@ async def send_evening_message(bot, specific_chat_id=None):
         now = datetime.now(tz=BERLIN_TZ)
         if not (evening_start <= now.time() <= evening_end):
             greeting = "Why hello there"
-            announcement = "Your overdue goals are:"
+            announcement = "Today's remaining pending goals are:"
 
         # Loop through each user row and send a personalized message
         for user in users:
@@ -184,11 +184,11 @@ async def send_evening_message(bot, specific_chat_id=None):
                 
             first_name = user["first_name"] or "Sardientje"  # Fallback if first_name is NULL or empt
             
-            overdue_goals, total_goal_value, total_penalty, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="today")   # only check goals that overdue yesterday
+            overdue_goals, total_goal_value, total_penalty, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="today")   # returns all pending goals today to report on, whether overdue or not
             logging.debug(f"overdue goals for user_id {user_id}: {overdue_goals}")
 
-            if isinstance(overdue_goals, str):
-                announcement = "No pending overdue goals, you're all caught up ✨"
+            if not overdue_goals:
+                announcement = "\n🔎    _....._    🔍\n\nNo pending goals remaining today, you're all caught up ✨"
             
             nightly_message = (
                 f"*{greeting}, {first_name}!* {PA}\n"
@@ -321,13 +321,9 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                     # Deadline later in the day
                     postpone_to_day = "today"
             elif deadline_dt.date() == now.date():
-                # Due today but overdue
-                if deadline_dt.time() < now.time():
-                    # Deadline earlier in the day
-                    postpone_to_day = "tomorrow"
-                else:
-                    # Deadline later in the day
-                    postpone_to_day = "today"
+                # Due today: always only give the option to postpone to tomorrow (cause if you wanna still do it today because deadline is in the future, then you can just report Done and don't need to postpone)
+                postpone_to_day = "tomorrow"
+
 
             # Format the deadline
             if deadline_date == today:
