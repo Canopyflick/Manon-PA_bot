@@ -401,9 +401,20 @@ async def emoji_stopwatch(update, context, **kwargs):
         # Wait for any remaining seconds
         await asyncio.sleep(remaining_seconds)
 
-        # Send the final message
-        await update.message.reply_text(final_message)
-        
+        # Send the final messages
+        await update.message.reply_text(final_message)                                                          #1
+        # Below are just 1-sec notification messages mimicing an alarm
+        temporary_notification_message = await context.bot.send_message(chat_id, text="⏱️")                      #2
+        asyncio.create_task(delete_message(update, context,  temporary_notification_message.message_id, 1))     
+        await asyncio.sleep(0.1)
+        temporary_notification_message = await context.bot.send_message(chat_id, text="⏱️")                      #3
+        asyncio.create_task(delete_message(update, context,  temporary_notification_message.message_id, 1))
+        await asyncio.sleep(0.2)
+        temporary_notification_message = await context.bot.send_message(chat_id, text="⏱️")                      #4
+        asyncio.create_task(delete_message(update, context,  temporary_notification_message.message_id, 1))
+        temporary_notification_message = await context.bot.send_message(chat_id, text="⏱️")                      #5
+        asyncio.create_task(delete_message(update, context,  temporary_notification_message.message_id, 1))
+
         # React with the final emoji
         await context.bot.setMessageReaction(
             chat_id=chat_id,

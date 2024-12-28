@@ -2,7 +2,8 @@
 from LLMs.orchestration import start_initial_classification
 from typing import Literal, List, Union
 import asyncio, logging
-from telegram import Bot
+from telegram import Bot, MessageEntity
+from telegram.ext import CallbackContext
 from utils.scheduler import send_evening_message, send_morning_message, fail_goals_warning
 
 
@@ -70,10 +71,12 @@ async def analyze_any_message(update, context):
                     return
             
             # Handle all other messages
+            bot_response_wanted = True
             regular_message = True
             bot_reply_message = False
             bot_mention_message = False
-            bot_response_wanted = True
+            
+            # Check if the message is a reply to another message
             if update.message.reply_to_message:
                 if update.message.reply_to_message.from_user.is_bot:
                     logging.info("Message received: Bot Reply\n")
@@ -83,19 +86,49 @@ async def analyze_any_message(update, context):
                     shutup_message = await update.message.reply_text(f"OOKAY I'll shut up for this one {PA}\n_(unless you still tagged me)_", parse_mode="Markdown")
                     await delete_message(update, context, shutup_message.id, 3)
                     bot_response_wanted = False
-            if update.message and '@TestManon_bot' in update.message.text or '@Manon_PA_bot' in update.message.text:
+                    
+            # Check if the message mentions the bot specifically
+            message_text = update.message.text or ""
+            if ('@TestManon_bot' in message_text) or ('@Manon_PA_bot' in message_text):
                 logging.info("Message received: Bot Mention\n")
                 bot_response_wanted = True
                 regular_message = False          
                 bot_mention_message = True
-            if regular_message and update.message and '@' in update.message.text:   # For talking to other users in group chats or making personal notes that PA doesn't need to listen to
+                
+            # Parse message entities to handle mentions
+            if update.message.entities:
+                for entity in update.message.entities:
+                    if entity.type == MessageEntity.MENTION:
+                        # Extract the mentioned username
+                        mention = update.message.text[entity.offset: entity.offset + entity.length]
+                
+                        # Attempt to get user information based on the mention
+                        try:
+                            # Remove the '@' symbol to get the username
+                            username = mention[1:]
+                            user = await context.bot.get_chat(username)
+                    
+                            # Check if the mentioned user is a bot
+                            if not user.is_bot:
+                                logging.info(f"Message received: Non-Bot User Mentioned ({username})\n")
+                                bot_response_wanted = False
+                                break  # No need to check further mentions
+                        except Exception as e:
+                            # Handle cases where the user cannot be found
+                            logging.warning(f"Could not retrieve user for mention {mention}: {e}")
+                            continue  # Skip to the next mention
+                        
+            # Handle messages that contain @ and are not specific bot mentions
+            if regular_message and '@' in message_text and bot_response_wanted:
                 shutup_message = await update.message.reply_text(f"OOKAY I'll shut up for this one {PA}")
-                await delete_message(update, context, shutup_message.id, 3)
+                await delete_message(update, context, shutup_message.id, 2)
                 bot_response_wanted = False    
+            
+            # Final decision to respond
             if bot_response_wanted:
                 if regular_message or bot_reply_message or bot_mention_message:
                     logging.info("Message received: Regular Message\n")
-                    await start_initial_classification(update, context)     # <<<
+                    await start_initial_classification(update, context)                                     # < < <
             
         except Exception as e:
             logging.error(f"\n\n🚨 Error in analyze_any_message(): {e}\n\n")
