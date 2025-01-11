@@ -409,7 +409,7 @@ async def fail_goals_warning(bot, chat_id=None):
                 greeting = (
                     f"Hi {first_name}, you have "
                     f"{'one older /overdue goal' if goals_count == 1 else f'{goals_count} older /overdue goals'} open {PA}\n\n"
-                    f"Report on {"it" if goals_count == 1 else "them"} by {formatted_ultimatum_time} today if you want to avoid automatic archiving and penalization 🍆 🌚"
+                    f"Report on {'it' if goals_count == 1 else 'them'} by {formatted_ultimatum_time} today if you want to avoid automatic archiving and penalization 🍆 🌚"
                 )     
                 if delete_all_expired_goals:
                     greeting.replace("older ", "")
