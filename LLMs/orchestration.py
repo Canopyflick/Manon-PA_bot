@@ -50,7 +50,15 @@ def log_emoji_details(emoji, source="Unknown"):
 async def get_input_variables(update, source_text=None, target_language="English", goal_data=None):
     now = datetime.now(tz=BERLIN_TZ)
     weekday = now.strftime("%A")  # Full weekday name
-    tomorrow = (now + timedelta(days=1)).strftime("%A")
+    tomorrow = (now + timedelta(days=1))
+    # Calculate the next Wednesday
+    days_until_wednesday = (2 - now.weekday() + 7) % 7  # 2 is Wednesday (0=Monday, 6=Sunday)
+    if days_until_wednesday == 0:  # If today is Wednesday, move to next week
+        days_until_wednesday = 7
+    next_wednesday = now + timedelta(days=days_until_wednesday)
+    # Set time to 12:00:00 for next Wednesday
+    next_wednesday_at_noon = next_wednesday.replace(hour=12, minute=0, second=0, microsecond=0)
+
     next_year = now.replace(year=now.year + 1)
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -63,7 +71,11 @@ async def get_input_variables(update, source_text=None, target_language="English
     response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
     goal_data = goal_data if goal_data else "No goal_data passed as argument"
 
-    
+    # Ensure proper formatting for the template
+    now_formatted = f"{now.date()}T18:01:00{now.strftime('%z')}"
+    tomorrow_formatted = f"{tomorrow.date()}T18:01:00{tomorrow.strftime('%z')}"
+    next_wednesday_formatted = next_wednesday_at_noon.strftime("%Y-%m-%dT%H:%M:%S%z")
+
     if response_text:
         user_message = f"{user_message}\n\n(As a reply to message: {response_text})"
         
@@ -81,6 +93,9 @@ async def get_input_variables(update, source_text=None, target_language="English
         "response_text": response_text,
         "target_language": target_language,
         "tomorrow": tomorrow,
+        "tomorrow_formatted": tomorrow_formatted,
+        "now_formatted": now_formatted,
+        "next_wednesday": next_wednesday_formatted,
         "next_year": next_year,
         "goal_data": goal_data,
     }

@@ -28,7 +28,7 @@ initial_classification_template = ChatPromptTemplate([
     update the deadline of or otherwise edit a goal.
 
     ## Reminders
-    Only messages that explicitly ask you to remind the user or talk about not forgetting should be classified as reminders.
+    Only messages that solely explicitly ask you to remind the user or talk about not forgetting should be classified as reminders. If a message could be a goal but also discusses reminders, pick Goal.
 
     ## Meta
     If the user asks a question about you as a bot or about their data in the group. Examples of meta-questions: 
@@ -42,7 +42,7 @@ initial_classification_template = ChatPromptTemplate([
 
     # Answer structure
     1. First pick the user_message_language: the main language the user message is written in: Literal['English', 'German', 'Dutch', 'other']. 
-       Look only at the user message itself. When the user mixes languages, pick the main one.
+       Look only at the user message itself. When the user mixes languages, pick the main one. For example: 'I want to contact the Arbeitsamt' = English. 'Das finde ich awesome' = 'German'.
     2. Then, state your classification: 'Goals', 'Reminders', 'Meta', or 'Other'.
     """),
     
@@ -266,13 +266,16 @@ one_time_schedule_template = ChatPromptTemplate([
     Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain, in order for the goal to make sense on the day of the goal itself. Examples: "I want to meditate tomorrow morning" should become -> "You want to meditate in the morning", "I'm gonna climb mount everest before 18 December/next Wednesday" -> "You're gonna climb mount everest".
        
     ## Evaluation deadline: when should the goal be evaluated?
-    When in doubt, assume the user wants to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
-    If there's no indication of the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify exact moments or times of day they want to do the thing, adapt your deadlines accordingly.    
-    Examples: for the goal "I want to end my workday by 6 latest", if today were Monday, 2024-12-09 15:00, the best evaluation deadline would be "[2024-12-09T18:01:00]". But if it's already past 18:00 today, assume they want to do this tomorrow: "[2024-12-10T18:01:00]".
-    And for the goal "I want to meditate Wednesday morning", a fitting evaluation deadline would be "[2024-12-12T12:00:00]".
+    ### Date 
+    When the user doesn't state or imply a deadline, assume they want to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
+    ## Time 
+    If there's no indication of the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify an exact moment or time of day they want to do the thing, adapt your deadline accordingly.    
+    Examples: for the goal "I want to end my workday by 6 latest", if the current time is 15:00, the best evaluation deadline would be "[{now_formatted}]". But if it's already past 18:00 when the user asks this, assume they want to do this tomorrow: "[{tomorrow_formatted}]".
+    And for the goal "I want to meditate Wednesday morning", a fitting evaluation deadline would be "[{next_wednesday}]".
+    (Please keep in mind that the actual datetime currently is: {now}, {weekday}.)
      
     ## schedule_reminder: bool
-    Only schedule a reminder if the deadline is after tomorrow, for a goal where it would be helpful to the user to be reminded of the goal on a day other than the days of the deadline itself. For example, for a goal that might require some planning or that might span multiple days of effort.
+    Only schedule a reminder if the deadline is after tomorrow, for a goal where it would be helpful to the user to be reminded of the goal on a day other than the days of the deadline itself. For example, for a goal that might require some planning or that might span multiple days of effort. Also schedule a reminder if the user explicitly asks for this.
      
     ## reminder (moment)
     IF you want to schedule a reminder, pick a useful moment to remind the user about this goal: somewhere 60-90% towards the deadline from now, depending on the specific goal and timeline. Unless specified otherwise, schedule reminders at {default_reminder_time}.
@@ -548,8 +551,8 @@ diary_header_template = ChatPromptTemplate([
 reminder_setting_template = ChatPromptTemplate([
     ("system", """
     It is currently: {weekday}, {now}. A user wants you to remind them about something, it is your task to plan the scheduling now.
-    For the time field, give one or more deadline timestamp(s) in ISO 8601 format. If no other specific time is mentioned or implied, schedule the reminder for 7:30 in the morning. 
-    The Reminder Text should be a short text message that will be sent to the user at that moment. It will be inserted into the following template:
+    For the time field, give one or more deadline timestamp(s) in ISO 8601 format. If no reminder time is requested or implied, schedule the reminder for 7:30 in the morning as a fallback. 
+    The Reminder Text should be a short text message that will be sent to the user at that moment. It should have all the relevant context to work as a standalone reminder when the user receives it out of the blue. This text will be inserted into the following template:
     Reminder for [{first_name}](tg://user?id={user_id}):\n\n"<reminder_text>"
     For category, pick one or several from the list. 
     """),

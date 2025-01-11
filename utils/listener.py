@@ -5,14 +5,14 @@ import asyncio, logging
 from telegram import Bot, MessageEntity
 from telegram.ext import CallbackContext
 from utils.scheduler import send_evening_message, send_morning_message, fail_goals_warning
-
+from modules.stats_manager import StatsManager
 
 triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", 
-            "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve"]
+            "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats"]
 
 async def handle_triggers(update, context, trigger_text):
     if trigger_text == "SeintjeNatuurlijk":
-        await update.message.reply_text("Ja hoor, hoi!")
+        await update.message.reply_text(f"Ja hoor, hoi! {PA}")
     elif trigger_text == "Emoji":
         await test_emojis_with_telegram(update, context)
     elif trigger_text == "Stopwatch":
@@ -44,6 +44,11 @@ async def handle_triggers(update, context, trigger_text):
         bot=context.bot
         chat_id=update.message.chat_id
         await fail_goals_warning(bot, chat_id=chat_id)
+    elif trigger_text == "dailystats":    
+        bot=context.bot
+        chat_id=update.message.chat_id
+        await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
+        await StatsManager.update_daily_stats(specific_chat_id=chat_id)
 
 
 
@@ -66,8 +71,8 @@ async def analyze_any_message(update, context):
             for trigger_text in triggers:
                 user_message = user_message.lower()
                 if trigger_text.lower() == user_message:
-                    await handle_triggers(update, context, trigger_text)
                     logging.info(f"Message received: Trigger ({trigger_text})")
+                    await handle_triggers(update, context, trigger_text)
                     return
             
             # Handle all other messages
