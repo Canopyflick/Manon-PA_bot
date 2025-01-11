@@ -1,14 +1,15 @@
 ﻿from utils.helpers import delete_message, is_ben_in_chat, notify_ben, datetime, test_emojis_with_telegram, emoji_stopwatch, send_user_context, PA, delete_message
 from LLMs.orchestration import start_initial_classification
 from typing import Literal, List, Union
-import asyncio, logging
+import asyncio, logging, subprocess, re
 from telegram import Bot, MessageEntity
 from telegram.ext import CallbackContext
 from utils.scheduler import send_evening_message, send_morning_message, fail_goals_warning
+from utils.helpers import fetch_logs
 from modules.stats_manager import StatsManager
 
 triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", 
-            "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats"]
+            "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats", "logs", "logs100", "errorlogs"]
 
 async def handle_triggers(update, context, trigger_text):
     if trigger_text == "SeintjeNatuurlijk":
@@ -49,6 +50,17 @@ async def handle_triggers(update, context, trigger_text):
         chat_id=update.message.chat_id
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
         await StatsManager.update_daily_stats(specific_chat_id=chat_id)
+    elif re.match(r"^logs\d+$", trigger_text):  # Match logs followed by digits
+        num_lines = int(trigger_text[4:])  # Extract the number after 'logs'
+        await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
+        await fetch_logs(update, context, abs(num_lines))  # Ensure the number is positive
+    elif trigger_text == "logs":
+        await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
+        await fetch_logs(update, context, 6)
+    elif trigger_text == "errorlogs":
+        await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
+        await fetch_logs(update, context, 10, type="error")
+
 
 
 
@@ -74,6 +86,13 @@ async def analyze_any_message(update, context):
                     logging.info(f"Message received: Trigger ({trigger_text})")
                     await handle_triggers(update, context, trigger_text)
                     return
+            # Handle dynamic "logs<num>" triggers
+            match = re.match(r"^logs(\d+)$", user_message.lower())
+            if match:
+                logging.info(f"Message received: Dynamic logs trigger ({user_message.lower()})")
+                num_lines = int(match.group(1))  # Extract the number after 'logs'
+                await handle_triggers(update, context, f"logs{num_lines}")  # Pass it dynamically
+                return
             
             # Handle all other messages
             bot_response_wanted = True
