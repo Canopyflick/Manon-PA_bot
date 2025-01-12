@@ -458,21 +458,27 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
 
         if not goal_data:
             logging.critical(f"💩 Couldn't complete limbo goal for {goal_id}. (No data found for this goal in user context)'")
-            await update.message.reply_text("No data found for this goal in user context.")
+            await update.message.reply_text(f"No data found for this goal in user context {PA}")
             return
-        
        
         # Extract the required fields from the goal data, same whether initial update or not:
         kwargs = {
             "recurrence_type": goal_data.get("recurrence_type"),
             "timeframe": goal_data.get("timeframe"),
             "goal_value": goal_data.get("goal_value"),
-            "reminder_scheduled": goal_data.get("schedule_reminder", goal_data.get("reminder_scheduled")), # fallback is for adjustment cases, where reminder_scheduled is already the name of the key that's used
-            "goal_description": goal_data.get("goal_description"),           
+            "reminder_scheduled": goal_data.get("schedule_reminder", goal_data.get("reminder_scheduled")), # fallback is for adjustment cases, where reminder_scheduled is already the name of the key that's used         
             "penalty": goal_data.get("penalty"),
             "reminders_times": goal_data.get("reminders_times"),
             "group_id": (goal_data.get("group_id")) if goal_data.get("group_id") else None,
         }
+        
+        # Rephrase 'You want to ...' goals
+        description = goal_data.get("goal_description") 
+        if description and description.lower().startswith("you want to "):
+            description = description[11:].strip()
+            description = description[0].upper() + description[1:]  # Capitalize the first letter
+            
+        kwargs["goal_description"] = description
 
         if initial_update:      # All of these aren't changed during adjustments
             kwargs["deadline"] = goal_data.get("evaluation_deadline") if goal_data.get("evaluation_deadline") else None

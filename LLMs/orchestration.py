@@ -220,7 +220,7 @@ async def process_classification_result(update, context, initial_classification)
             await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
 
     except Exception as e:
-        await update.message.reply_text(f"Error in process_classification_result():\n {e}")
+        await update.message.reply_text(f"{PA} Error in process_classification_result():\n {e}")
         logging.error(f"\n\n🚨 Error in process_classification_result(): {e}\n\n")
         
 
