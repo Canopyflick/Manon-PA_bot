@@ -138,6 +138,10 @@ async def stats_command(update, context):
 
     # Combined metrics dictionary
     combined_metrics = {
+        'Points': {
+            'today': today_stats.get('points_delta', 0),
+            'total': total_stats['total_score']
+        },
         'Pending': {
             'today': today_stats.get('pending_goals', 0),
             'total': total_stats.get('total_pending', 0)
@@ -149,10 +153,6 @@ async def stats_command(update, context):
         'Failed': {
             'today': today_failed,
             'total': total_failed
-        },
-        'Points': {
-            'today': today_stats.get('points_gained', 0),
-            'total': total_stats['total_score']
         },
         'New Goals': {
             'today': today_stats.get('new_goals_set', 0),
@@ -203,16 +203,16 @@ async def stats_command(update, context):
             period: stats[period].get('total_goals_set', 0) / days_in_period[period]
             for period in periods
         },
-        'Complete %': {
-            period: stats[period].get('avg_completion_rate', 0)
-            for period in periods
-        },
         'Points/Day': {
             period: stats[period].get('total_score_gained', 0) / days_in_period[period]
             for period in periods
         },
         'Penalties/Day': {
             period: stats[period].get('total_penalties', 0) / days_in_period[period]
+            for period in periods
+        },
+        'Complete %': {
+            period: stats[period].get('avg_completion_rate', 0)
             for period in periods
         }
     }
@@ -244,10 +244,11 @@ async def stats_command(update, context):
         f"\n<i>{await nonsense(update, context, first_name)}</i>"
     ])
 
-    await update.message.reply_text(
+    stats_message = await update.message.reply_text(
         "\n".join(message_parts),
         parse_mode="HTML"
     )
+    await add_delete_button(update, context, stats_message.message_id)
     
     
 async def nonsense(update, context, first_name):

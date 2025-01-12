@@ -22,6 +22,18 @@ class StatsManager:
                     if specific_chat_id and user['chat_id'] != specific_chat_id:
                         continue
                     logging.info(f"Processing user_id: {user['user_id']}, chat_id: {user['chat_id']}")
+
+                    # Fetch totals snapshot from manon_users
+                    user_totals = await conn.fetchrow("""
+                        SELECT score, pending_goals, finished_goals, failed_goals
+                        FROM manon_users
+                        WHERE user_id = $1 AND chat_id = $2
+                    """, user['user_id'], user['chat_id'])
+
+                    if not user_totals:
+                        logging.warning(f"No totals found for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
+                        continue
+                    
                     # Calculate daily metrics
                     daily_metrics = await conn.fetchrow("""
                         WITH today_goals AS (
@@ -58,16 +70,18 @@ class StatsManager:
                         logging.warning(f"No metrics found for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
                         continue
 
-                    # Insert daily snapshot
                     await conn.execute("""
-                        INSERT INTO stats_snapshots (
+                        INSERT INTO manon_stats_snapshots (
                             user_id, chat_id, date, goals_set, goals_finished, 
-                            goals_failed, score_gained, penalties_incurred, completion_rate
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                            goals_failed, score_gained, penalties_incurred, completion_rate,
+                            score, pending_goals, finished_goals, failed_goals
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                     """, user['user_id'], user['chat_id'], today, 
                         daily_metrics['goals_set'], daily_metrics['goals_finished'],
                         daily_metrics['goals_failed'], daily_metrics['score_gained'],
-                        daily_metrics['penalties_incurred'], daily_metrics['completion_rate'])
+                        daily_metrics['penalties_incurred'], daily_metrics['completion_rate'],
+                        user_totals['score'], user_totals['pending_goals'],
+                        user_totals['finished_goals'], user_totals['failed_goals'])
                     logging.info(f"Inserted stats for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
 
         except Exception as e:
@@ -92,7 +106,7 @@ class StatsManager:
                         COALESCE(AVG(completion_rate), 0) as avg_completion_rate,
                         COALESCE(AVG(goals_set), 0) as avg_daily_goals_set,
                         COALESCE(AVG(goals_finished), 0) as avg_daily_goals_finished
-                    FROM stats_snapshots
+                    FROM manon_stats_snapshots
                     WHERE user_id = $1 
                         AND chat_id = $2
                         AND date BETWEEN $3 AND $4
@@ -174,7 +188,7 @@ class StatsManager:
                     AND completion_time >= $3::timestamptz
                     AND completion_time < $4::timestamptz
                 """
-                points_gained = await conn.fetchval(points_query, user_id, chat_id, today_start_str, today_end_str)
+                points_delta = await conn.fetchval(points_query, user_id, chat_id, today_start_str, today_end_str)
 
                 # Get new goals set today
                 new_goals_query = """
@@ -184,6 +198,7 @@ class StatsManager:
                     AND chat_id = $2 
                     AND set_time >= $3::timestamptz
                     AND set_time < $4::timestamptz
+                    AND status NOT IN ('limbo', 'archived_canceled')
                 """
                 new_goals = await conn.fetchval(new_goals_query, user_id, chat_id, today_start_str, today_end_str)
 
@@ -191,7 +206,7 @@ class StatsManager:
                     'pending_goals': pending_count,
                     'completed_goals': completed_count,
                     'failed_goals': failed_count,
-                    'points_gained': points_gained,
+                    'points_delta': points_delta,
                     'new_goals_set': new_goals
                 }
 
@@ -201,7 +216,7 @@ class StatsManager:
                 'pending_goals': 0,
                 'completed_goals': 0,
                 'failed_goals': 0,
-                'points_gained': 0,
+                'points_delta': 0,
                 'new_goals_set': 0
             }
 

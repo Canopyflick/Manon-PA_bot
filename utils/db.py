@@ -207,13 +207,19 @@ async def setup_database():
             }
             await add_missing_columns(conn, 'manon_reminders', desired_columns_manon_reminders)
 
-            #4 stats_snapshots table
+            #4 manon_stats_snapshots table
             await conn.execute('''
-                CREATE TABLE IF NOT EXISTS stats_snapshots (
+                CREATE TABLE IF NOT EXISTS manon_stats_snapshots (
                     snapshot_id SERIAL PRIMARY KEY,
                     user_id BIGINT NOT NULL,                -- Foreign key to identify the user
                     chat_id BIGINT NOT NULL,                -- Foreign key to identify the chat
                     date DATE NOT NULL,                     -- Date of the snapshot (without time)
+
+                    -- Totals snapshot
+                    score FLOAT DEFAULT NULL,                  -- Snapshot of the user's score
+                    pending_goals INT DEFAULT NULL,            -- Snapshot of pending goals
+                    finished_goals INT DEFAULT NULL,           -- Snapshot of finished goals
+                    failed_goals INT DEFAULT NULL,             -- Snapshot of failed goals           
         
                     -- Daily counts
                     goals_set INTEGER DEFAULT 0,            -- Number of goals set on this date
@@ -240,18 +246,22 @@ async def setup_database():
                     UNIQUE (user_id, chat_id, date)           -- Ensure one snapshot per user per day
                 )
             ''')
-            desired_columns_stats_snapshots = {
+            desired_columns_manon_stats_snapshots = {
                 'snapshot_id': 'SERIAL PRIMARY KEY',
                 'user_id': 'BIGINT NOT NULL',
                 'chat_id': 'BIGINT NOT NULL',
-                'date': 'DATE NOT NULL'
+                'date': 'DATE NOT NULL',
+                'score': 'FLOAT DEFAULT NULL',
+                'pending_goals': 'INT DEFAULT NULL',          
+                'finished_goals': 'INT DEFAULT NULL',          
+                'failed_goals': 'INT DEFAULT NULL'            
             }
-            await add_missing_columns(conn, 'stats_snapshots', desired_columns_stats_snapshots)
+            await add_missing_columns(conn, 'manon_stats_snapshots', desired_columns_manon_stats_snapshots)
 
             # Create index for faster queries
             await conn.execute('''
-                CREATE INDEX IF NOT EXISTS idx_stats_snapshots_user_date 
-                ON stats_snapshots (user_id, chat_id, date);
+                CREATE INDEX IF NOT EXISTS idx_manon_stats_snapshots_user_date 
+                ON manon_stats_snapshots (user_id, chat_id, date);
             ''')
 
         logging.info("Database tables initialized successfully")

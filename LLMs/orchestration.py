@@ -298,6 +298,7 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
             await update.message.reply_text(
                 f"Next step for open-ended not yet implemented: save with status 'prepared'"
             )
+            await complete_
             return
         
         elif recurrence_type == 'one-time':
