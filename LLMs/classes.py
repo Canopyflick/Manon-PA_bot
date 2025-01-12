@@ -23,7 +23,7 @@ class SetGoalAnalysis(BaseModel):
     timeframe: Literal['today', 'by_date', 'open-ended']
     category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]
     
-# Goal setting #2.1    
+# Goal setting #2.1 (one-time goals branch)
 class GoalAssessment(BaseModel):
     reasoning: str
     time_investment_value: float
@@ -39,7 +39,7 @@ class GoalInstanceAssessment(BaseModel):
     impact_multiplier: float
     failure_penalty: Literal['no', 'small', 'big']
 
-# Goal setting #3.1  
+# Goal setting #3.1 (one-time goals branch)
 class Schedule(BaseModel):
     reasoning: str
     goal_description: str

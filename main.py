@@ -70,7 +70,6 @@ global_bot: ExtBot = None
 
 local_flag = False
 
-
 # Only load dotenv if running locally (not on Heroku)
 if not os.getenv('HEROKU_ENV'):  # Check if HEROKU_ENV is not set, meaning it's local
     try:

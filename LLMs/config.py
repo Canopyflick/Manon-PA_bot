@@ -42,6 +42,11 @@ from LLMs.prompts import (
 
 from langchain_openai import ChatOpenAI   
 
+
+# Flag for sending debug logs in chat
+shared_state = {"transparant_mode": False}
+
+
 # Initialize LLMs and temperatures
 LOW = 0.2
 MID = 0.7

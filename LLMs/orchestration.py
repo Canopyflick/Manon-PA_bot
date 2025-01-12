@@ -1,8 +1,8 @@
-﻿from re import A
+﻿from re import A 
 from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message, safe_set_reaction
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal, handle_goal_completion
-import logging, os, asyncio
+import logging, os, asyncio, unicodedata
 from dateutil.parser import parse
 from utils.db import (
     fetch_goal_data,
@@ -12,7 +12,7 @@ from utils.db import (
     complete_limbo_goal,
     record_reminder,
 )
-from LLMs.config import chains
+from LLMs.config import chains, shared_state
 from LLMs.classes import (
     DummyClass,
     InitialClassification,
@@ -32,9 +32,10 @@ from LLMs.classes import (
     DiaryHeader,
     Reminder
 )
-
 #########################################################################
-import unicodedata
+
+
+
 
 def log_emoji_details(emoji, source="Unknown"):
     print(f"Source: {source}")
@@ -147,9 +148,10 @@ async def dummy_call(update, context):
         parsed_output = DummyClass.model_validate(output)
         dummy_field = parsed_output.dummy_field
         
-        debug_message = await update.message.reply_text(f"classification_result: \n{output}")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"classification_result: \n{output}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         if dummy_field == "something in particular":
             await next_step(update, context, output)
@@ -166,9 +168,10 @@ async def start_initial_classification(update, context):
         input_vars = await get_input_variables(update)
         initial_classification = await run_chain("initial_classification", input_vars)        
         
-        debug_message = await update.message.reply_text(f"Initial Classification Result: \n{initial_classification}")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"Initial Classification Result: \n{initial_classification}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         await process_classification_result(update, context, initial_classification)
 
@@ -234,9 +237,11 @@ async def handle_goal_classification(update, context, smarter=False):
             goal_classification = await run_chain("goal_classification", input_vars)   
         
         parsed_goal_classification = GoalClassification.model_validate(goal_classification)
-        debug_message = await update.message.reply_text(f"goal_classification: \n{parsed_goal_classification}")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"goal_classification: \n{parsed_goal_classification}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         
         goal_result = parsed_goal_classification.classification
@@ -272,9 +277,10 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
         goal_setting_analysis = await run_chain("goal_setting_analysis", input_vars)
         parsed_goal_analysis = SetGoalAnalysis.model_validate(goal_setting_analysis)
         
-        debug_message = await update.message.reply_text(f"parsed_goal_analysis: \n{parsed_goal_analysis}")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"parsed_goal_analysis: \n{parsed_goal_analysis}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
         recurrence_type = parsed_goal_analysis.evaluation_frequency
         timeframe = parsed_goal_analysis.timeframe
@@ -317,10 +323,11 @@ async def goal_valuation(update, context, goal_id, recurrence_type="one-time", s
         elif recurrence_type == 'one-time':
             goal_valuation = await run_chain("goal_valuation", input_vars)
             parsed_goal_valuation = GoalAssessment.model_validate(goal_valuation)
-            
-        debug_message = await update.message.reply_text(f"Parsed Goal Valuation: \n{parsed_goal_valuation}")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 200))     # Clean chat, clean life
+        
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"Parsed Goal Valuation: \n{parsed_goal_valuation}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 200))     # Clean chat, clean life
         
         await add_user_context_to_goals(
             context,
@@ -353,10 +360,11 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
             else:
                 output = await run_chain("schedule_goal", input_vars)
                 parsed_planning = Schedule.model_validate(output)
-
-        debug_message = await update.message.reply_text(f"prepare_goal_proposal: \n{parsed_planning}") 
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+                
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"prepare_goal_proposal: \n{parsed_planning}") 
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         await add_user_context_to_goals(
             context,
@@ -465,9 +473,10 @@ async def find_goal_id(update, context, type=None):
         parsed_output = GoalID.model_validate(output)
         goal_id = parsed_output.ID
         
-        debug_message = await update.message.reply_text(f"Found Goal ID that should be edited: \n*#{output}*", parse_mode = "Markdown")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"Found Goal ID that should be edited: \n*#{output}*", parse_mode = "Markdown")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         if goal_id == 0:
             update.message.reply_text(f"Couldn't find goal {PA}", parse_mode = "Markdown")
@@ -496,12 +505,13 @@ async def prepare_goal_changes(update, context, goal_id):
         parsed_output = UpdatedGoalData.model_validate(output)
         changes_summary = parsed_output.summary_of_changes
         
-        debug_message = await update.message.reply_text(f"Summary of changes the llm wants to make: \n{changes_summary}", parse_mode = "Markdown")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"Summary of changes the llm wants to make: \n{changes_summary}", parse_mode = "Markdown")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
 
-        logging.critical(f"here's the parsed output: {parsed_output}")
+        logging.info(f"here's the parsed output: {parsed_output}")
 
 
         # put everything in user context (clear first)
@@ -544,9 +554,10 @@ async def diary_header(update, context):
         
         header = f"{header_top}{dates_header}" 
 
-        debug_message = await update.message.reply_text(f"{header}")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"{header}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
     except Exception as e:
         await update.message.reply_text(f"Error in diary_header():\n {e}")
@@ -569,9 +580,10 @@ async def reminder_setting(update, context):
         if reminder_time.date() == now.date():
             logging.warning(f"reminder requested on the same day")
         
-        debug_message = await update.message.reply_text(f"Reminder setting result: \n{output}")
-        await add_delete_button(update, context, debug_message.message_id)
-        asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"Reminder setting result: \n{output}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         await record_reminder(update, context, output)
     

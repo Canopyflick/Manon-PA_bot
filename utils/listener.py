@@ -7,11 +7,13 @@ from telegram.ext import CallbackContext
 from utils.scheduler import send_evening_message, send_morning_message, fail_goals_warning
 from utils.helpers import fetch_logs
 from modules.stats_manager import StatsManager
+from LLMs.config import shared_state
 
 triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", 
-            "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats", "logs", "logs100", "errorlogs"]
+            "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats", 
+            "logs", "logs100", "errorlogs", "transparant_on", "transparant_off"]
 
-async def handle_triggers(update, context, trigger_text):
+async def handle_triggers(update, context, trigger_text):    
     if trigger_text == "SeintjeNatuurlijk":
         await update.message.reply_text(f"Ja hoor, hoi! {PA}")
     elif trigger_text == "Emoji":
@@ -60,6 +62,12 @@ async def handle_triggers(update, context, trigger_text):
     elif trigger_text == "errorlogs":
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
         await fetch_logs(update, context, 10, type="error")
+    elif trigger_text == "transparant_on":
+        shared_state["transparant_mode"] = True
+        await update.message.reply_text(f"_transparant mode enabled 🟢_ {PA}", parse_mode="Markdown")
+    elif trigger_text == "transparant_off":
+        shared_state["transparant_mode"] = False
+        await update.message.reply_text(f"_transparant mode disabled 🔴_ {PA}", parse_mode="Markdown")
 
 
 

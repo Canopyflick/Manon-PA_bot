@@ -75,7 +75,7 @@ async def help_command(update, context):
         '*Info about your goals*\n'
         f'| /today | /tomorrow | /24 | /overdue |\n\n'
         '*Trigger words*\n'
-        '| gm | gn | emoji | pomodoro | koffie | !test | usercontext | clearcontext | resolve |'
+        '| gm | gn | emoji | pomodoro | koffie | !test | usercontext | clearcontext | resolve | logs<number\\_of\\_lines> | errorlogs | transparant\\_on | transparant\\_off |'
     )
     chat_type = update.effective_chat.type
     if chat_type == 'private':
@@ -207,7 +207,7 @@ async def stats_command(update, context):
             period: stats[period].get('avg_completion_rate', 0)
             for period in periods
         },
-        'Score/Day': {
+        'Points/Day': {
             period: stats[period].get('total_score_gained', 0) / days_in_period[period]
             for period in periods
         },
