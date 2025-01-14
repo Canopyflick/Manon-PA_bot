@@ -1,10 +1,12 @@
 ﻿from reprlib import recursive_repr
+
+from asyncpg import Pool
+
 from utils.helpers import add_user_context_to_goals, datetime, timedelta, BERLIN_TZ, PA
 import logging, asyncpg, os, re, pytz
 from contextlib import asynccontextmanager
 from dateutil.parser import parse
-from datetime import time  
-
+from datetime import time
 
 # Initialization of connection and database tables
 # create a pool during application startup
@@ -14,7 +16,7 @@ def redact_password(url):
 
 
 class Database:
-    _pool = None
+    _pool: Pool | None = None
     
     @classmethod
     async def initialize(cls):
@@ -59,7 +61,8 @@ class Database:
         async with cls._pool.acquire() as conn:
             # Test basic connectivity
             await conn.execute('SELECT 1')
-            
+
+
             # Verify timezone settings
             timezone = await conn.fetchval('SHOW timezone')
             logging.info(f"Database timezone set to: {timezone}")
@@ -74,7 +77,7 @@ class Database:
         logging.info("Database connection successful with timezone configuration")
 
     @classmethod
-    def acquire(cls):
+    def acquire(cls) -> Pool:
         if cls._pool is None:
             raise RuntimeError("Database pool not initialized!")
         return cls._pool.acquire()
@@ -112,7 +115,7 @@ async def add_missing_columns(conn, table_name: str, desired_columns: dict):
 
     except Exception as e:
         logging.error(f"Error adding columns to {table_name}: {e}")
-        raise            
+        raise RuntimeError(f"Error adding columns to {table_name}: {e}") from e
 
 
 async def setup_database():
@@ -450,8 +453,6 @@ async def create_recurring_goal_instance(**kwargs):
         logging.error(f"Unexpected error in create_recurring_goal_instance: {e}")
         return None
 
-        
-
 async def complete_limbo_goal(update, context, goal_id, initial_update=True):
     chat_id=update.effective_chat.id
     """
@@ -545,46 +546,6 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
 # Dummy function, not yet interacting with db        
 async def fetch_long_term_goals(chat_id, user_id):
     return "To be increasingly kind and useful to others. To set myself up for continuous learning, self-improvement, longevity and rich relationships."
-
-
-async def register_user(context, user_id, chat_id):
-    try:
-        first_name = await get_first_name(context, user_id, chat_id)
-        
-        async with Database.acquire() as conn:
-            # Check if the user already exists in the users table
-            result = await conn.fetchrow(
-                "SELECT first_name FROM manon_users WHERE user_id = $1 AND chat_id = $2",
-                user_id, chat_id
-            )
-
-            if result is None:
-                # User doesn't exist, insert with first_name
-                await conn.execute("""
-                    INSERT INTO manon_users (user_id, chat_id, first_name)
-                    VALUES ($1, $2, $3)
-                """, user_id, chat_id, first_name)
-                logging.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
-                await context.bot.send_message(chat_id, text=f"_Registered new user,_ *{first_name}*_, with User ID:_", parse_mode="Markdown")
-                await context.bot.send_message(chat_id, text=f"_{user_id}_", parse_mode="Markdown")
-                await context.bot.send_message(chat_id, text="_in chat:_", parse_mode="Markdown")
-                await context.bot.send_message(chat_id, text=f"_{chat_id}_", parse_mode="Markdown")
-            elif result['first_name'] is None:
-                # User exists but first_name is missing, update it
-                await conn.execute("""
-                    UPDATE manon_users
-                    SET first_name = $1
-                    WHERE user_id = $2 AND chat_id = $3
-                """, first_name, user_id, chat_id)
-                logging.warning(f"Updated first_name for user_id: {user_id}, chat_id: {chat_id} to {first_name}")
-            
-            else:
-                return f"Registered user {first_name} called /start"
-
-    except Exception as e:
-        logging.error(f"Error updating user record: {e}")  
-        raise  
-        
 
 async def adjust_penalty_or_goal_value(update, context, goal_id, action, direction):
     try:
@@ -803,7 +764,7 @@ async def fetch_user_data(user_id, columns="*", conditions=None, single_value=Fa
     Fetch specified columns for a given user_id from the manon_goals table.
 
     Args:
-        user_id (int): The ID of the goal to fetch data for.
+        user_id (int): The ID of the user to fetch data for.
         columns (str): Comma-separated column names to fetch (default is '*').
         conditions (str, optional): Additional SQL conditions to apply to the query.
 

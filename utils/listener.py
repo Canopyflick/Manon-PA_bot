@@ -13,7 +13,7 @@ triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontex
             "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats", 
             "logs", "logs100", "errorlogs", "transparant_on", "transparant_off"]
 
-async def handle_triggers(update, context, trigger_text):    
+async def handle_triggers(update, context, trigger_text) -> bool:
     if trigger_text == "SeintjeNatuurlijk":
         await update.message.reply_text(f"Ja hoor, hoi! {PA}")
     elif trigger_text == "Emoji":
@@ -68,9 +68,10 @@ async def handle_triggers(update, context, trigger_text):
     elif trigger_text == "transparant_off":
         shared_state["transparant_mode"] = False
         await update.message.reply_text(f"_transparant mode disabled 🔴_ {PA}", parse_mode="Markdown")
+    else:
+        return False
 
-
-
+    return True
 
 # First orchestration: function to analyze any chat message and categorize it. Currently treats replies differently, mentions and regular messages differently
 async def analyze_any_message(update, context):
@@ -88,12 +89,16 @@ async def analyze_any_message(update, context):
                 return
             
             # Handle preset triggers
-            for trigger_text in triggers:
-                user_message = user_message.lower()
-                if trigger_text.lower() == user_message:
-                    logging.info(f"Message received: Trigger ({trigger_text})")
-                    await handle_triggers(update, context, trigger_text)
-                    return
+            if handle_triggers(update, context, user_message.lower()):
+                return
+
+            # for trigger_text in triggers:
+            #     user_message = user_message.lower()
+            #     if trigger_text.lower() == user_message:
+            #         logging.info(f"Message received: Trigger ({trigger_text})")
+            #         await handle_triggers(update, context, trigger_text)
+            #         return
+
             # Handle dynamic "logs<num>" triggers
             match = re.match(r"^logs(\d+)$", user_message.lower())
             if match:
