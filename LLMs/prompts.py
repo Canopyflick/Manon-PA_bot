@@ -68,8 +68,8 @@ goal_classification_template = ChatPromptTemplate([
     ## Report_failed
     Any message reporting that an activity or goal was failed, not (quite) succesful.
 
-    ## Postpone
-    Any message about wanting to postpone a goal to a later date and/or time.
+    ## Edit
+    Any message about wanting to postpone a goal to a later date and/or time, add reminders to a goal, change phrasing or otherwise edit a goal.
         
     ## Cancel
     Any message about wanting to cancel or delete an existing goal.
