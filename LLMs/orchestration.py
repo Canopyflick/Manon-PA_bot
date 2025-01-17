@@ -294,11 +294,13 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
         )
 
         if timeframe == "open-ended":
-            # await goal_proposal?
+            # shortcut the save, skip valuation and proposal at this point for this goal_type
+            description = parsed_goal_analysis.description
+            await add_user_context_to_goals(context, goal_id, goal_description=description)
+            await complete_limbo_goal(update, context, goal_id, initial_update=True)
             await update.message.reply_text(
-                f"Next step for open-ended not yet implemented: save with status 'prepared'"
+                f"Simply saving open-ended goal (#{goal_id} in database with status 'prepared' (other functionality not yet implemented).\n✍️ _{description}_", parse_mode="Markdown"
             )
-            # await complete_
             return
         
         elif recurrence_type == 'one-time':

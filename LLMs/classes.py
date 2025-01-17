@@ -18,7 +18,7 @@ class GoalClassification(BaseModel):
 
 # Goal setting #1
 class SetGoalAnalysis(BaseModel):
-    description: str        # not used, but keeping it in case it does help the llm
+    description: str        # not used, but keeping it in case it does help the llm (omg en nu kan ik het gebruiken voor het opslaan van open-ended goals, nais 🤝)
     evaluation_frequency: Literal['one-time', 'recurring']
     timeframe: Literal['today', 'by_date', 'open-ended']
     category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]

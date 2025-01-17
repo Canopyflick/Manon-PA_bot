@@ -491,6 +491,15 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
         kwargs["goal_description"] = description
 
         if initial_update:      # All of these aren't changed during adjustments
+            timeframe = goal_data.get("timeframe")
+            if timeframe == "open-ended":
+                # Save open-ended goal as prepared in the database
+                kwargs["status"] = "prepared"
+                await update_goal_data(goal_id, initial_update, **kwargs)
+                await update.message.reply_text(
+                f"Just saving open-ended goal (#{goal_id}) in database with status 'prepared' (other functionality not yet implemented) {PA}\n\n✍️ _{description}_", parse_mode="Markdown"
+                )
+                return
             kwargs["deadline"] = goal_data.get("evaluation_deadline") if goal_data.get("evaluation_deadline") else None
             kwargs["deadlines"] = goal_data.get("evaluation_deadlines") if goal_data.get("evaluation_deadlines") else None
             kwargs["total_goal_value"] = goal_data.get("total_goal_value")

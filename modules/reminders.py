@@ -129,7 +129,7 @@ async def send_reminder(bot, reminder_data):
             message = (
                 f"{PA} Reminder for [{first_name}](tg://user?id={user_id})\n\n"
                 f"You have a pending goal with a deadline on {formatted_deadline}:\n"
-                f"_{goal_description}_"
+                f"✍️ _{goal_description}_"
             )
         elif reminder_text:
             message = (
