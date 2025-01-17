@@ -497,7 +497,7 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
                 kwargs["status"] = "prepared"
                 await update_goal_data(goal_id, initial_update, **kwargs)
                 await update.message.reply_text(
-                f"Just saving open-ended goal (#{goal_id}) in database with status 'prepared' (other functionality not yet implemented) {PA}\n\n✍️ _{description}_", parse_mode="Markdown"
+                f"Just saving open-ended goal (#{goal_id}) in database with status 'prepared' {PA}\n\n✍️ _{description}_", parse_mode="Markdown"
                 )
                 return
             kwargs["deadline"] = goal_data.get("evaluation_deadline") if goal_data.get("evaluation_deadline") else None

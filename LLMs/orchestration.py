@@ -298,9 +298,6 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
             description = parsed_goal_analysis.description
             await add_user_context_to_goals(context, goal_id, goal_description=description)
             await complete_limbo_goal(update, context, goal_id, initial_update=True)
-            await update.message.reply_text(
-                f"Simply saving open-ended goal (#{goal_id} in database with status 'prepared' (other functionality not yet implemented).\n✍️ _{description}_", parse_mode="Markdown"
-            )
             return
         
         elif recurrence_type == 'one-time':
