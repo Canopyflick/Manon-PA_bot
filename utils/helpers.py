@@ -63,16 +63,14 @@ async def is_ben_in_chat(update, context):
     USER_IDS = [1875436366, 279184266]
     chat_id = update.effective_chat.id
     try:
-        # Get information about your status in the chat
+        # Check each user ID
         for USER_ID in USER_IDS:
             member = await context.bot.get_chat_member(chat_id, USER_ID)
-            # Check if you're a member, administrator, or have any active role in the chat
+            # If either user is found with a valid status, return True
             if member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]:
                 return True
-            else:
-                return False
-            
-        
+        # If none of the users are found, return False
+        return False
     except Exception as e:
         logging.error(f"Error checking chat member: {e}")
         return False
