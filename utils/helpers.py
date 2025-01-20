@@ -62,30 +62,35 @@ async def check_chat_owner(update: Update, context):
 async def is_ben_in_chat(update, context):
     USER_IDS = [1875436366, 279184266]
     chat_id = update.effective_chat.id
+
     try:
-        # Check each user ID
+        # Handle private chats explicitly
+        if chat_id in USER_IDS:
+            return True
+
+        # Handle group or supergroup chats
         for USER_ID in USER_IDS:
             member = await context.bot.get_chat_member(chat_id, USER_ID)
-            # If either user is found with a valid status, return True
             if member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]:
                 return True
-        # If none of the users are found, return False
+
         return False
     except Exception as e:
         logging.error(f"Error checking chat member: {e}")
         return False
+
     
 
-# Private message to Ben (test once then delete)
-async def notify_ben(update,context):
-        USER_ID = 1875436366
-        first_name = update.effective_user.first_name
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        message = update.message.text
-        notification_message = f"You've got mail ✉️🧙‍♂️\n\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage:\n{message}"
-        logging.error(f"! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! \n\n\n\nUnauthorized Access Detected\n\n\n\n! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage: {message}")
-        await context.bot.send_message(chat_id=USER_ID, text=notification_message)
+# Private message to Ben 
+async def notify_ben(update, context):
+    USER_ID = 1875436366
+    first_name = update.effective_user.first_name
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    message = update.message.text
+    notification_message = f"You've got mail ✉️🧙‍♂️\n\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage:\n{message}"
+    logging.error(f"! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! \n\n\n\nUnauthorized Access Detected\n\n\n\n! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage: {message}")
+    await context.bot.send_message(chat_id=USER_ID, text=notification_message)
         
 
 
