@@ -1,4 +1,4 @@
-﻿from utils.helpers import emoji_stopwatch, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, PA, add_delete_button, delete_message
+﻿from utils.helpers import emoji_stopwatch, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, PA, add_delete_button, delete_message, safe_set_reaction
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
 import asyncio, random, re, logging
@@ -446,7 +446,7 @@ async def today_command(update, context):
         else:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"_You're all caught up today, nothing overdue_ {PA}",
+                text=f"_You're all caught up_ today, _nothing overdue_ {PA}",
                 parse_mode="Markdown"
             )
             
@@ -524,9 +524,11 @@ async def tomorrow_command(update, context):
 
 async def diary_command(update, context):
     try:
-        
         chat_id = update.effective_chat.id
+        message_id = update.message.message_id
+        preset_reaction = "💅"
         await diary_header(update, context)
+        await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
             
     except Exception as e:
         logging.error(f"Error in diary_command: {e}")

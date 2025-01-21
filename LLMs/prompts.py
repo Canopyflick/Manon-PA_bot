@@ -539,6 +539,7 @@ diary_header_template = ChatPromptTemplate([
     << [[2023-10-14, Sat]] | [[2024-04-11, Thu]] >> (quarter)
     << [[2023-01-12, Thu]] | [[2025-01-11, Sat]] >> (year)
 
+    (remimder: it is currently: {weekday}, {now}) 
     """),
     
     ("human", """
@@ -555,6 +556,20 @@ reminder_setting_template = ChatPromptTemplate([
     The Reminder Text should be a short text message that will be sent to the user at that moment. It should have all the relevant context to work as a standalone reminder when the user receives it out of the blue. This text will be inserted into the following template:
     Reminder for [{first_name}](tg://user?id={user_id}):\n\n"<reminder_text>"
     For category, pick one or several from the list. 
+    """),
+    
+    ("human", """
+    User Request:
+    {user_message}
+    """),
+])
+
+
+other_template = ChatPromptTemplate([
+    ("system", """
+    It is currently: {weekday}, {now}. You are a virtual PA called Manon. A user in a Telegram group is sending you a message. It's your task to respond to it, be as helpful and succinct as possible. 
+    Don't mince words, don't be nuanced, just give your best guess at the most accurate, obvious, to-the-point response. No intro, no outro, no disclaimers. The user already knows that you're a chatbot and they should not take your words for truth.
+    Always include a {PA} somewhere in your response. If you expect your response to be helpful to the user, also include a 🍌. If you think it's probavly medium-helpful, include a 🕳️. If you don't think it's helpful, include a 🍆.
     """),
     
     ("human", """

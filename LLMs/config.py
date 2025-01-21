@@ -17,7 +17,8 @@ from LLMs.classes import (
     GoalID,
     UpdatedGoalData,
     DiaryHeader,
-    Reminder
+    Reminder,
+    Response
 )
 from LLMs.prompts import (
     dummy_template,
@@ -37,7 +38,8 @@ from LLMs.prompts import (
     find_goal_id_template,
     prepare_goal_changes_template,
     diary_header_template,
-    reminder_setting_template
+    reminder_setting_template,
+    other_template
 )
 
 from langchain_openai import ChatOpenAI   
@@ -170,6 +172,11 @@ chain_configs = {
         "template": reminder_setting_template,
         "class": Reminder,
         "llm": llms["mini"],
+    },
+    "other": {
+        "template": other_template,
+        "class": Response,
+        "llm": llms["gpt4o_high_temp"],
     }
 }
 

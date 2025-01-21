@@ -1,4 +1,6 @@
-﻿from re import A 
+﻿from re import A
+
+from httpx import Response 
 from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message, safe_set_reaction
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal, handle_goal_completion
@@ -30,7 +32,8 @@ from LLMs.classes import (
     GoalID,
     UpdatedGoalData,
     DiaryHeader,
-    Reminder
+    Reminder,
+    Response,
 )
 #########################################################################
 
@@ -76,6 +79,7 @@ async def get_input_variables(update, source_text=None, target_language="English
     now_formatted = f"{now.date()}T18:01:00{now.strftime('%z')}"
     tomorrow_formatted = f"{tomorrow.date()}T18:01:00{tomorrow.strftime('%z')}"
     next_wednesday_formatted = next_wednesday_at_noon.strftime("%Y-%m-%dT%H:%M:%S%z")
+    
 
     if response_text:
         user_message = f"{user_message}\n\n(As a reply to message: {response_text})"
@@ -99,6 +103,7 @@ async def get_input_variables(update, source_text=None, target_language="English
         "next_wednesday": next_wednesday_formatted,
         "next_year": next_year,
         "goal_data": goal_data,
+        "PA": PA,
     }
 
 
@@ -205,13 +210,13 @@ async def process_classification_result(update, context, initial_classification)
         if initial_classification == "Goals":
             preset_reaction = "⚡"
             await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
-            await handle_goal_classification(update, context)             # < < < < <
+            await handle_goal_classification(update, context)                           # < < < < <
             # await asyncio.sleep(5)
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
         elif initial_classification == "Reminders":
             preset_reaction = "🫡"
             await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
-            await reminder_setting(update, context)                                  # < < < < <
+            await reminder_setting(update, context)                                     # < < < < <
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
         elif initial_classification == "Meta":
             preset_reaction = "💩"
@@ -219,8 +224,9 @@ async def process_classification_result(update, context, initial_classification)
             await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
         else:
             preset_reaction = "😘"
-            await update.message.reply_text("Your message doesn't fall into any specific category.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                           # < < < < <
+            await other_message(update, context)                                        # < < < < <
             await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
+            
 
     except Exception as e:
         await update.message.reply_text(f"{PA} Error in process_classification_result():\n {e}")
@@ -479,7 +485,7 @@ async def find_goal_id(update, context, type=None):
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
         
         if goal_id == 0:
-            update.message.reply_text(f"Couldn't find goal {PA}", parse_mode = "Markdown")
+            await update.message.reply_text(f"Couldn't find goal {PA}", parse_mode = "Markdown")
             logging.warning(f"\n\n🚨 Goal ID not found\n\n")
             return
         else:
@@ -525,6 +531,7 @@ async def prepare_goal_changes(update, context, goal_id):
     except Exception as e:
         await update.message.reply_text(f"🚨 prepare_goal_changes:\n {e}")
         logging.error(f"\n\n🚨 prepare_goal_changes:\n {e}\n\n")
+        
 
 header_top ="""
 ---
@@ -546,6 +553,7 @@ Finished:
 """
 async def diary_header(update, context):
     try:
+        logging.info("Diary command triggered")
         input_vars = await get_input_variables(update)
         output = await run_chain("diary_header", input_vars)
         
@@ -555,9 +563,11 @@ async def diary_header(update, context):
         header = f"{header_top}{dates_header}" 
 
         if shared_state["transparant_mode"]:
-            debug_message = await update.message.reply_text(f"{header}")
+            debug_message = await update.message.reply_text(parsed_output)
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+            
+        await update.message.reply_text(header)
         
     except Exception as e:
         await update.message.reply_text(f"Error in diary_header():\n {e}")
@@ -590,3 +600,24 @@ async def reminder_setting(update, context):
     except Exception as e:
         await update.message.reply_text(f"Error in reminder_setting():\n {e}")
         logging.error(f"\n\n🚨 Error in reminder_setting(): {e}\n\n")
+        
+
+async def other_message(update, context):
+    try:
+        input_vars = await get_input_variables(update)
+        output = await run_chain("other", input_vars)
+        
+        parsed_output = Response.model_validate(output)
+        response = parsed_output.response_text
+        
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"other_message_result: \n{output}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+
+        other_message = await update.message.reply_text(response)
+        await add_delete_button(update, context, other_message.message_id)
+        
+    except Exception as e:
+        await update.message.reply_text(f"Error in other_message():\n {e}")
+        logging.error(f"\n\n🚨 Error in other_message(): {e}\n\n")

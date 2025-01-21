@@ -118,4 +118,8 @@ class Reminder(BaseModel):
     reminder_category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]
     time: str
     
+    
+class Response(BaseModel):
+    response_text: str
+    
 

@@ -61,7 +61,7 @@ async def handle_triggers(update, context, trigger_text):
         await fetch_logs(update, context, 6)
     elif trigger_text == "errorlogs":
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
-        await fetch_logs(update, context, 10, type="error")
+        await fetch_logs(update, context, 50, type="error")
     elif trigger_text == "transparant_on":
         shared_state["transparant_mode"] = True
         await update.message.reply_text(f"_transparant mode enabled 🟢_ {PA}", parse_mode="Markdown")
