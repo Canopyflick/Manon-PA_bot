@@ -33,12 +33,14 @@ if not os.getenv('HEROKU_ENV'):
 # Flag to indicate if running locally
 LOCAL_FLAG = not os.getenv('HEROKU_ENV', False)
 
-# Get OpenAI API key from environment variable
+# Get OpenAI API keys from environment variable
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+EC_OPENAI_API_KEY = os.getenv('EC_OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY not found! Ensure it's set in the environment.")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+client_EC = OpenAI(api_key=EC_OPENAI_API_KEY)
 
 
 

@@ -1,4 +1,4 @@
-from utils.helpers import PA
+from utils.helpers import PA, EC_OPENAI_API_KEY
 from LLMs.classes import (
     InitialClassification,
     GoalClassification,
@@ -59,6 +59,7 @@ llms = {
     "mini": ChatOpenAI(model_name="gpt-4o-mini", temperature=LOW),
     "gpt4o_high_temp": ChatOpenAI(model_name="gpt-4o", temperature=HIGH),
     "mini_high_temp": ChatOpenAI(model_name="gpt-4o-mini", temperature=HIGH),
+    "o1": ChatOpenAI(model_name="o1"),
 }
 
 # Centralized Chain Configuration
@@ -177,6 +178,11 @@ chain_configs = {
         "template": other_template,
         "class": Response,
         "llm": llms["gpt4o_high_temp"],
+    },
+    "other_plus": {
+        "template": other_template,
+        "class": Response,
+        "llm": llms["o1"],
     }
 }
 

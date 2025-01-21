@@ -1,7 +1,7 @@
 ﻿from re import A
 
 from httpx import Response 
-from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message, safe_set_reaction
+from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message, safe_set_reaction, client_EC
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal, handle_goal_completion
 import logging, os, asyncio, unicodedata
@@ -621,3 +621,39 @@ async def other_message(update, context):
     except Exception as e:
         await update.message.reply_text(f"Error in other_message():\n {e}")
         logging.error(f"\n\n🚨 Error in other_message(): {e}\n\n")
+        
+
+async def other_message_o1(update, context):
+    try:
+        now = datetime.now(tz=BERLIN_TZ)
+        weekday = now.strftime("%A") 
+        user_message = update.message.text
+        response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
+
+        if response_text:
+            user_message = f"{user_message}\n\n(As a reply to message: {response_text})"
+        
+        response = client_EC.chat.completions.create(
+            model="o1",
+            messages=[
+                {"role": "developer", "content": f"""
+                It is currently: {weekday}, {now}. You are a virtual PA called Manon. A user in a Telegram group is sending you a message. It's your task to respond to it, be as glib and helpful as possible. 
+                Don't mince words, don't be nuanced, just give your best attempt at the most accurate and helpful response. No intro, no outro, no disclaimers. The user already knows that you're a chatbot and they should not take your words for truth.
+                Always include a {PA} somewhere in your response. If you expect your response to be helpful to the user, also include a 🍌. If you think it's probavly medium-helpful, include a 🕳️. If you don't think it's helpful, include a 🍆."""},
+                {"role": "user", "content": f"User message:\n{user_message}"}
+            ],
+        )
+        
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"other_message_result: \n{response}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+        
+        response_message = response.choices[0].message.content
+        other_message_1 = await update.message.reply_text(response_message)
+        await add_delete_button(update, context, other_message_1.message_id)
+        
+    except Exception as e:
+        await update.message.reply_text(f"Error in other_message_1():\n {e}")
+        logging.error(f"\n\n🚨 Error in other_message_1(): {e}\n\n")
+ 

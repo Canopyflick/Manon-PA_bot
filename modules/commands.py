@@ -4,7 +4,7 @@ from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from utils.helpers import get_btc_price
 from telegram.ext import ContextTypes, CallbackContext
-from LLMs.orchestration import diary_header, process_other_language, check_language, handle_goal_classification, start_initial_classification
+from LLMs.orchestration import diary_header, other_message, other_message_o1, process_other_language, check_language, handle_goal_classification, start_initial_classification
 from utils.db import get_first_name, register_user, fetch_user_stats
 from utils.listener import roll_dice
 from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
@@ -70,6 +70,8 @@ async def help_command(update, context):
         '⏱️ <minutes>:<seconds> - Timer\n'
         '🉑 /translate - 肏你妈\n'
         '🎲 /dice - 1-6\n'
+        '✍️ /smarter - 4o instead of 4o-mini\n'
+        '🤔🚧 /o1 - use sparingly (expensive) xx '
         '🗒️🚧 /profile - What I know about you\n'
         '💭🚧 /wow - Get inspired\n\n'
         '*Info about your goals*\n'
@@ -537,3 +539,8 @@ async def diary_command(update, context):
             text="An error occurred while processing your request. Please try again later.",
             parse_mode="Markdown"
         )
+        
+
+async def o1_command(update: Update, context: CallbackContext):
+    logging.warning("triggered /o1")
+    await other_message_o1(update, context)

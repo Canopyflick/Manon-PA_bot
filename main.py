@@ -113,7 +113,7 @@ def register_handlers(application):
     start_command, help_command, stats_command, wow_command, btc_command, 
     bitcoin_command, smarter_command, translate_command, profile_command, overdue_command,
     stopwatch_command, tea_command, dice_command, today_command, twenty_four_hours_command,
-    tomorrow_command, diary_command
+    tomorrow_command, diary_command, o1_command
     )
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
@@ -134,6 +134,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler("bitcoin", bitcoin_command))
     
     application.add_handler(CommandHandler("smarter", smarter_command))
+    application.add_handler(CommandHandler("o1", o1_command))
     application.add_handler(CommandHandler("translate", translate_command))
     
     from utils.listener import analyze_any_message, print_edit  
