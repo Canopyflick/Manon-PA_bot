@@ -14,7 +14,7 @@ class InitialClassification(BaseModel):
 
 
 class GoalClassification(BaseModel):
-    classification: Literal['Set', 'Report_done', 'Report_failed', 'Edit', 'Cancel', 'Pause', 'None']
+    classification: Literal['Set', 'Report_done', 'Report_failed', 'Edit', 'Cancel', 'Pause']
 
 # Goal setting #1
 class SetGoalAnalysis(BaseModel):

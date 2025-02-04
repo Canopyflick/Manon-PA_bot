@@ -1,6 +1,7 @@
 ﻿from telegram import Update, ChatMember, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, ExtBot
 from telegram.error import TelegramError
+from utils.environment_vars import ENV_VARS, is_running_locally
 from typing import Union
 from datetime import datetime, time, timedelta, timezone
 import os, pytz, logging, requests, asyncio, re, random, json, subprocess
@@ -8,34 +9,15 @@ from openai import OpenAI
 from typing import Union
 from zoneinfo import ZoneInfo
 from pprint import pformat
-
+from dataclasses import dataclass
+from utils.session_avatar import PA
 
 # Define the Berlin timezone
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
-PA_options = [
-    '🦄', '🐲', '🧌', '🧓', '🎅',
-    '🥷', '🧑‍💼', '☃️', '💖', '👮‍♀️',
-    '🧜‍♀️', '🧜', '🧚‍♀️', '🧚‍♂️', '🧚'
-    
-]
-PA = random.choice(PA_options)
-
-
-# Only load dotenv if running locally (not on Heroku)
-if not os.getenv('HEROKU_ENV'):
-    try: 
-        from dotenv import load_dotenv
-        load_dotenv(override=True)
-    except ImportError:
-        pass  # In case dotenv isn't installed, ignore this when running locally
-
-# Flag to indicate if running locally
-LOCAL_FLAG = not os.getenv('HEROKU_ENV', False)
-
 # Get OpenAI API keys from environment variable
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-EC_OPENAI_API_KEY = os.getenv('EC_OPENAI_API_KEY')
+OPENAI_API_KEY = ENV_VARS.OPENAI_API_KEY
+EC_OPENAI_API_KEY = ENV_VARS.EC_OPENAI_API_KEY
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY not found! Ensure it's set in the environment.")
 

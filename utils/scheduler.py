@@ -2,7 +2,8 @@
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from utils.helpers import get_btc_price, PA, BERLIN_TZ, datetime, timedelta
+from utils.helpers import get_btc_price, BERLIN_TZ, datetime, timedelta
+from utils.session_avatar import PA
 from datetime import time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction

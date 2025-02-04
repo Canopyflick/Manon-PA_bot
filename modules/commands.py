@@ -1,4 +1,5 @@
-﻿from utils.helpers import emoji_stopwatch, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, PA, add_delete_button, delete_message, safe_set_reaction
+﻿from utils.helpers import emoji_stopwatch, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, add_delete_button, delete_message, safe_set_reaction
+from utils.session_avatar import PA
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
 import asyncio, random, re, logging
@@ -528,7 +529,7 @@ async def diary_command(update, context):
     try:
         chat_id = update.effective_chat.id
         message_id = update.message.message_id
-        preset_reaction = "💅"
+        preset_reaction = "🎄"
         await diary_header(update, context)
         await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
             

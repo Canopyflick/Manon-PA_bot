@@ -1,4 +1,5 @@
-﻿from utils.helpers import delete_message, is_ben_in_chat, notify_ben, datetime, test_emojis_with_telegram, emoji_stopwatch, send_user_context, PA, delete_message
+﻿from utils.helpers import delete_message, is_ben_in_chat, notify_ben, datetime, test_emojis_with_telegram, emoji_stopwatch, send_user_context, delete_message
+from utils.session_avatar import PA
 from LLMs.orchestration import start_initial_classification
 from typing import Literal, List, Union
 import asyncio, logging, subprocess, re
@@ -64,10 +65,10 @@ async def handle_triggers(update, context, trigger_text):
         await fetch_logs(update, context, 50, type="error")
     elif trigger_text == "transparant_on":
         shared_state["transparant_mode"] = True
-        await update.message.reply_text(f"_transparant mode enabled 🟢_ {PA}", parse_mode="Markdown")
+        await update.message.reply_text(f"_transparant mode enabled 🟢_ {PA}\n_(spamming additional logs in chat)_", parse_mode="Markdown")
     elif trigger_text == "transparant_off":
         shared_state["transparant_mode"] = False
-        await update.message.reply_text(f"_transparant mode disabled 🔴_ {PA}", parse_mode="Markdown")
+        await update.message.reply_text(f"_transparant mode disabled 🔴_ {PA}\n_(no additional logs in chat  )_", parse_mode="Markdown")
 
 
 

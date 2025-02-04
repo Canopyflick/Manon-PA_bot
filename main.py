@@ -3,7 +3,10 @@ from logging.handlers import RotatingFileHandler
 from telegram import ChatMember
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, CallbackQueryHandler, PollHandler, ExtBot
 from datetime import datetime, timezone
-from utils.helpers import BERLIN_TZ, PA, monitor_btc_price
+
+from utils.environment_vars import ENV_VARS, is_running_locally
+from utils.helpers import BERLIN_TZ, monitor_btc_price
+from utils.session_avatar import PA
 from utils.db import setup_database, Database
 from utils.scheduler import (
     send_morning_message, 
@@ -68,17 +71,7 @@ logging = configure_logging()
 # Global bot instance
 global_bot: ExtBot = None
 
-local_flag = False
 
-# Only load dotenv if running locally (not on Heroku)
-if not os.getenv('HEROKU_ENV'):  # Check if HEROKU_ENV is not set, meaning it's local
-    try:
-        from dotenv import load_dotenv
-        load_dotenv(override=True)
-        local_flag = True
-    except ImportError:
-        pass  # In case dotenv isn't installed, ignore this when running locally
-    
 
 
 # Function to reset stuff that is in context or something, ie temporary memory that is lost when the bot reboots
@@ -93,7 +86,6 @@ async def initialize_environment(app):
         await setup_database()
         await reset_things_on_startup()
         await check_upcoming_reminders(app.bot)     # for any reminders that were scheduled for today at midnight, and were lost upon reboot
-
         logging.info("Environment initialized successfully")
     except Exception as e:
         logging.error(f"Error initializing environment: {e}")
@@ -102,10 +94,7 @@ async def initialize_environment(app):
 
 # Retrieve the bot token based on the environment
 def get_bot_token() -> str:
-    token = os.getenv('LOCAL_TELEGRAM_API_KEY' if local_flag else 'TELEGRAM_API_KEY')
-    if not token:
-        raise ValueError("Telegram API key is missing!")
-    return token.strip()
+    return ENV_VARS.TELEGRAM_API_KEY
 
 # Register bot commands and handlers
 def register_handlers(application):
@@ -225,17 +214,13 @@ def main():
         # Create and get the event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
-        token = get_bot_token()
-        if token is None:
-            raise ValueError("No TELEGRAM_API_KEY found in environment variables")
 
         # Log if running locally or hosted
-        logging.info("Using *dev bot* (@TestManon_bot)" if local_flag else "Using & *prod bot* (@Manon_PA_bot)\n")
+        logging.info("Using *dev bot* (@TestManon_bot)" if is_running_locally() else "Using & *prod bot* (@Manon_PA_bot)\n")
         
         # Create the bot application with ApplicationBuilder
         application = ApplicationBuilder() \
-            .token(token) \
+            .token(ENV_VARS.TELEGRAM_API_KEY) \
             .connect_timeout(20) \
             .read_timeout(20) \
             .post_init(setup) \

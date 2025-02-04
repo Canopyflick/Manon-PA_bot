@@ -1,4 +1,5 @@
-from utils.helpers import PA, EC_OPENAI_API_KEY
+from utils.helpers import EC_OPENAI_API_KEY
+from utils.session_avatar import PA
 from LLMs.classes import (
     InitialClassification,
     GoalClassification,

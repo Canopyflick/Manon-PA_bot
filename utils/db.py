@@ -1,5 +1,8 @@
 ﻿from reprlib import recursive_repr
-from utils.helpers import add_user_context_to_goals, datetime, timedelta, BERLIN_TZ, PA
+
+from utils.environment_vars import ENV_VARS, is_running_on_heroku
+from utils.helpers import add_user_context_to_goals, datetime, timedelta, BERLIN_TZ
+from utils.session_avatar import PA
 import logging, asyncpg, os, re, pytz
 from contextlib import asynccontextmanager
 from dateutil.parser import parse
@@ -15,16 +18,12 @@ def redact_password(url):
 
 class Database:
     _pool = None
-    
+
     @classmethod
     async def initialize(cls):
         if cls._pool is not None:
             return
-            
-        DATABASE_URL = os.getenv('LOCAL_DB_URL', os.getenv('DATABASE_URL'))
-        if not DATABASE_URL:
-            raise ValueError("Database URL not found!")
-        
+
         # Create custom timestamp codec
         def timestamp_converter(value):
             if value is not None:
@@ -41,8 +40,8 @@ class Database:
 
         # Create pool only once with all settings
         cls._pool = await asyncpg.create_pool(
-            DATABASE_URL,
-            ssl='require' if os.getenv('HEROKU_ENV') else None,
+            ENV_VARS.DATABASE_URL,
+            ssl='require' if is_running_on_heroku() else None,
             min_size=5,
             max_size=20,
             server_settings={'timezone': 'Europe/Berlin'},

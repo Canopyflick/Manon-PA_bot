@@ -1,5 +1,6 @@
 ﻿from jinja2.utils import F
-from utils.helpers import BERLIN_TZ, add_user_context_to_goals, PA
+from utils.helpers import BERLIN_TZ, add_user_context_to_goals
+from utils.session_avatar import PA
 from utils.db import(
     update_goal_data, 
     complete_limbo_goal, 

@@ -1,7 +1,8 @@
 ﻿from re import A
 
 from httpx import Response 
-from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, PA, add_delete_button, delete_message, safe_set_reaction, client_EC
+from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, add_delete_button, delete_message, safe_set_reaction, client_EC
+from utils.session_avatar import PA
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.goals import send_goal_proposal, handle_goal_completion
 import logging, os, asyncio, unicodedata
@@ -61,7 +62,7 @@ async def get_input_variables(update, source_text=None, target_language="English
         days_until_wednesday = 7
     next_wednesday = now + timedelta(days=days_until_wednesday)
     # Set time to 12:00:00 for next Wednesday
-    next_wednesday_at_noon = next_wednesday.replace(hour=12, minute=0, second=0, microsecond=0)
+    next_wednesday_at_noon = next_wednesday.replace(hour=12, minute=0, second=0)
 
     next_year = now.replace(year=now.year + 1)
     user_id = update.effective_user.id
@@ -628,6 +629,7 @@ async def other_message_o1(update, context):
         now = datetime.now(tz=BERLIN_TZ)
         weekday = now.strftime("%A") 
         user_message = update.message.text
+        await safe_set_reaction(context.bot, update.effective_chat.id, user_message.message_id, "💅")
         response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
 
         if response_text:
@@ -651,6 +653,7 @@ async def other_message_o1(update, context):
         
         response_message = response.choices[0].message.content
         other_message_1 = await update.message.reply_text(response_message)
+        
         await add_delete_button(update, context, other_message_1.message_id)
         
     except Exception as e:
