@@ -1,6 +1,4 @@
 ﻿from langchain_core.prompts import ChatPromptTemplate
-from utils.session_avatar import PA
-
 
 dummy_template = ChatPromptTemplate([
     ("system", """

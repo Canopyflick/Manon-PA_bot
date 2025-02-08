@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from dateutil.parser import parse
 from datetime import time  
 
+logger = logging.getLogger(__name__)
 
 # Initialization of connection and database tables
 # create a pool during application startup
@@ -61,16 +62,16 @@ class Database:
             
             # Verify timezone settings
             timezone = await conn.fetchval('SHOW timezone')
-            logging.info(f"Database timezone set to: {timezone}")
+            logger.info(f"Database timezone set to: {timezone}")
             
             # Optional: Set session timezone explicitly
             await conn.execute("SET timezone TO 'Europe/Berlin'")
             
             # Verify the timezone setting worked
             test_time = await conn.fetchval('SELECT NOW()')
-            logging.info(f"Current database time: {test_time}")
+            logger.info(f"Current database time: {test_time}")
 
-        logging.info("Database connection successful with timezone configuration")
+        logger.info("Database connection successful with timezone configuration")
 
     @classmethod
     def acquire(cls):
@@ -107,10 +108,10 @@ async def add_missing_columns(conn, table_name: str, desired_columns: dict):
                     ALTER TABLE {table_name} 
                     ADD COLUMN {col_name} {col_type}
                 ''')
-                logging.warning(f"Added column {col_name} to {table_name}")
+                logger.warning(f"Added column {col_name} to {table_name}")
 
     except Exception as e:
-        logging.error(f"Error adding columns to {table_name}: {e}")
+        logger.error(f"Error adding columns to {table_name}: {e}")
         raise            
 
 
@@ -263,10 +264,10 @@ async def setup_database():
                 ON manon_stats_snapshots (user_id, chat_id, date);
             ''')
 
-        logging.info("Database tables initialized successfully")
+        logger.info("Database tables initialized successfully")
 
     except Exception as e:
-        logging.error(f"Error updating database schema: {e}")
+        logger.error(f"Error updating database schema: {e}")
         raise
 # End of setup /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\
 
@@ -289,7 +290,7 @@ def format_array_for_postgres(py_list):
 
 async def update_goal_data(goal_id, initial_update=False, **kwargs):
     if not kwargs:
-        logging.warning(f"{PA} No updates provided to update_goal_data()")
+        logger.warning(f"{PA} No updates provided to update_goal_data()")
         return
         
     try:
@@ -333,9 +334,9 @@ async def update_goal_data(goal_id, initial_update=False, **kwargs):
             await conn.execute(query, *values)
         
     except Exception as e:
-        logging.error(f'Error updating goal data for goal_id {goal_id}: {e}')
-        logging.error(f'Failed query: {query}')
-        logging.error(f'Values: {values}')
+        logger.error(f'Error updating goal data for goal_id {goal_id}: {e}')
+        logger.error(f'Failed query: {query}')
+        logger.error(f'Values: {values}')
         raise
     
 
@@ -352,7 +353,7 @@ async def update_user_data(user_id, chat_id, **kwargs):
         Exception: If an error occurs during the update.
     """
     if not kwargs:
-        logging.warning("No updates provided to update_user_data()")
+        logger.warning("No updates provided to update_user_data()")
         return
 
     try:
@@ -390,9 +391,9 @@ async def update_user_data(user_id, chat_id, **kwargs):
             await conn.execute(query, *values)
 
     except Exception as e:
-        logging.error(f"Error updating user data for user_id {user_id} and chat_id {chat_id}: {e}")
-        logging.error(f"Failed query: {query}")
-        logging.error(f"Values: {values}")
+        logger.error(f"Error updating user data for user_id {user_id} and chat_id {chat_id}: {e}")
+        logger.error(f"Failed query: {query}")
+        logger.error(f"Values: {values}")
         raise
 
         
@@ -411,15 +412,15 @@ async def create_limbo_goal(update, context):
                 RETURNING goal_id;
             ''', user_id, chat_id, 'limbo')
             
-            logging.info(f"\nNew Limbo Goal Created: {brand_new_goal_id}\n")
+            logger.info(f"\nNew Limbo Goal Created: {brand_new_goal_id}\n")
         
         return brand_new_goal_id
     
     except asyncpg.PostgresError as e:
-        logging.error(f'Database error in create_limbo_goal(): \n{e}')
+        logger.error(f'Database error in create_limbo_goal(): \n{e}')
         return None
     except Exception as e:
-        logging.error(f'Unexpected error in create_limbo_goal(): \n{e}')
+        logger.error(f'Unexpected error in create_limbo_goal(): \n{e}')
         return None
     
 
@@ -439,14 +440,14 @@ async def create_recurring_goal_instance(**kwargs):
             # Execute the query
             brand_new_goal_id = await conn.fetchval(query, *values)
 
-            logging.info(f"New goal created with ID: {brand_new_goal_id}")
+            logger.info(f"New goal created with ID: {brand_new_goal_id}")
             return brand_new_goal_id
 
     except asyncpg.PostgresError as e:
-        logging.error(f"Database error in create_recurring_goal_instance: {e}")
+        logger.error(f"Database error in create_recurring_goal_instance: {e}")
         return None
     except Exception as e:
-        logging.error(f"Unexpected error in create_recurring_goal_instance: {e}")
+        logger.error(f"Unexpected error in create_recurring_goal_instance: {e}")
         return None
 
         
@@ -535,7 +536,7 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
                 validation_result = await validate_goal_constraints(goal_id, conn)
                 if not validation_result['valid']:
                     error_msg = f"{PA} Goal ID {goal_id} has issues:\n{validation_result['errors']}"
-                    logging.error(error_msg)
+                    logger.error(error_msg)
                     await context.bot.send_message(chat_id=chat_id, text=f"{error_msg}")
                     return
 
@@ -546,7 +547,7 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
         )
 
     except Exception as e:
-        logging.error(f'Unexpected error in complete_limbo_goal(): \n{e}')
+        logger.error(f'Unexpected error in complete_limbo_goal(): \n{e}')
         return None
 
 
@@ -572,7 +573,7 @@ async def register_user(context, user_id, chat_id):
                     INSERT INTO manon_users (user_id, chat_id, first_name)
                     VALUES ($1, $2, $3)
                 """, user_id, chat_id, first_name)
-                logging.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
+                logger.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
                 await context.bot.send_message(chat_id, text=f"_Registered new user,_ *{first_name}*_, with User ID:_", parse_mode="Markdown")
                 await context.bot.send_message(chat_id, text=f"_{user_id}_", parse_mode="Markdown")
                 await context.bot.send_message(chat_id, text="_in chat:_", parse_mode="Markdown")
@@ -584,13 +585,13 @@ async def register_user(context, user_id, chat_id):
                     SET first_name = $1
                     WHERE user_id = $2 AND chat_id = $3
                 """, first_name, user_id, chat_id)
-                logging.warning(f"Updated first_name for user_id: {user_id}, chat_id: {chat_id} to {first_name}")
+                logger.warning(f"Updated first_name for user_id: {user_id}, chat_id: {chat_id} to {first_name}")
             
             else:
                 return f"Registered user {first_name} called /start"
 
     except Exception as e:
-        logging.error(f"Error updating user record: {e}")  
+        logger.error(f"Error updating user record: {e}")  
         raise  
         
 
@@ -604,10 +605,10 @@ async def adjust_penalty_or_goal_value(update, context, goal_id, action, directi
             )
             
             if current_value is None:
-                logging.error(f"No value found for goal_id: {goal_id} in column: {action}")
+                logger.error(f"No value found for goal_id: {goal_id} in column: {action}")
                 return None
 
-            logging.info(f"{action} value of {current_value} retrieved")
+            logger.info(f"{action} value of {current_value} retrieved")
 
             new_value = None 
             if current_value <= 5:   # move in increments of 1 for low values
@@ -631,13 +632,13 @@ async def adjust_penalty_or_goal_value(update, context, goal_id, action, directi
                 new_value, goal_id
             )
             
-            logging.info(f"{action} for goal_id {goal_id} {current_value} updated to {new_value}")
+            logger.info(f"{action} for goal_id {goal_id} {current_value} updated to {new_value}")
             
             new_value = round(new_value, 1)
             return new_value
     
     except Exception as e:
-        logging.error(f'Error in adjust_penalty_or_goal_value(): \n{e}')
+        logger.error(f'Error in adjust_penalty_or_goal_value(): \n{e}')
         return None
     
 # incorrect query still        
@@ -677,7 +678,7 @@ async def fetch_template_data_from_db(context, goal_id):
             return kwargs
     
     except Exception as e:
-        logging.error(f'{PA} Error in fetch_template_data_from_db(): \n{e}')
+        logger.error(f'{PA} Error in fetch_template_data_from_db(): \n{e}')
         return None
     
 
@@ -744,7 +745,7 @@ async def get_first_name(context, user_id, chat_id):
                 chat_member = await context.bot.get_chat_member(chat_id=chat_id, user_id=user_id)
                 return chat_member.user.first_name
     except Exception as e:
-        logging.error(f"Error fetching first name for user_id {user_id}: {e}")
+        logger.error(f"Error fetching first name for user_id {user_id}: {e}")
         return "Valentijntje"
     
 
@@ -786,7 +787,7 @@ async def fetch_goal_data(goal_id, columns="*", conditions=None, single_value=Fa
             return dict(result)
 
     except Exception as e:
-        logging.error(f"Error in fetch_goal_data() for goal_id {goal_id}: {e}")
+        logger.error(f"Error in fetch_goal_data() for goal_id {goal_id}: {e}")
         return None
     
 
@@ -843,7 +844,7 @@ async def fetch_user_data(user_id, columns="*", conditions=None, single_value=Fa
             return dict(result)
 
     except Exception as e:
-        logging.error(f"Error in fetch_user_data() for user_id {user_id}: {e}")
+        logger.error(f"Error in fetch_user_data() for user_id {user_id}: {e}")
         return None
 
 
@@ -885,7 +886,7 @@ async def fetch_pending_goals_count_between_times(chat_id=None):
             return result
 
     except Exception as e:
-        logging.error(f"Error in fetch_pending_goals_count_between_times(): {e}")
+        logger.error(f"Error in fetch_pending_goals_count_between_times(): {e}")
         return None
 
 
@@ -948,7 +949,7 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
 
             # Format the results
             if not rows:
-                logging.info(f"No rows retrieved in fetch_upcoming_goals()")
+                logger.info(f"No rows retrieved in fetch_upcoming_goals()")
                 return "You have no deadlines between now and tomorrow morning ☃️", 0, 0, 0
 
         upcoming_goals = []
@@ -983,7 +984,7 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
 
         return "\n\n".join(upcoming_goals), round(total_goal_value, 1), round(total_penalty, 1), goals_count
     except Exception as e:
-        logging.error(f"Error fetching goals for chat_id {chat_id}, user_id {user_id}: {e}")
+        logger.error(f"Error fetching goals for chat_id {chat_id}, user_id {user_id}: {e}")
         return "An error occurred while fetching your goals. Please try again later."
     
 
@@ -1002,7 +1003,7 @@ async def record_reminder(update, context, output):
                 reminder_time = reminder_time.replace(tzinfo=BERLIN_TZ)
         except ValueError as e:
             await update.message.reply_text("Invalid time format provided.")
-            logging.error(f"Time parsing error: {e}")
+            logger.error(f"Time parsing error: {e}")
             return
 
         async with Database.acquire() as conn:
@@ -1061,15 +1062,15 @@ async def record_reminder(update, context, output):
                     id=f"regularreminder_{reminder_id}",
                     replace_existing=True
                 )
-                logging.info(f"Scheduled immediate reminder #{reminder_id} for {formatted_time}")
+                logger.info(f"Scheduled immediate reminder #{reminder_id} for {formatted_time}")
 
             return reminder_id
 
     except Exception as e:
         error_message = f"Failed to set reminder: {str(e)}"
         await update.message.reply_text(error_message)
-        logging.error(f"Error in record_reminder: {e}")
+        logger.error(f"Error in record_reminder: {e}")
         import traceback
-        logging.error(traceback.format_exc())
+        logger.error(traceback.format_exc())
         return None
     

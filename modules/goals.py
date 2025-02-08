@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from collections.abc import Iterable
 from jinja2 import Template
 
-
+logger = logging.getLogger(__name__)
 
 async def format_datetime_list(datetime_input):
     """
@@ -87,7 +87,7 @@ async def send_goal_proposal(update, context, goal_id, adjust=False):
     
     except Exception as e:
         await update.message.reply_text(f"Error in send_goal_proposal(): {e}")
-        logging.error(f"Error in send_goal_proposal(): {e}")
+        logger.error(f"Error in send_goal_proposal(): {e}")
     
         
 TEMPLATE_TEXT = """*{{ recurrence_type | capitalize }} Goal Proposal* {{ PA }}‍ 
@@ -110,14 +110,14 @@ async def populate_goal_template(update, context, goal_id):
         goal_data = context.user_data["goals"].get(goal_id) # In case of an adjustment, goal_data should have already been fetched from db in prepare_goal_changes()
 
         # Log all keys and their values
-        logging.info(f"Logging entire goal_data before populating template\n:")
+        logger.info(f"Logging entire goal_data before populating template\n:")
         for key, value in goal_data.items():
-            logging.info(f"Key: {key}, Value: {value}, Type: {type(value)}")
+            logger.info(f"Key: {key}, Value: {value}, Type: {type(value)}")
 
         template = Template(TEMPLATE_TEXT)
         return template.render(**goal_data)
     except Exception as e:
-        logging.error(f"Error in populate_goal_template(): {e}")
+        logger.error(f"Error in populate_goal_template(): {e}")
         
 
 async def draft_goal_proposal_message(update, context, goal_id, adjust=False):
@@ -135,7 +135,7 @@ async def draft_goal_proposal_message(update, context, goal_id, adjust=False):
     
     except Exception as e:
         await update.message.reply_text(f"Error in draft_goal_proposal_message(): {e}")
-        logging.error(f"Error in draft_goal_proposal_message(): {e}")
+        logger.error(f"Error in draft_goal_proposal_message(): {e}")
         
 
 async def run_algorithm(context, goal_id, goal_data, deadline_count):
@@ -240,7 +240,7 @@ async def unpack_query(update):
             
         return goal_id, action, direction, query, full_action
     else:
-        logging.error(f"Invalid callback data format: {query}")
+        logger.error(f"Invalid callback data format: {query}")
         
 
 async def handle_proposal_change_click(update, context):
@@ -258,14 +258,14 @@ async def handle_proposal_change_click(update, context):
         lines = original_proposal.split('\n')
         updated_lines = []
 
-        logging.info(f"Button click received for Goal ID {goal_id}, {full_action}. Action: {action} & Direction: {direction}.")
+        logger.info(f"Button click received for Goal ID {goal_id}, {full_action}. Action: {action} & Direction: {direction}.")
         for line in lines:
             if "Goal Value" in line and action == "goal_value":
                 updated_lines.append(f"⚡️ Goal Value: {new_value}")
-                logging.warning(f"Goal line changed: {updated_lines}")
+                logger.warning(f"Goal line changed: {updated_lines}")
             elif "Potential Penalty" in line and action == "penalty":
                 updated_lines.append(f"🌚 Potential Penalty: {new_value}")
-                logging.warning(f"Penalty line changed: {updated_lines}")
+                logger.warning(f"Penalty line changed: {updated_lines}")
             else:
                 updated_lines.append(line)
 
@@ -279,7 +279,7 @@ async def handle_proposal_change_click(update, context):
             await query.edit_message_text(updated_message, reply_markup=keyboard, parse_mode="Markdown")
             await query.answer(f"Value updated successfully! {PA}")
         except Exception as e:
-            logging.error(f"Error editing message text: {e}")
+            logger.error(f"Error editing message text: {e}")
             await query.answer(f"Error updating message text {PA}\n{e}")
         
 
@@ -311,11 +311,11 @@ async def accept_goal_proposal(update, context):
             validation_result = await validate_goal_constraints(goal_id, conn)
             if not validation_result['valid']:
                 error_msg = f"{PA} Goal ID {goal_id} has issues:\n{validation_result['errors']}"
-                logging.error(error_msg)
+                logger.error(error_msg)
                 await context.bot.send_message(chat_id=chat_id, text=f"{error_msg}")
                 return
 
-            logging.info(f"⏰ Goal ID {goal_id} complies with all constraints: {validation_result['valid']}")
+            logger.info(f"⏰ Goal ID {goal_id} complies with all constraints: {validation_result['valid']}")
             
             # Update message
             description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
@@ -323,7 +323,7 @@ async def accept_goal_proposal(update, context):
             await query.edit_message_text(updated_message, parse_mode="Markdown")
 
     except Exception as e:
-        logging.warning(f"Error accepting goal proposal: {e}")
+        logger.warning(f"Error accepting goal proposal: {e}")
         await query.edit_message_text(f"er ging iets mis: {e}")
         raise 
    
@@ -345,7 +345,7 @@ async def reject_goal_proposal(update, context):
         await query.edit_message_text(updated_message, parse_mode="Markdown")
         return     
     except Exception as e:
-        logging.error(f"NOPE in reject_goal_proposal(): {e}")
+        logger.error(f"NOPE in reject_goal_proposal(): {e}")
         raise
     
 
@@ -379,7 +379,7 @@ async def report_goal_progress(update, context):
             await handle_goal_push(update, goal_id, query)       
 
     except Exception as e:
-        logging.error(f"couldn't edit expiration message for {goal_id}: {e}")
+        logger.error(f"couldn't edit expiration message for {goal_id}: {e}")
         await query.edit_message_text(f"er ging iets mis: {e}")
     
 
@@ -391,14 +391,14 @@ async def handle_goal_completion(update, goal_id, query):
         goal_value = await fetch_goal_data(goal_id, columns="goal_value", single_value=True)
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
         await update_user_data(user_id, chat_id, increment_score=goal_value, increment_finished_goals=1, increment_pending_goals=-1)
-        logging.info(f"✅ Goal #{goal_id} completed: archived and user score increased by {goal_value}")
+        logger.info(f"✅ Goal #{goal_id} completed: archived and user score increased by {goal_value}")
         await query.edit_message_text(
                 text=f"✅ Goal #{goal_id} completed: archived and user score increased by {round(goal_value, 1)}\n\n✍️ _{description}_",
             reply_markup=None,
             parse_mode="Markdown"
         )
     except Exception as e:
-        logging.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")   
+        logger.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")   
     
     
 async def handle_goal_failure(update, goal_id, query, bot=None, delete_all_expired_goals=False):
@@ -415,7 +415,7 @@ async def handle_goal_failure(update, goal_id, query, bot=None, delete_all_expir
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
         score_decrease = penalty * -1
         await update_user_data(user_id, chat_id, increment_score=score_decrease, increment_penalties_accrued=penalty, increment_failed_goals=1, increment_pending_goals=-1)
-        logging.info(f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged")
+        logger.info(f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged")
         if update == 1.5:   # in case of scheduled archiving job 
             await bot.send_message(
                 chat_id,
@@ -430,7 +430,7 @@ async def handle_goal_failure(update, goal_id, query, bot=None, delete_all_expir
                 parse_mode="Markdown"
             )
     except Exception as e:
-        logging.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
+        logger.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
     
 
 async def handle_goal_push(update, goal_id, query):
@@ -473,7 +473,7 @@ async def handle_goal_push(update, goal_id, query):
                 parse_mode="Markdown"
         )
     except Exception as e:
-        logging.info(f"Error postponing goal: {e}")
+        logger.info(f"Error postponing goal: {e}")
         await query.edit_message_text(f"er ging iets mis: {e}")
 
 
@@ -496,7 +496,7 @@ async def accept_recurring_goals(update, context, goal_id, query):
 
         deadlines_count = len(deadlines)
         
-        logging.info(f"Iterating over {deadlines_count} deadlines to accept recurring goals.")
+        logger.info(f"Iterating over {deadlines_count} deadlines to accept recurring goals.")
 
         new_goal_ids = []
         
@@ -507,7 +507,7 @@ async def accept_recurring_goals(update, context, goal_id, query):
                 continue
             
             final_iteration = "yes" if i == deadlines_count else "not yet"
-            logging.info(f"Inserting goal {i}/{deadlines_count}, final_iteration = {final_iteration}")
+            logger.info(f"Inserting goal {i}/{deadlines_count}, final_iteration = {final_iteration}")
 
             goal_kwargs = {
                 "user_id": user_id,
@@ -534,13 +534,13 @@ async def accept_recurring_goals(update, context, goal_id, query):
 
             await update_user_data(user_id, chat_id, increment_pending_goals=1)
 
-        logging.info(f"All goals created successfully: {new_goal_ids}")     
+        logger.info(f"All goals created successfully: {new_goal_ids}")     
         
         await update_user_data(user_id, chat_id, increment_pending_goals=deadlines_count)
             
         return new_goal_ids # not used at the moment
 
     except Exception as e:
-        logging.info(f"Error accept_recurring_goals(): {e}")
+        logger.info(f"Error accept_recurring_goals(): {e}")
         await query.edit_message_text(f"er ging iets mis: {e}")
         

@@ -38,7 +38,7 @@ from LLMs.classes import (
 )
 #########################################################################
 
-
+logger = logging.getLogger(__name__)
 
 
 def log_emoji_details(emoji, source="Unknown"):
@@ -132,15 +132,15 @@ async def run_chain(chain_name, input_variables: dict):
         result = await chain["chain"].ainvoke(prompt_value.to_messages())
         
         # Log and return the result
-        logging.info(f"Chain '{chain_name}' executed successfully: {result}")
+        logger.info(f"Chain '{chain_name}' executed successfully: {result}")
         return result
 
     except KeyError as e:
-        logging.error(f"Chain is missing a required key: {e}")
+        logger.error(f"Chain is missing a required key: {e}")
         raise ValueError(f"Invalid chain structure: missing {e}")
 
     except Exception as e:
-        logging.error(f"Error running chain: {e}")
+        logger.error(f"Error running chain: {e}")
         raise RuntimeError(f"Failed to execute chain: {e}")
 
 
@@ -165,7 +165,7 @@ async def dummy_call(update, context):
             await update.message.reply_text(f"_Next step for {dummy_field} not yet implemented_", parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"Error in dummy_call():\n {e}")
-        logging.error(f"\n\n🚨 Error in dummy_call(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in dummy_call(): {e}\n\n")
 
 
 async def start_initial_classification(update, context):
@@ -183,7 +183,7 @@ async def start_initial_classification(update, context):
 
     except Exception as e:
         await update.message.reply_text(f"Error in start_initial_classification():\n {e}")
-        logging.error(f"\n\n🚨 Error in start_initial_classification(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in start_initial_classification(): {e}\n\n")
     
 
 async def process_classification_result(update, context, initial_classification):
@@ -231,7 +231,7 @@ async def process_classification_result(update, context, initial_classification)
 
     except Exception as e:
         await update.message.reply_text(f"{PA} Error in process_classification_result():\n {e}")
-        logging.error(f"\n\n🚨 Error in process_classification_result(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in process_classification_result(): {e}\n\n")
         
 
 async def handle_goal_classification(update, context, smarter=False):
@@ -266,16 +266,16 @@ async def handle_goal_classification(update, context, smarter=False):
             
             await goal_setting_analysis(update, context, goal_id, smarter)                                                                        # < < < < <
         elif goal_result == "Edit":
-            logging.info(f"User wants to edit a goal >> find_goal_id()")
+            logger.info(f"User wants to edit a goal >> find_goal_id()")
             await find_goal_id(update, context, type="edit")
         elif goal_result == "Report_done":
-            logging.info(f"User wants to report a goal as done >> find_goal_id()")
+            logger.info(f"User wants to report a goal as done >> find_goal_id()")
             await find_goal_id(update, context, type="done")
         else: 
             await update.message.reply_text(f"_Goal result '{goal_result}' not yet implemented_", parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"Error in handle_goal_classification():\n {e}")
-        logging.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")
 
 
 async def goal_setting_analysis(update, context, goal_id, smarter=False):
@@ -317,7 +317,7 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
             )
     except Exception as e:
         await update.message.reply_text(f"Error in goal_setting_analysis():\n {e}")
-        logging.error(f"\n\n🚨 Error in goal_setting_analysis(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in goal_setting_analysis(): {e}\n\n")
         
 
 async def goal_valuation(update, context, goal_id, recurrence_type="one-time", smarter=False):
@@ -346,7 +346,7 @@ async def goal_valuation(update, context, goal_id, recurrence_type="one-time", s
         
     except Exception as e:
         await update.message.reply_text(f"Error in goal_valuation():\n {e}")
-        logging.error(f"\n\n🚨 Error in goal_valuation(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in goal_valuation(): {e}\n\n")
         
 
 async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smarter=False):
@@ -383,7 +383,7 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
             
     except Exception as e:
         await update.message.reply_text(f"Error in prepare_goal_proposal():\n {e}")
-        logging.error(f"\n\n🚨 Error in prepare_goal_proposal(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in prepare_goal_proposal(): {e}\n\n")
 
 
 # /translate + any other non-English or non-Dutch messages pass through this
@@ -395,7 +395,7 @@ async def process_other_language(update, context, user_message, language=None, t
     elif language == "Dutch" and translate_command or language == "English":         # translate to German
         await translate(update, context, source_text=user_message, target_language='German', verbose=True)
     elif language == "Dutch":                               # don't translate, will be processed as any English message
-        logging.info(f"Dutch jatog")
+        logger.info(f"Dutch jatog")
     else:
         await update.message.reply_text(f"# translate to English")
         await translate(update, context, source_text=user_message, target_language="English")      # translate to English
@@ -433,7 +433,7 @@ async def translate(update, context, source_text, target_language="German", verb
 
     except Exception as e:
         await update.message.reply_text(f"Error in translate():\n {e}")
-        logging.error(f"\n\n🚨 Error in translate(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in translate(): {e}\n\n")
         
 
 async def language_correction(update, context):
@@ -451,7 +451,7 @@ async def language_correction(update, context):
         # await see_changes_flow (update, context, output)
     except Exception as e:
         await update.message.reply_text(f"Error in revision:\n {e}")
-        logging.error(f"\n\n🚨 Error in revision: {e}\n\n")
+        logger.error(f"\n\n🚨 Error in revision: {e}\n\n")
         
     
 async def check_language(update, context, source_text):
@@ -462,13 +462,13 @@ async def check_language(update, context, source_text):
         parsed_output = LanguageCheck.model_validate(output)
         language = parsed_output.user_message_language
         
-        logging.info(f"Language checked: {language}")
+        logger.info(f"Language checked: {language}")
         
         return language
     
     except Exception as e:
         await update.message.reply_text(f"Error in check_language():\n {e}")
-        logging.error(f"\n\n🚨 Error in check_language(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in check_language(): {e}\n\n")
 
 
 # for now, this only works for (replies to) messages that contain the goal_id in plaintext. Should later be expanded with some database content (with the user's recently set goals) that provide potentially relevant goal ids as sadditional context
@@ -487,7 +487,7 @@ async def find_goal_id(update, context, type=None):
         
         if goal_id == 0:
             await update.message.reply_text(f"Couldn't find goal {PA}", parse_mode = "Markdown")
-            logging.warning(f"\n\n🚨 Goal ID not found\n\n")
+            logger.warning(f"\n\n🚨 Goal ID not found\n\n")
             return
         else:
             if type == "edit":
@@ -496,7 +496,7 @@ async def find_goal_id(update, context, type=None):
                 await handle_goal_completion(update, goal_id)
     except Exception as e:
         await update.message.reply_text(f"🚨 Goal ID not found:\n {e}")
-        logging.error(f"\n\n🚨 Goal ID not found): {e}\n\n")
+        logger.error(f"\n\n🚨 Goal ID not found): {e}\n\n")
         
 
 async def prepare_goal_changes(update, context, goal_id):
@@ -518,7 +518,7 @@ async def prepare_goal_changes(update, context, goal_id):
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
 
-        logging.info(f"here's the parsed output: {parsed_output}")
+        logger.info(f"here's the parsed output: {parsed_output}")
 
 
         # put everything in user context (clear first)
@@ -531,7 +531,7 @@ async def prepare_goal_changes(update, context, goal_id):
 
     except Exception as e:
         await update.message.reply_text(f"🚨 prepare_goal_changes:\n {e}")
-        logging.error(f"\n\n🚨 prepare_goal_changes:\n {e}\n\n")
+        logger.error(f"\n\n🚨 prepare_goal_changes:\n {e}\n\n")
         
 
 header_top ="""
@@ -554,7 +554,7 @@ Finished:
 """
 async def diary_header(update, context):
     try:
-        logging.info("Diary command triggered")
+        logger.info("Diary command triggered")
         input_vars = await get_input_variables(update)
         output = await run_chain("diary_header", input_vars)
         
@@ -572,7 +572,7 @@ async def diary_header(update, context):
         
     except Exception as e:
         await update.message.reply_text(f"Error in diary_header():\n {e}")
-        logging.error(f"\n\n🚨 Error in diary_header(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in diary_header(): {e}\n\n")
         
 
 async def reminder_setting(update, context):
@@ -589,7 +589,7 @@ async def reminder_setting(update, context):
 
         now = datetime.now(tz=BERLIN_TZ)
         if reminder_time.date() == now.date():
-            logging.warning(f"reminder requested on the same day")
+            logger.warning(f"reminder requested on the same day")
         
         if shared_state["transparant_mode"]:
             debug_message = await update.message.reply_text(f"Reminder setting result: \n{output}")
@@ -600,7 +600,7 @@ async def reminder_setting(update, context):
     
     except Exception as e:
         await update.message.reply_text(f"Error in reminder_setting():\n {e}")
-        logging.error(f"\n\n🚨 Error in reminder_setting(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in reminder_setting(): {e}\n\n")
         
 
 async def other_message(update, context):
@@ -621,7 +621,7 @@ async def other_message(update, context):
         
     except Exception as e:
         await update.message.reply_text(f"Error in other_message():\n {e}")
-        logging.error(f"\n\n🚨 Error in other_message(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in other_message(): {e}\n\n")
         
 
 async def other_message_o1(update, context):
@@ -658,5 +658,5 @@ async def other_message_o1(update, context):
         
     except Exception as e:
         await update.message.reply_text(f"Error in other_message_1():\n {e}")
-        logging.error(f"\n\n🚨 Error in other_message_1(): {e}\n\n")
+        logger.error(f"\n\n🚨 Error in other_message_1(): {e}\n\n")
  

@@ -5,7 +5,7 @@ from utils.session_avatar import PA
 from utils.db import Database, get_first_name
 from utils.scheduler import scheduler, AsyncIOScheduler, CronTrigger, DateTrigger, IntervalTrigger
 
-
+logger = logging.getLogger(__name__)
 
 # Cleanup of old jobs before scheduling new ones
 def cleanup_old_reminders():
@@ -74,7 +74,7 @@ async def check_upcoming_reminders(bot):
                         id=f"goalreminder_{row['goal_id']}",
                         replace_existing=True
                     )
-                    logging.info(f"Scheduled Goals' reminder for goal #{row['goal_id']} at {reminder_time}")
+                    logger.info(f"Scheduled Goals' reminder for goal #{row['goal_id']} at {reminder_time}")
                     
             # Schedule each Regular reminder
             for row in reminder_rows:
@@ -91,12 +91,12 @@ async def check_upcoming_reminders(bot):
                         id=f"regularreminder_{row['reminder_id']}",
                         replace_existing=True
                     )
-                    logging.info(f"Scheduled Regular reminder: #{row['reminder_id']} at {reminder_time}")
+                    logger.info(f"Scheduled Regular reminder: #{row['reminder_id']} at {reminder_time}")
 
     except Exception as e:
-        logging.error(f"Error checking upcoming reminders: {e}")
+        logger.error(f"Error checking upcoming reminders: {e}")
         import traceback
-        logging.error(traceback.format_exc())
+        logger.error(traceback.format_exc())
 
 
 async def send_reminder(bot, reminder_data):
@@ -125,7 +125,7 @@ async def send_reminder(bot, reminder_data):
                 formatted_deadline = deadline_date.strftime("%A, %B %d, %Y")
             except (ValueError, TypeError) as e:
                 formatted_deadline = "Invalid date format"
-                logging.error(f"Date parsing error: {e}")
+                logger.error(f"Date parsing error: {e}")
                 
             message = (
                 f"{PA} Reminder for [{first_name}](tg://user?id={user_id})\n\n"
@@ -138,7 +138,7 @@ async def send_reminder(bot, reminder_data):
                 f"{reminder_text}"
             )
         else:
-            logging.error("Error: No goal_description or reminder_text provided.")
+            logger.error("Error: No goal_description or reminder_text provided.")
             return
 
         # Send the message
@@ -149,4 +149,4 @@ async def send_reminder(bot, reminder_data):
         )
 
     except Exception as e:
-        logging.error(f"Error sending reminder: {e}")
+        logger.error(f"Error sending reminder: {e}")

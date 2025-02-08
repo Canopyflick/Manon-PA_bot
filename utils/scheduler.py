@@ -11,6 +11,7 @@ from modules.goals import handle_goal_failure
 from utils.db import Database, fetch_goal_data, get_first_name, fetch_upcoming_goals, update_goal_data
 import asyncio, random, re, logging
 
+logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
@@ -60,7 +61,7 @@ async def send_morning_message(bot, specific_chat_id=None):
             
             # 4. Check schedule today: all upcoming goals
             goals_today, total_goal_value, total_penalty, goals_count = await fetch_upcoming_goals(chat_id, user_id, timeframe=10)    # fetching upcoming goals from now until 10am tomorrow
-            logging.warning(f"Alles gefetcht:\n{goals_today}, \n{total_goal_value}, \n{total_penalty}, \n{goals_count}")
+            logger.warning(f"Alles gefetcht:\n{goals_today}, \n{total_goal_value}, \n{total_penalty}, \n{goals_count}")
             morning_message = (
                 f"{announcement}\n\n{goals_today}\n\n"
             )
@@ -69,7 +70,7 @@ async def send_morning_message(bot, specific_chat_id=None):
                 stakes_message = ''
             if goals_count == 0:
                 announcement = ''
-            logging.warning(f"morning message: {morning_message}")
+            logger.warning(f"morning message: {morning_message}")
             morning_message += stakes_message
             
             morning_message += change_message
@@ -95,12 +96,12 @@ async def send_morning_message(bot, specific_chat_id=None):
                 await bot.send_message(chat_id, morning_message, parse_mode="Markdown")
                 await asyncio.sleep(4)
                 await bot.send_message(chat_id, "🚀")
-                logging.info(f"Daily message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+                logger.info(f"Daily message sent successfully in chat {chat_id} for {first_name}({user_id}).")
             except Exception as e:
-                logging.error(f"Error sending morning message to chat_id {chat_id}: {e}")
+                logger.error(f"Error sending morning message to chat_id {chat_id}: {e}")
             
     except Exception as e:
-        logging.error(f"Error sending daily message: {e}")
+        logger.error(f"Error sending daily message: {e}")
 
 
 
@@ -134,16 +135,16 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
         try:
             update_message = await context.bot.send_message(chat_id, update_message, parse_mode="Markdown")
             
-            logging.info(f"goals overview message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+            logger.info(f"goals overview message sent successfully in chat {chat_id} for {first_name}({user_id}).")
             
             return update_message, goals_count # for the today-command
         
         except Exception as e:
-            logging.error(f"Error sending message to chat_id {chat_id}: {e}")
+            logger.error(f"Error sending message to chat_id {chat_id}: {e}")
             return None, 0
             
     except Exception as e:
-        logging.error(f"Error sending goals message: {e}")
+        logger.error(f"Error sending goals message: {e}")
         return None, 0
 
         
@@ -219,12 +220,12 @@ async def send_evening_message(bot, specific_chat_id=None):
                 if stakes_message:
                     await bot.send_message(chat_id, stakes_message, parse_mode="Markdown")
                 await bot.send_message(chat_id, random_emoji)
-                logging.info(f"Nightly message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+                logger.info(f"Nightly message sent successfully in chat {chat_id} for {first_name}({user_id}).")
             except Exception as e:
-                logging.error(f"Error in evening message sending message to chat_id {chat_id}: {e}")
+                logger.error(f"Error in evening message sending message to chat_id {chat_id}: {e}")
             
     except Exception as e:
-        logging.error(f"Error sending daily message: {e}")
+        logger.error(f"Error sending daily message: {e}")
 
 
 # fetches (overdue) pending goals, puts each in a separate message with buttons for reporting progress
@@ -292,7 +293,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
 
             # Format the results
             if not rows:
-                logging.info(f"No overdue goals!")
+                logger.info(f"No overdue goals!")
                 return [], 0, 0, 0
 
         pending_goals = []
@@ -364,11 +365,11 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
             ])
             # Append each goal as a dictionary with text and buttons
             pending_goals.append({"text": pending_goal_text, "buttons": buttons})
-            logging.info(f"adding overdue goal:\n{pending_goal_text}")
+            logger.info(f"adding overdue goal:\n{pending_goal_text}")
 
         return pending_goals, round(total_goal_value, 1), round(total_penalty, 1), goals_count
     except Exception as e:
-        logging.error(f"Error fetching overdue goals for chat_id {chat_id}, user_id {user_id}: {e}")
+        logger.error(f"Error fetching overdue goals for chat_id {chat_id}, user_id {user_id}: {e}")
         return "An error occurred while fetching your overdue goals. Please try again later.", None, None, None
         
 
@@ -421,7 +422,7 @@ async def fail_goals_warning(bot, chat_id=None):
                     await bot.send_message(chat_id, random_emoji)
                     await bot.send_message(chat_id, greeting, parse_mode="Markdown")
                     for goal in overdue_goals:
-                        logging.warning(f"Overdue goals for user_id {user_id}: {overdue_goals}")
+                        logger.warning(f"Overdue goals for user_id {user_id}: {overdue_goals}")
 
                         if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
                             continue
@@ -439,7 +440,7 @@ async def fail_goals_warning(bot, chat_id=None):
                             callback_data = first_button.callback_data
                             goal_id = int(callback_data.split('_')[-1])  # Assuming goal_id is after the last '_'
                         except (AttributeError, IndexError, ValueError) as e:
-                            logging.error(f"Failed to extract 'goal_id' from goal: {goal}, error: {e}")
+                            logger.error(f"Failed to extract 'goal_id' from goal: {goal}, error: {e}")
                             continue
                         
                         # Extract hour and minute for the CronTrigger, then schedule archiving/penalizing job
@@ -453,14 +454,14 @@ async def fail_goals_warning(bot, chat_id=None):
                             coalesce=True
                         )
                     if not chat_id:
-                        logging.info(f"Daily older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+                        logger.info(f"Daily older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
                     elif chat_id:
-                        logging.info(f"Trigger-word-triggered older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+                        logger.info(f"Trigger-word-triggered older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
                 except Exception as e:
-                    logging.error(f"Error sending overdue goals warning message to chat_id {chat_id}: {e}")
+                    logger.error(f"Error sending overdue goals warning message to chat_id {chat_id}: {e}")
             
     except Exception as e:
-        logging.error(f"Error sending overdue goals warning message: {e}")
+        logger.error(f"Error sending overdue goals warning message: {e}")
 
 
 async def scheduled_goal_archival(bot, goal_id, ultimatum_time, delete_all_expired_goals):
@@ -470,6 +471,6 @@ async def scheduled_goal_archival(bot, goal_id, ultimatum_time, delete_all_expir
             update = 1.5 
             await handle_goal_failure(update, goal_id, query=None, bot=bot, delete_all_expired_goals=delete_all_expired_goals)
         else:
-            logging.info(f"Goal #{goal_id} was not archived at {ultimatum_time}, because it was not pending anymore (user processed it themselves)")
+            logger.info(f"Goal #{goal_id} was not archived at {ultimatum_time}, because it was not pending anymore (user processed it themselves)")
     except Exception as e:
-        logging.error(f"Error in schedule_goal_deletion(): {e}")
+        logger.error(f"Error in schedule_goal_deletion(): {e}")

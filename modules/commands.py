@@ -11,6 +11,7 @@ from utils.listener import roll_dice
 from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
 from modules.stats_manager import StatsManager
 
+logger = logging.getLogger(__name__)
 
 # Asynchronous command functions
 async def start_command(update, context):
@@ -20,7 +21,7 @@ async def start_command(update, context):
         chat_id = update.message.chat_id
         await register_user(context, user_id, chat_id)
     except Exception as e:
-        logging.error(f"Error checking user records in start_command: {e}")
+        logger.error(f"Error checking user records in start_command: {e}")
 
 
 async def stopwatch_command(update, context):
@@ -310,11 +311,11 @@ async def dice_command(update, context):
         arg = context.args[0]
         if arg.isdigit() and 1 <= int(arg) <= 6:
             await roll_dice(update, context, user_guess=arg)
-            logging.info(f"Dice roll {arg}")
+            logger.info(f"Dice roll {arg}")
             return
     else:
         await roll_dice(update, context, user_guess=None)
-        logging.info("Dice roll numberless")
+        logger.info("Dice roll numberless")
     
 
 # Function to handle the trashbin button click (delete the message)
@@ -391,7 +392,7 @@ async def wow_command(update, context):
             philosophical_message = get_random_philosophical_message(normal_only=True)
             await update.message.reply_text(f'_{philosophical_message}_', parse_mode="Markdown")
     except Exception as e:
-        logging.error(f"Error in filosofie_command: {e}")
+        logger.error(f"Error in filosofie_command: {e}")
 
 
 
@@ -406,12 +407,12 @@ async def bitcoin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def smarter_command(update: Update, context: CallbackContext):
-    logging.warning("triggered /smarter")
+    logger.warning("triggered /smarter")
     await handle_goal_classification(update, context, smarter=True)
     
 
 async def translate_command(update: Update, context: CallbackContext):
-    logging.warning("triggered /translate")
+    logger.warning("triggered /translate")
     if not context.args:    # Check if NO argument was provided
         await update.message.reply_text(f"Provide some source text to translate {PA}")
         return
@@ -454,7 +455,7 @@ async def today_command(update, context):
             )
             
     except Exception as e:
-        logging.error(f"Error in today_command: {e}")
+        logger.error(f"Error in today_command: {e}")
         await context.bot.send_message(
             chat_id=chat_id,
             text="An error occurred while processing your request. Please try again later.",
@@ -495,7 +496,7 @@ async def overdue_command(update, context):
             )
             
     except Exception as e:
-        logging.error(f"Error in today_command: {e}")
+        logger.error(f"Error in today_command: {e}")
         await context.bot.send_message(
             chat_id=chat_id,
             text="An error occurred while processing your request in overdue_command()",
@@ -517,7 +518,7 @@ async def tomorrow_command(update, context):
             asyncio.create_task(delete_message(update, context, upcoming_goals_message.message_id, 1200))
             
     except Exception as e:
-        logging.error(f"Error in today_command: {e}")
+        logger.error(f"Error in today_command: {e}")
         await context.bot.send_message(
             chat_id=chat_id,
             text="An error occurred while processing your request. Please try again later.",
@@ -534,7 +535,7 @@ async def diary_command(update, context):
         await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
             
     except Exception as e:
-        logging.error(f"Error in diary_command: {e}")
+        logger.error(f"Error in diary_command: {e}")
         await context.bot.send_message(
             chat_id=chat_id,
             text="An error occurred while processing your request. Please try again later.",
@@ -543,5 +544,5 @@ async def diary_command(update, context):
         
 
 async def o1_command(update: Update, context: CallbackContext):
-    logging.warning("triggered /o1")
+    logger.warning("triggered /o1")
     await other_message_o1(update, context)

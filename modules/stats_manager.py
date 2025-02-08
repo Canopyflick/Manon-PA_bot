@@ -11,17 +11,17 @@ class StatsManager:
     async def update_daily_stats(specific_chat_id=None):
         """Run at midnight to create daily snapshot"""
         try:
-            logging.info("Starting daily stats update...")
+            logger.info("Starting daily stats update...")
             async with Database.acquire() as conn:
                 today = datetime.now(BERLIN_TZ).date()
                 users = await conn.fetch("SELECT user_id, chat_id FROM manon_users")
-                logging.info(f"Fetched {len(users)} users for daily stats update.")
+                logger.info(f"Fetched {len(users)} users for daily stats update.")
 
                 for user in users:
                     # If specific_chat_id is provided, process only that chat
                     if specific_chat_id and user['chat_id'] != specific_chat_id:
                         continue
-                    logging.info(f"Processing user_id: {user['user_id']}, chat_id: {user['chat_id']}")
+                    logger.info(f"Processing user_id: {user['user_id']}, chat_id: {user['chat_id']}")
 
                     # Fetch totals snapshot from manon_users
                     user_totals = await conn.fetchrow("""
@@ -31,7 +31,7 @@ class StatsManager:
                     """, user['user_id'], user['chat_id'])
 
                     if not user_totals:
-                        logging.warning(f"No totals found for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
+                        logger.warning(f"No totals found for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
                         continue
                     
                     # Calculate daily metrics
@@ -67,7 +67,7 @@ class StatsManager:
                     """, today, user['user_id'], user['chat_id'])
 
                     if not daily_metrics:
-                        logging.warning(f"No metrics found for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
+                        logger.warning(f"No metrics found for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
                         continue
 
                     await conn.execute("""
@@ -82,10 +82,10 @@ class StatsManager:
                         daily_metrics['penalties_incurred'], daily_metrics['completion_rate'],
                         user_totals['score'], user_totals['pending_goals'],
                         user_totals['finished_goals'], user_totals['failed_goals'])
-                    logging.info(f"Inserted stats for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
+                    logger.info(f"Inserted stats for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
 
         except Exception as e:
-            logging.error(f"Error updating daily stats: {e}", exc_info=True)
+            logger.error(f"Error updating daily stats: {e}", exc_info=True)
             raise
 
     @staticmethod
@@ -117,7 +117,7 @@ class StatsManager:
                 return {k: v if v is not None else 0 for k, v in result.items()}
 
         except Exception as e:
-            logging.error(f"Error fetching period stats: {e}")
+            logger.error(f"Error fetching period stats: {e}")
             # Return default values in case of error
             return {
                 'total_goals_set': 0,
@@ -211,7 +211,7 @@ class StatsManager:
                 }
 
         except Exception as e:
-            logging.error(f"Error getting today's stats: {e}")
+            logger.error(f"Error getting today's stats: {e}")
             return {
                 'pending_goals': 0,
                 'completed_goals': 0,
@@ -256,7 +256,7 @@ class StatsManager:
                 }
 
         except Exception as e:
-            logging.error(f"Error getting total stats: {e}")
+            logger.error(f"Error getting total stats: {e}")
             return {
                 'total_score': 0,
                 'total_pending': 0,

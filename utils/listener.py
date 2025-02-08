@@ -10,6 +10,8 @@ from utils.helpers import fetch_logs
 from modules.stats_manager import StatsManager
 from LLMs.config import shared_state
 
+logger = logging.getLogger(__name__)
+
 triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext", 
             "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats", 
             "logs", "logs100", "errorlogs", "transparant_on", "transparant_off"]
@@ -92,13 +94,13 @@ async def analyze_any_message(update, context):
             for trigger_text in triggers:
                 user_message = user_message.lower()
                 if trigger_text.lower() == user_message:
-                    logging.info(f"Message received: Trigger ({trigger_text})")
+                    logger.info(f"Message received: Trigger ({trigger_text})")
                     await handle_triggers(update, context, trigger_text)
                     return
             # Handle dynamic "logs<num>" triggers
             match = re.match(r"^logs(\d+)$", user_message.lower())
             if match:
-                logging.info(f"Message received: Dynamic logs trigger ({user_message.lower()})")
+                logger.info(f"Message received: Dynamic logs trigger ({user_message.lower()})")
                 num_lines = int(match.group(1))  # Extract the number after 'logs'
                 await handle_triggers(update, context, f"logs{num_lines}")  # Pass it dynamically
                 return
@@ -112,7 +114,7 @@ async def analyze_any_message(update, context):
             # Check if the message is a reply to another message
             if update.message.reply_to_message:
                 if update.message.reply_to_message.from_user.is_bot:
-                    logging.info("Message received: Bot Reply\n")
+                    logger.info("Message received: Bot Reply\n")
                     regular_message = False   
                     bot_reply_message = True
                 else:
@@ -123,7 +125,7 @@ async def analyze_any_message(update, context):
             # Check if the message mentions the bot specifically
             message_text = update.message.text or ""
             if ('@TestManon_bot' in message_text) or ('@Manon_PA_bot' in message_text):
-                logging.info("Message received: Bot Mention\n")
+                logger.info("Message received: Bot Mention\n")
                 bot_response_wanted = True
                 regular_message = False          
                 bot_mention_message = True
@@ -143,12 +145,12 @@ async def analyze_any_message(update, context):
                     
                             # Check if the mentioned user is a bot
                             if not user.is_bot:
-                                logging.info(f"Message received: Non-Bot User Mentioned ({username})\n")
+                                logger.info(f"Message received: Non-Bot User Mentioned ({username})\n")
                                 bot_response_wanted = False
                                 break  # No need to check further mentions
                         except Exception as e:
                             # Handle cases where the user cannot be found
-                            logging.warning(f"Could not retrieve user for mention {mention}: {e}")
+                            logger.warning(f"Could not retrieve user for mention {mention}: {e}")
                             continue  # Skip to the next mention
                         
             # Handle messages that contain @ and are not specific bot mentions
@@ -160,11 +162,11 @@ async def analyze_any_message(update, context):
             # Final decision to respond
             if bot_response_wanted:
                 if regular_message or bot_reply_message or bot_mention_message:
-                    logging.info("Message received that wants a bot reponse\n")
+                    logger.info("Message received that wants a bot reponse\n")
                     await start_initial_classification(update, context)                                     # < < <
             
         except Exception as e:
-            logging.error(f"\n\n🚨 Error in analyze_any_message(): {e}\n\n")
+            logger.error(f"\n\n🚨 Error in analyze_any_message(): {e}\n\n")
             await update.message.reply_text(f"Error in analyze_any_message():\n {e}")
 
 
@@ -205,9 +207,9 @@ async def roll_dice(update, context, user_guess=None):
                     reply_to_message_id=update.message.message_id
             )
     except Exception as e:
-        logging.error(f"Error in roll_dice: {e}")
+        logger.error(f"Error in roll_dice: {e}")
 
 
 async def print_edit(update, context):
-    logging.info("Someone edited a message")
+    logger.info("Someone edited a message")
 

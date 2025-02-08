@@ -23,7 +23,7 @@ from utils.scheduler import (
 from modules.reminders import check_upcoming_reminders
 from modules.stats_manager import StatsManager
 
-print(f"... STARTING ... {PA}  \n\n")
+print(f"\n... STARTING ... {PA} \n")
 
 def configure_logging():
     # Create a formatter for logs
@@ -66,7 +66,7 @@ def configure_logging():
     logger = logging.getLogger(__name__)
     return logger
 
-logging = configure_logging()
+logger = configure_logging()
 
 # Global bot instance
 global_bot: ExtBot = None
@@ -76,7 +76,7 @@ global_bot: ExtBot = None
 
 # Function to reset stuff that is in context or something, ie temporary memory that is lost when the bot reboots
 async def reset_things_on_startup():
-    logging.info(f"🕳️ Reset ... Nothing Yet (placeholder)")
+    logger.info(f"🕳️ Reset ... Nothing Yet (placeholder)")
 
 
 # Set up the database and environment
@@ -86,9 +86,9 @@ async def initialize_environment(app):
         await setup_database()
         await reset_things_on_startup()
         await check_upcoming_reminders(app.bot)     # for any reminders that were scheduled for today at midnight, and were lost upon reboot
-        logging.info("Environment initialized successfully")
+        logger.info("Environment initialized successfully")
     except Exception as e:
-        logging.error(f"Error initializing environment: {e}")
+        logger.error(f"Error initializing environment: {e}")
         raise
     
 
@@ -152,15 +152,15 @@ def register_handlers(application):
     
 async def setup(application):
     try:
-        logging.info("Running setup tasks...")
+        logger.info("Running setup tasks...")
         now = datetime.now(tz=BERLIN_TZ)        
 
-        logging.info(f"Current time: {now}\n")
+        logger.info(f"Current time: {now}")
         
         # Initialize the database
         await Database.initialize()
         
-        logging.info("Database initialization completed.")
+        logger.info("Database initialization completed.")
 
         scheduler.add_job(send_morning_message, CronTrigger(hour=6, minute=6), args=[application.bot], misfire_grace_time=7200, coalesce=True)
         scheduler.add_job(send_evening_message, CronTrigger(hour=evening_message_hours, minute=evening_message_minutes), args=[application.bot], misfire_grace_time=7200, coalesce=True)
@@ -189,7 +189,7 @@ async def setup(application):
         )
 
         scheduler.start()
-        logging.info("Scheduler started successfully")
+        logger.info("Scheduler started successfully")
         
         # Initialize database, reinitialize reminders and reset necessary data
         await initialize_environment(application)
@@ -198,17 +198,17 @@ async def setup(application):
         chat_id = -4788252476  # PA test channel
         asyncio.create_task(monitor_btc_price(application.bot, chat_id))
         
-        logging.info("Setup completed successfully")
+        logger.info("Setup completed successfully")
 
     except Exception as e:
-        logging.error(f"Error during setup: {e}")
+        logger.error(f"Error during setup: {e}")
         import traceback
-        logging.error(traceback.format_exc())
+        logger.error(traceback.format_exc())
         raise
     
 
 def main():
-    logging.info("Entering main function")
+    logger.info("Entering main function")
 
     try:
         # Create and get the event loop
@@ -216,7 +216,7 @@ def main():
         asyncio.set_event_loop(loop)
 
         # Log if running locally or hosted
-        logging.info("Using *dev bot* (@TestManon_bot)" if is_running_locally() else "Using & *prod bot* (@Manon_PA_bot)\n")
+        logger.info("Using *dev bot* (@TestManon_bot)" if is_running_locally() else "Using & *prod bot* (@Manon_PA_bot)\n")
         
         # Create the bot application with ApplicationBuilder
         application = ApplicationBuilder() \
@@ -235,26 +235,26 @@ def main():
         # Register handlers
         register_handlers(application)
 
-        logging.info("... Starting run_polling")
+        logger.info("... Starting run_polling")
 
         # Start the bot
         application.run_polling()
-        logging.warning("*** *** *** Exiting run_polling ...")
+        logger.warning("*** *** *** Exiting run_polling ...")
         
     except Exception as e:
-        logging.error(f"Error in main function: {e}")
-        logging.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error in main function: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
         import traceback
-        logging.error(traceback.format_exc())
+        logger.error(traceback.format_exc())
     finally:
         # Clean up the database connection pool
         try:
             loop.run_until_complete(Database.close())
         except Exception as e:
-            logging.error(f"Error closing database: {e}")
+            logger.error(f"Error closing database: {e}")
         finally:
             loop.close()
-        logging.info("Database connection closed\n*** *** *** *** *** *** <3")
+        logger.info("Database connection closed\n*** *** *** *** *** *** <3")
 
 if __name__ == '__main__':
     main()

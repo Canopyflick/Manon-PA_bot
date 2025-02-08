@@ -12,23 +12,18 @@ from pprint import pformat
 from dataclasses import dataclass
 from utils.session_avatar import PA
 
+logger = logging.getLogger(__name__)
+
 # Define the Berlin timezone
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
-# Get OpenAI API keys from environment variable
-OPENAI_API_KEY = ENV_VARS.OPENAI_API_KEY
-EC_OPENAI_API_KEY = ENV_VARS.EC_OPENAI_API_KEY
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY not found! Ensure it's set in the environment.")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
-client_EC = OpenAI(api_key=EC_OPENAI_API_KEY)
+#@ Dit verplaatsen naar llms.clients maybe?
+client = OpenAI(api_key=ENV_VARS.OPENAI_API_KEY)
+client_EC = OpenAI(api_key=ENV_VARS.EC_OPENAI_API_KEY)
 
-
-
-
-
-async def check_chat_owner(update: Update, context):
+#@ Dit verplaatsen naar llms.clients maybe?
+async def check_chat_owner(update: Update, context) -> bool:
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
     
@@ -42,39 +37,56 @@ async def check_chat_owner(update: Update, context):
     return False
 
 
-# Security check: am I or Anne-Cathrine in the chat where the bot is used?
+# Security check: is there any approved user present in the chat where the bot is used?
 async def is_ben_in_chat(update, context):
-    USER_IDS = [1875436366, 279184266]
+    approved_user_ids = ENV_VARS.APPROVED_USER_IDS
     chat_id = update.effective_chat.id
 
     try:
-        # Handle private chats explicitly
-        if chat_id in USER_IDS:
+        # Handle private chats (where chat_id == user_id)
+        if chat_id in approved_user_ids:
             return True
 
         # Handle group or supergroup chats
-        for USER_ID in USER_IDS:
-            member = await context.bot.get_chat_member(chat_id, USER_ID)
-            if member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]:
-                return True
+        if update.effective_chat.type in ["group", "supergroup"]:
+            async def check_member(user_id):
+                try:
+                    return await asyncio.wait_for(
+                        context.bot.get_chat_member(chat_id, user_id), timeout=3
+                    )
+                except asyncio.TimeoutError:
+                    logging.warning(f"Timeout checking user {user_id} in chat {chat_id}")
+                except Exception as e:
+                    logging.warning(f"Failed to check user {user_id} in chat {chat_id}: {e}")
+                return None
+
+            # Run all checks concurrently with timeouts
+            results = await asyncio.gather(*[check_member(uid) for uid in approved_user_ids])
+
+            # Check if any result is a valid member
+            return any(
+                member and member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]
+                for member in results
+            )
 
         return False
+
     except Exception as e:
-        logging.error(f"Error checking chat member: {e}")
+        logging.error(f"Unexpected error checking chat member: {e}")
         return False
 
     
 
 # Private message to Ben 
 async def notify_ben(update, context):
-    USER_ID = 1875436366
+    ben_id = ENV_VARS.BEN_ID
     first_name = update.effective_user.first_name
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     message = update.message.text
     notification_message = f"You've got mail ✉️🧙‍♂️\n\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage:\n{message}"
-    logging.error(f"! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! \n\n\n\nUnauthorized Access Detected\n\n\n\n! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage: {message}")
-    await context.bot.send_message(chat_id=USER_ID, text=notification_message)
+    logger.error(f"! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! \n\n\n\nUnauthorized Access Detected\n\n\n\n! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage: {message}")
+    await context.bot.send_message(chat_id=ben_id, text=notification_message)
         
 
 
@@ -113,9 +125,9 @@ async def get_btc_price() -> tuple[str, str, float, float]:
         return simple_message, detailed_message, raw_float_price, usd_change
     
 
-# Function to check Bitcoin price every hour and send a message if it exceeds the threshold
+# Function to check Bitcoin price every ten minutes and send a message if it exceeds the threshold
 async def monitor_btc_price(bot: Bot, chat_id: int):
-    lower_threshold = 90000
+    lower_threshold = 88888
     upper_threshold = 111111
     upper_threshold_alerted = False
     lower_threshold_alerted = False
@@ -157,22 +169,19 @@ def get_random_philosophical_message(normal_only = False, prize_only = False):
             "Our actions are like ships which we may watch set out to sea, and not know when or with what cargo they will return to port",
             "A sufficiently intimate understanding of mistakes is indistinguishable from mastery",
             "He who does not obey himself will be commanded",
-            "Elke dag is er wel iets waarvan je zegt: als ik die taak nou eens zou afronden, "  
-            "dan zou m'n dag meteen een succes zijn. Maar ik heb er geen zin in. Weet je wat, ik stel het "
-            "me als doel bij Taeke, en dan ben ik misschien wat gemotiveerder om het te doen xx 🙃",
             "All evils are due to a lack of Telegram bots",
             "Art should disturb the comfortable, and comfort the disturbed",
             "Begin de dag met tequila",
             "Don't wait. The time will never be just right",
             "If we all did the things we are capable of doing, we would literally astound ourselves",
-            "There's power in looking silly and not caring that you do",                                        # Message 20
+            "There's power in looking silly and not caring that you do",                                        # Message 19
             "...",
             "Een goed begin is de halve dwerg",
             "En ik lach in mezelf want de sletten ik breng",
             "Bij nader inzien altijd achteraf",
-            "Sometimes we live no particular way but our own",                                                  # Message 25
-            "If it is to be said, so it be, so it is",                                                          # Message 26
-            "Te laat, noch te vroeg, arriveert (n)ooit de Takentovenaar"                                        # Message 27
+            "Sometimes we live no particular way but our own",                                                  # Message 24
+            "If it is to be said, so it be, so it is",                                                          # Message 25
+            "Te laat, noch te vroeg, arriveert (n)ooit de Takentovenaar"                                        # Message 26
         ]
     
     prize_messages = [
@@ -304,7 +313,7 @@ async def emoji_stopwatch(update, context, **kwargs):
 
     # Determine mode from kwargs
     mode = kwargs.get("mode", "default")
-    logging.info(f"⏱️Stopwatch started in {mode} mode")
+    logger.info(f"⏱️Stopwatch started in {mode} mode")
 
     # Define default durations
     durations = {
@@ -436,14 +445,14 @@ async def add_user_context_to_goals(context, goal_id, **kwargs):
     for key, value in kwargs.items():
         if isinstance(value, dict):  # Flatten nested dictionaries
             for sub_key, sub_value in value.items():
-                logging.info(f"Adding |{sub_key}| : |{sub_value}| to context")
+                logger.info(f"Adding |{sub_key}| : |{sub_value}| to context")
                 context.user_data["goals"][goal_id][sub_key] = sub_value
         elif hasattr(value, "__dict__"):  # Flatten custom objects
             for sub_key, sub_value in value.__dict__.items():
-                logging.info(f"Adding |{sub_key}| : |{sub_value}| to context")
+                logger.info(f"Adding |{sub_key}| : |{sub_value}| to context")
                 context.user_data["goals"][goal_id][sub_key] = sub_value
         else:  # Directly store primitive types
-            logging.info(f"Adding |{key}| : |{value}| to context")
+            logger.info(f"Adding |{key}| : |{value}| to context")
             context.user_data["goals"][goal_id][key] = value
 
 
@@ -497,7 +506,7 @@ async def delete_message(update, context, message_id=None, delay=None):
             except Exception as e:
                 await query.message.reply_text(f"Failed to delete the message: {e}")
     except Exception as e:
-        logging.error(f"Error in delete_message: {e}")
+        logger.error(f"Error in delete_message: {e}")
         
     
 
@@ -531,7 +540,7 @@ async def safe_set_reaction(bot, chat_id, message_id, reaction):
     try:
         await bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=reaction)
     except Exception as e:
-        logging.warning(f"Failed to set reaction '{reaction}': {e}")
+        logger.warning(f"Failed to set reaction '{reaction}': {e}")
         
 
 
