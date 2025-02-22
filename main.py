@@ -1,70 +1,25 @@
-﻿import io, sys, os, logging, asyncio
-from logging.handlers import RotatingFileHandler
-from telegram import ChatMember
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, CallbackQueryHandler, PollHandler, ExtBot
-from datetime import datetime, timezone
+﻿# main.py
+import asyncio
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, CallbackQueryHandler, ExtBot
+from datetime import datetime
 
 from utils.environment_vars import ENV_VARS, is_running_locally
-from utils.helpers import BERLIN_TZ, monitor_btc_price
+from utils.helpers import BERLIN_TZ
+from features.bitcoin.monitoring import monitor_btc_price
+from utils.logger import configure_logging
 from utils.session_avatar import PA
 from utils.db import setup_database, Database
 from utils.scheduler import (
-    send_morning_message, 
-    scheduler, 
-    AsyncIOScheduler, 
-    CronTrigger, 
-    DateTrigger, 
-    IntervalTrigger, 
-    send_evening_message, 
-    evening_message_hours, 
-    evening_message_minutes,
+    scheduler,
+    CronTrigger,
     fail_goals_warning,
 )
-from modules.reminders import check_upcoming_reminders
-from modules.stats_manager import StatsManager
+from features.goals.evening_message import evening_message_hours, evening_message_minutes, send_evening_message
+from features.goals.morning_message import send_morning_message
+from features.reminders.reminders import check_upcoming_reminders
+from features.stats.stats_manager import StatsManager
 
 print(f"\n... STARTING ... {PA} \n")
-
-def configure_logging():
-    # Create a formatter for logs
-    formatter = logging.Formatter(
-        fmt="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # File handler for INFO logs
-    info_handler = RotatingFileHandler(
-        "logs_info.log", maxBytes=1024 * 1024, backupCount=3, encoding='utf-8'  # 1 MB max, keep 3 backups
-    )
-    info_handler.setLevel(logging.INFO)
-    info_handler.setFormatter(formatter)
-
-    # File handler for WARNING and higher logs
-    error_handler = RotatingFileHandler(
-        "logs_errors.log", maxBytes=512 * 1024, backupCount=3, encoding='utf-8'  # 512 KB max, keep 3 backups
-    )
-    error_handler.setLevel(logging.WARNING)
-    error_handler.setFormatter(formatter)
-
-    # Console handler for all logs
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-
-
-    # Set up the root logger with the handlers
-    logging.basicConfig(
-        level=logging.INFO,
-        handlers=[info_handler, error_handler, console_handler],
-    )
-    
-    # Adjust logging levels for external libraries to reduce verbosity
-    logging.getLogger('httpx').setLevel(logging.WARNING)
-    logging.getLogger('telegram').setLevel(logging.WARNING)
-    
-    # Create and return logger
-    logger = logging.getLogger(__name__)
-    return logger
 
 logger = configure_logging()
 
@@ -98,12 +53,21 @@ def get_bot_token() -> str:
 
 # Register bot commands and handlers
 def register_handlers(application):
-    from modules.commands import (
-    start_command, help_command, stats_command, wow_command, btc_command, 
-    bitcoin_command, smarter_command, translate_command, profile_command, overdue_command,
-    stopwatch_command, tea_command, dice_command, today_command, twenty_four_hours_command,
-    tomorrow_command, diary_command, o1_command
+    from leftovers.commands import (
+        wow_command, translate_command, profile_command, overdue_command,
+        today_command, twenty_four_hours_command,
+        tomorrow_command, diary_command
     )
+    from features.bitcoin.command import bitcoin_command
+    from features.bitcoin.command import btc_command
+    from LLMs.commands import smarter_command
+    from LLMs.commands import o1_command
+    from features.diceroll.command import dice_command
+    from features.start.command import start_command
+    from features.stats.command import stats_command
+    from features.stopwatch.command import tea_command
+    from features.help.command import help_command
+    from features.stopwatch.command import stopwatch_command
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
@@ -138,7 +102,7 @@ def register_handlers(application):
     from utils.helpers import delete_message
     application.add_handler(CallbackQueryHandler(delete_message, pattern=r"delete_message"))
     
-    from modules.goals import handle_proposal_change_click, accept_goal_proposal, reject_goal_proposal, report_goal_progress
+    from features.goals.goals import handle_proposal_change_click, accept_goal_proposal, reject_goal_proposal, report_goal_progress
     application.add_handler(CallbackQueryHandler(
         handle_proposal_change_click,
         pattern=r"^(goal_value_up|goal_value_down|penalty_up|penalty_down)_(\d+)$"

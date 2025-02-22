@@ -1,10 +1,15 @@
-﻿from utils.helpers import emoji_stopwatch, get_random_philosophical_message, escape_markdown_v2, check_chat_owner, PA, add_delete_button, delete_message, BERLIN_TZ
+﻿from utils.helpers import BERLIN_TZ
+from utils.session_avatar import PA
+from features.stopwatch.command import emoji_stopwatch
+from features.philosophy.philosophical_message import get_random_philosophical_message
 import asyncio, random, re, logging
-from utils.db import get_first_name, register_user, fetch_user_stats, Database
+from utils.db import get_first_name, fetch_user_stats, Database
+from features.start.registration import register_user
 from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+logger = logging.getLogger(__name__)
 
 class StatsManager:
     @staticmethod

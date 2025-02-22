@@ -3,7 +3,7 @@ from datetime import time, datetime, timezone, timedelta
 from utils.helpers import BERLIN_TZ
 from utils.session_avatar import PA
 from utils.db import Database, get_first_name
-from utils.scheduler import scheduler, AsyncIOScheduler, CronTrigger, DateTrigger, IntervalTrigger
+from utils.scheduler import scheduler
 
 logger = logging.getLogger(__name__)
 

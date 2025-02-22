@@ -1,4 +1,5 @@
-﻿from typing import Literal, List, Union
+﻿# LLMs/structured_output_schemas.py
+from typing import Literal, List, Union
 from typing_extensions import Annotated, TypedDict
 from pydantic import BaseModel, Field
 import asyncio

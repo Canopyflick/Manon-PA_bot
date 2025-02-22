@@ -1,110 +1,16 @@
 ﻿from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
-from utils.helpers import get_btc_price, BERLIN_TZ, datetime, timedelta
+from utils.helpers import BERLIN_TZ
 from utils.session_avatar import PA
-from datetime import time
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.constants import ChatAction
-from modules.goals import handle_goal_failure
-from utils.db import Database, fetch_goal_data, get_first_name, fetch_upcoming_goals, update_goal_data
-import asyncio, random, re, logging
+from datetime import datetime
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from features.goals.goals import handle_goal_failure
+from utils.db import Database, fetch_goal_data, get_first_name, fetch_upcoming_goals
+import asyncio, random, logging
 
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
-
-# still wanna add: 1. Prompt to report on yesterday's unfinished goals (separate message with buttons for each)
-async def send_morning_message(bot, specific_chat_id=None):
-    try:
-        async with Database.acquire() as conn:
-            # Fetch all unique user_id/chat_id pairs
-            users = await conn.fetch("SELECT user_id, chat_id, first_name FROM manon_users")
-            
-        # 1. Add Bitcoin price if it changed a lot 
-        _, detailed_message, _, usd_change = await get_btc_price()
-        change_message = ""
-        if abs(usd_change) > 5:
-            change_message = f"\n\n📈 _฿itcoin price changed by {usd_change:.2f}% in the last 24 hours._\n{detailed_message}"
-        
-        morning_emojis = ["🍵", "☕", "🌄", "🌅", "🌞", "☃️", "❄️"]
-        random_emoji = random.choice(morning_emojis)
-        
-        greeting = "Good morning"
-        announcement = "Your goals for the day are:"
-        # Check if it's morning or not
-        morning_start = time(4, 0)  # 4:00 am
-        morning_end = time(12, 0)  # 12:00 pm
-        now = datetime.now(tz=BERLIN_TZ)
-        if not (morning_start <= now.time() <= morning_end):
-            greeting = "Why hello there"
-            announcement = "Your upcoming goals are:"
-
-        # 2. Loop through each user row and send a personalized message
-        for user in users:
-            user_id = user["user_id"]
-            chat_id = user["chat_id"]
-            if specific_chat_id and chat_id != specific_chat_id:
-                continue
-                
-            first_name = user["first_name"] or "there"  # Fallback if first_name is NULL or empt
-            
-            # 3. Check any overdue goals since last night (usually none)
-            overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="yesterday")   # overdue between 4 AM and now yesterday
-            logging.debug(f"overdue goals for user_id {user_id}: {overdue_goals}")
-
-            greeting_message = f"*{greeting}, {first_name}!* {PA}\n"
-            recap_message = None
-            if overdue_goals:
-                recap_message = f"\n_First, some unfinished business:_"
-            
-            # 4. Check schedule today: all upcoming goals
-            goals_today, total_goal_value, total_penalty, goals_count = await fetch_upcoming_goals(chat_id, user_id, timeframe=10)    # fetching upcoming goals from now until 10am tomorrow
-            logger.warning(f"Alles gefetcht:\n{goals_today}, \n{total_goal_value}, \n{total_penalty}, \n{goals_count}")
-            morning_message = (
-                f"{announcement}\n\n{goals_today}\n\n"
-            )
-            stakes_message = f"_Go get some (⚡{total_goal_value}) ..!\n... or lose some ({total_penalty}🌚)_\n"
-            if total_goal_value == 0 or goals_count == 1:
-                stakes_message = ''
-            if goals_count == 0:
-                announcement = ''
-            logger.warning(f"morning message: {morning_message}")
-            morning_message += stakes_message
-            
-            morning_message += change_message
-            if random.random() < 0.00273972603:  # once per year if triggered daily
-                morning_message += "\n\nZet je beste beentje voor, je kunt er niets aan doen, maar je kunt er wel wat aan doen! ❤️\n\n_'[memorabele quote enzo]'_}"
-            try:
-                await bot.send_message(chat_id, random_emoji)
-                if recap_message:
-                    greeting_message += recap_message
-                await bot.send_message(chat_id, greeting_message, parse_mode="Markdown")
-                if overdue_goals:
-                    for goal in overdue_goals:
-                        if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
-                            continue
-                        await asyncio.sleep(1)
-                        await bot.send_message(
-                            chat_id=chat_id,
-                            text=goal["text"],
-                            reply_markup=goal["buttons"],
-                            parse_mode="Markdown" 
-                        )
-                await asyncio.sleep(3)
-                await bot.send_message(chat_id, morning_message, parse_mode="Markdown")
-                await asyncio.sleep(4)
-                await bot.send_message(chat_id, "🚀")
-                logger.info(f"Daily message sent successfully in chat {chat_id} for {first_name}({user_id}).")
-            except Exception as e:
-                logger.error(f"Error sending morning message to chat_id {chat_id}: {e}")
-            
-    except Exception as e:
-        logger.error(f"Error sending daily message: {e}")
-
-
-
 
 
 async def send_goals_today(update, context, chat_id, user_id, timeframe):
@@ -147,85 +53,6 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
         logger.error(f"Error sending goals message: {e}")
         return None, 0
 
-        
-# set the time that the message is scheduled daily for in main()
-evening_message_hours = 20
-evening_message_minutes = 20
-async def send_evening_message(bot, specific_chat_id=None):
-    try:
-        async with Database.acquire() as conn:
-            # Fetch all unique user_id/chat_id pairs
-            users = await conn.fetch("SELECT user_id, chat_id, first_name FROM manon_users")
-            
-        # Fetch Bitcoin price and change percentage
-        _, detailed_message, _, usd_change = await get_btc_price()
-        change_message = ""
-        if abs(usd_change) > 10:
-            change_message = f"\n\n📈 _฿itcoin price changed by {usd_change:.2f}% in the last 24 hours._\n{detailed_message}"
-        
-        evening_emojis = ["🫖", "💫", "🌇", "🌆", "💤", "😴", "🛌"]
-        random_emoji = random.choice(evening_emojis)
-        
-        greeting = "Good evening"
-        announcement = "Please report on goal progress for:"
-        # Check if it's morning or not
-        evening_start = time(18, 0)  # 18:00
-        evening_end = time(23, 59)  # 23:59
-        now = datetime.now(tz=BERLIN_TZ)
-        if not (evening_start <= now.time() <= evening_end):
-            greeting = "Why hello there"
-            announcement = "Today's remaining pending goals are:"
-
-        # Loop through each user row and send a personalized message
-        for user in users:
-            user_id = user["user_id"]
-            chat_id = user["chat_id"]
-            # skip irrelevant chats if a specific chat was specified
-            if specific_chat_id and chat_id != specific_chat_id:
-                continue
-                
-            first_name = user["first_name"] or "Sardientje"  # Fallback if first_name is NULL or empt
-            
-            overdue_goals, total_goal_value, total_penalty, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="today")   # returns all pending goals today to report on, whether overdue or not
-            logging.debug(f"overdue goals for user_id {user_id}: {overdue_goals}")
-
-            if not overdue_goals:
-                announcement = "\n🔎    _....._    🔍\n\nNo pending goals remaining today, you're all caught up ✨"
-            
-            nightly_message = (
-                f"*{greeting}, {first_name}!* {PA}\n"
-                f"{announcement}\n\n"
-            )
-            stakes_message = f"_⚡{total_goal_value} & 🌚{total_penalty} on the line._\n"
-            if total_goal_value == 0 or goals_count == 1:
-                stakes_message = None
-            
-            nightly_message += change_message
-            if random.random() < 0.00273972603:  # once per year if triggered daily
-                nightly_message += "\n\nAwel slaap wel! ❤️\n\n_'[memorabele quote enzo]'_}"
-            try:
-                await bot.send_message(chat_id, "🌚")
-                await asyncio.sleep(2)
-                await bot.send_message(chat_id, nightly_message, parse_mode="Markdown")
-                for goal in overdue_goals:
-                    if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
-                        continue
-                    await bot.send_message(
-                        chat_id=chat_id,
-                        text=goal["text"],
-                        reply_markup=goal["buttons"],
-                        parse_mode="Markdown"
-                    )
-                await asyncio.sleep(4)
-                if stakes_message:
-                    await bot.send_message(chat_id, stakes_message, parse_mode="Markdown")
-                await bot.send_message(chat_id, random_emoji)
-                logger.info(f"Nightly message sent successfully in chat {chat_id} for {first_name}({user_id}).")
-            except Exception as e:
-                logger.error(f"Error in evening message sending message to chat_id {chat_id}: {e}")
-            
-    except Exception as e:
-        logger.error(f"Error sending daily message: {e}")
 
 
 # fetches (overdue) pending goals, puts each in a separate message with buttons for reporting progress

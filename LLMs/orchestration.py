@@ -1,27 +1,27 @@
-﻿from re import A
-
-from httpx import Response 
-from utils.helpers import BERLIN_TZ, datetime, timedelta, add_user_context_to_goals, add_delete_button, delete_message, safe_set_reaction, client_EC
+﻿# LLMs/orchestration.py
+from datetime import datetime, timedelta
+from httpx import Response
+from openai import OpenAI
+from utils.environment_vars import ENV_VARS
+from utils.helpers import BERLIN_TZ, add_delete_button, delete_message, safe_set_reaction
 from utils.session_avatar import PA
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from modules.goals import send_goal_proposal, handle_goal_completion
-import logging, os, asyncio, unicodedata
+from features.goals.goals import send_goal_proposal, handle_goal_completion
+from features.goals.helpers import add_user_context_to_goals
+import logging, asyncio
 from dateutil.parser import parse
 from utils.db import (
     fetch_goal_data,
     fetch_long_term_goals,
-    update_goal_data,
     create_limbo_goal,
     complete_limbo_goal,
     record_reminder,
 )
 from LLMs.config import chains, shared_state
-from LLMs.classes import (
+from LLMs.structured_output_schemas import (
     DummyClass,
     InitialClassification,
     GoalClassification,
     SetGoalAnalysis,
-    GoalSetData,
     LanguageCorrection,
     LanguageCheck,
     Translation,
@@ -40,15 +40,10 @@ from LLMs.classes import (
 
 logger = logging.getLogger(__name__)
 
+client_EC = OpenAI(api_key=ENV_VARS.EC_OPENAI_API_KEY)
 
-def log_emoji_details(emoji, source="Unknown"):
-    print(f"Source: {source}")
-    print(f"Emoji: {emoji}")
-    print(f"Unicode representation: {emoji.encode('unicode_escape')}")
-    print(f"Name: {unicodedata.name(emoji, 'Unknown')}")
-    print(f"Length: {len(emoji)}")
-    print("-" * 40)
-#########################################################################    
+
+#########################################################################
 
 
 
@@ -244,13 +239,13 @@ async def handle_goal_classification(update, context, smarter=False):
             goal_classification = await run_chain("goal_classification", input_vars)   
         
         parsed_goal_classification = GoalClassification.model_validate(goal_classification)
-        
+
         if shared_state["transparant_mode"]:
             debug_message = await update.message.reply_text(f"goal_classification: \n{parsed_goal_classification}")
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
-        
-        
+
+
         goal_result = parsed_goal_classification.classification
 
         if goal_result == "Set":
@@ -561,7 +556,7 @@ async def diary_header(update, context):
         parsed_output = DiaryHeader.model_validate(output)
         dates_header = parsed_output.header
         
-        header = f"{header_top}{dates_header}" 
+        header = f"{header_top}{dates_header}\n\n---"
 
         if shared_state["transparant_mode"]:
             debug_message = await update.message.reply_text(parsed_output)

@@ -1,21 +1,19 @@
-﻿from jinja2.utils import F
-from utils.helpers import BERLIN_TZ, add_user_context_to_goals
+﻿from features.goals.helpers import add_user_context_to_goals
+from utils.helpers import BERLIN_TZ, logger
 from utils.session_avatar import PA
 from utils.db import(
     update_goal_data, 
     complete_limbo_goal, 
-    adjust_penalty_or_goal_value, 
-    fetch_template_data_from_db, 
-    Database, 
+    adjust_penalty_or_goal_value,
+    Database,
     validate_goal_constraints, 
     update_user_data, 
     fetch_goal_data,
     create_recurring_goal_instance,
 )
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-import logging, re, asyncio
+import logging, re
 from datetime import datetime, timedelta
-from collections.abc import Iterable
 from jinja2 import Template
 
 logger = logging.getLogger(__name__)
@@ -543,4 +541,5 @@ async def accept_recurring_goals(update, context, goal_id, query):
     except Exception as e:
         logger.info(f"Error accept_recurring_goals(): {e}")
         await query.edit_message_text(f"er ging iets mis: {e}")
-        
+
+
