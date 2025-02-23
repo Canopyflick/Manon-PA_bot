@@ -236,11 +236,12 @@ async def fail_goals_warning(bot, chat_id=None):
         # 2. Loop through each user row and send a personalized message
         for user in users:
             user_id = user["user_id"]
+            user_chat_id = chat_id if chat_id else user["chat_id"]
             if chat_id:
-                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # all overdue goals
+                overdue_goals, _, _, goals_count = await fetch_overdue_goals(user_chat_id, user_id, timeframe="overdue")   # all overdue goals
             elif not chat_id:
                 chat_id = user["chat_id"]
-                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="older")   # overdue for more than 24 hours
+                overdue_goals, _, _, goals_count = await fetch_overdue_goals(user_chat_id, user_id, timeframe="older")   # overdue for more than 24 hours
             first_name = user["first_name"] or "Katja"  # Fallback if first_name is NULL or empt
             # 3. Check any >24hs old overdue goals (or all overdue goals, if trigger-word-triggered)
              
