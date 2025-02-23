@@ -1,8 +1,11 @@
-﻿from apscheduler.schedulers.asyncio import AsyncIOScheduler
+﻿# utils/scheduler.py
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+
 from utils.helpers import BERLIN_TZ
 from utils.session_avatar import PA
-from datetime import datetime
+from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from features.goals.goals import handle_goal_failure
 from utils.db import Database, fetch_goal_data, get_first_name, fetch_upcoming_goals
@@ -10,7 +13,7 @@ import asyncio, random, logging
 
 logger = logging.getLogger(__name__)
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone=BERLIN_TZ)
 
 
 async def send_goals_today(update, context, chat_id, user_id, timeframe):
@@ -55,8 +58,11 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
 
 
 
-# fetches (overdue) pending goals, puts each in a separate message with buttons for reporting progress
 async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
+    """
+    1. fetches (overdue) pending goals
+    2. puts each in a separate message with buttons for reporting progress
+    """
     try:
         async with Database.acquire() as conn:
             # Prepare base query with placeholders
@@ -131,7 +137,9 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
         goals_count = 0
         now = datetime.now(tz=BERLIN_TZ)
 
+        logger.info(f"Using timeframe '{timeframe}' for user_id {user_id} in chat {chat_id}: Fetched {len(rows)} rows")
         for row in rows:
+            logger.info(f"Goal ID {row['goal_id']}: deadline = {row['deadline']}")
             goals_count += 1
             goal_id = row ["goal_id"]
             description = row["goal_description"] or "No description found... 👻"
@@ -212,18 +220,21 @@ async def fail_goals_warning(bot, chat_id=None):
                 users = await conn.fetch(f"SELECT user_id, first_name FROM manon_users WHERE chat_id = {chat_id}")  # Like this, with the unparameterized SQL query, the code could be susceptible to SQL injection attacks #security. Could be fun to try to hack myself
         warning_emojis = ["⚠️", "👮‍♀️"]
         random_emoji = random.choice(warning_emojis)
+        if random.random() < 0.02:
+            random_emoji = "🍆"
         
         now = datetime.now(tz=BERLIN_TZ)
-        ultimatum_time = now + timedelta(hours=2)
+        ultimatum_time = now + timedelta(seconds=30)
         if chat_id:
             ultimatum_time = now + timedelta(minutes=5)
+        logger.info(f'ultimatum time for automatic goal_archival set for {ultimatum_time}')
         formatted_ultimatum_time = ultimatum_time.strftime('%H:%M')
 
         # 2. Loop through each user row and send a personalized message
         for user in users:
             user_id = user["user_id"]
             if chat_id:
-                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # all overdue goalmore than 24 hours
+                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # all overdue goals more than 24 hours
             elif not chat_id:
                 chat_id = user["chat_id"]
                 overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="older")   # overdue for more than 24 hours
@@ -275,7 +286,7 @@ async def fail_goals_warning(bot, chat_id=None):
                         ultimatum_minute = ultimatum_time.minute
                         scheduler.add_job(
                             scheduled_goal_archival, 
-                            CronTrigger(hour=ultimatum_hour, minute=ultimatum_minute),
+                            DateTrigger(run_date=ultimatum_time),
                             args=[bot, goal_id, ultimatum_time, delete_all_expired_goals],
                             misfire_grace_time=3600,
                             coalesce=True
@@ -293,6 +304,7 @@ async def fail_goals_warning(bot, chat_id=None):
 
 async def scheduled_goal_archival(bot, goal_id, ultimatum_time, delete_all_expired_goals):
     try:
+        logger.info(f'Archiving goal {goal_id}')
         status = await fetch_goal_data(goal_id, columns="status", single_value=True)
         if status == "pending":     # only needs to be actually run if the user didn't report anything after the warning
             update = 1.5 
@@ -301,3 +313,26 @@ async def scheduled_goal_archival(bot, goal_id, ultimatum_time, delete_all_expir
             logger.info(f"Goal #{goal_id} was not archived at {ultimatum_time}, because it was not pending anymore (user processed it themselves)")
     except Exception as e:
         logger.error(f"Error in schedule_goal_deletion(): {e}")
+
+
+async def send_next_jobs(update, context, N=5):
+    """
+    Function to send the next N jobs in chat (triggered by trigger text)
+    """
+    jobs = scheduler.get_jobs()  # Fetch all scheduled jobs
+    jobs.sort(key=lambda job: job.next_run_time)  # Sort by next run time
+
+    if not jobs:
+        await update.message.reply_text(f"No scheduled jobs at the moment {PA}")
+        return
+
+    # Get the next N jobs
+    job_details = []
+    for job in jobs[:N]:
+        run_time = job.next_run_time.strftime('%H:%M:%S (%a)') if job.next_run_time else "Unknown"
+        job_name = job.name if job.name else "Unnamed job"
+        job_details.append(f"🕒 {run_time}\n{job.name}")
+
+    # Send the job list as a message
+    job_list_text = "\n".join(job_details)
+    await update.message.reply_text(f"{PA} Here are the next scheduled jobs:\n\n{job_list_text}")

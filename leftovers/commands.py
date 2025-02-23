@@ -1,12 +1,12 @@
 ﻿# leftovers/commands.py
-from utils.helpers import escape_markdown_v2, add_delete_button, delete_message, safe_set_reaction
+from utils.helpers import escape_markdown_v2, add_delete_button, delete_message
 from features.philosophy.philosophical_message import get_random_philosophical_message
 from utils.session_avatar import PA
 from telegram import Update
 from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from telegram.ext import CallbackContext
-from LLMs.orchestration import diary_header, process_other_language, check_language
+from LLMs.orchestration import process_other_language, check_language
 from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
 
 logger = logging.getLogger(__name__)
@@ -205,23 +205,6 @@ async def tomorrow_command(update, context):
         await context.bot.send_message(
             chat_id=chat_id,
             text="An error occurred while processing your request. Please try again later.",
-            parse_mode="Markdown"
-        )
-        
-
-async def diary_command(update, context):
-    try:
-        chat_id = update.effective_chat.id
-        message_id = update.message.message_id
-        preset_reaction = "🎄"
-        await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
-        await diary_header(update, context)
-            
-    except Exception as e:
-        logger.error(f"Error in diary_command: {e}")
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"An error occurred while processing your request. Please try again later {PA}",
             parse_mode="Markdown"
         )
         

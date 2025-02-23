@@ -56,8 +56,9 @@ def register_handlers(application):
     from leftovers.commands import (
         wow_command, translate_command, profile_command, overdue_command,
         today_command, twenty_four_hours_command,
-        tomorrow_command, diary_command
+        tomorrow_command
     )
+    from features.obsidian.command import diary_command
     from features.bitcoin.command import bitcoin_command
     from features.bitcoin.command import btc_command
     from LLMs.commands import smarter_command
@@ -139,7 +140,7 @@ async def setup(application):
         # Check and warn for >22hs overdue goals (2hs later schedule_goal_deletion)
         scheduler.add_job(
             fail_goals_warning, 
-            CronTrigger(hour=11, minute=11),
+            CronTrigger(hour=14, minute=11),
             args=[application.bot],
             misfire_grace_time=7200,
             coalesce=True

@@ -169,3 +169,5 @@ async def handle_trashbin_click(update, context):
 
     # Acknowledge the callback to remove the 'loading' animation
     await query.answer()
+
+

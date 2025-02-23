@@ -6,7 +6,7 @@ from LLMs.config import shared_state
 from features.stats.stats_manager import StatsManager
 from utils.helpers import test_emojis_with_telegram, fetch_logs, delete_message, add_delete_button
 from features.stopwatch.command import emoji_stopwatch
-from utils.scheduler import fail_goals_warning
+from utils.scheduler import fail_goals_warning, send_next_jobs
 from features.goals.evening_message import send_evening_message
 from features.goals.morning_message import send_morning_message
 from utils.session_avatar import PA
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext",
             "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats",
-            "logs", "logs100", "errorlogs", "transparant_on", "transparant_off"]
+            "logs", "logs100", "errorlogs", "transparant_on", "transparant_off", "Jobs"]
 
 
 async def handle_triggers(update, context, trigger_text):
@@ -73,6 +73,8 @@ async def handle_triggers(update, context, trigger_text):
     elif trigger_text == "transparant_off":
         shared_state["transparant_mode"] = False
         await update.message.reply_text(f"_transparant mode disabled 🔴_ {PA}\n_(no additional logs in chat  )_", parse_mode="Markdown")
+    elif trigger_text == "Jobs":
+        await send_next_jobs(update, context, 7)
 
 
 async def handle_preset_triggers(update, context, user_message):
