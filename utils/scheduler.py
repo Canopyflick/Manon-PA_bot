@@ -227,9 +227,9 @@ async def fail_goals_warning(bot, chat_id=None):
             random_emoji = "🍆"
 
         now = datetime.now(tz=BERLIN_TZ)
-        ultimatum_time = now + timedelta(minutes=5)
+        ultimatum_time = now + timedelta(minutes=952)   # is 09:09 the next morning if first warning time is 17:17
         if chat_id:
-            ultimatum_time = now + timedelta(minutes=5)
+            ultimatum_time = now + timedelta(minutes=10)
         logger.info(f'ultimatum time for automatic goal_archival set for {ultimatum_time}')
         formatted_ultimatum_time = ultimatum_time.strftime('%H:%M')
 
