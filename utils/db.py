@@ -39,8 +39,9 @@ class Database:
             return value
 
         # Create pool only once with all settings
+        URL = ENV_VARS.DATABASE_URL
         cls._pool = await asyncpg.create_pool(
-            ENV_VARS.DATABASE_URL,
+            URL,
             ssl='require' if is_running_on_heroku() else None,
             min_size=5,
             max_size=20,
@@ -69,8 +70,9 @@ class Database:
             # Verify the timezone setting worked
             test_time = await conn.fetchval('SELECT NOW()')
             logger.info(f"Current database time: {test_time}")
-
-        logger.info("Database connection successful with timezone configuration")
+        
+        redacted_URL = redact_password(URL)
+        logger.info(f"Database connection successful with timezone configuration. URL = {redacted_URL}")
 
     @classmethod
     def acquire(cls):
@@ -175,7 +177,7 @@ async def setup_database():
                     attempt INTEGER DEFAULT 1,                      -- N+1, for tracking attempts (retries)
                     iteration INTEGER DEFAULT NULL,                 -- N+1 iteration of instances of individual (sub)goals that belong to the same group of one recurring goal
                     final_iteration TEXT DEFAULT 'not applicable',  -- The last in the series of this group_id: final iteration of this recurring goal. Can be used to prompt evaluation of extension ('not applicable', 'yes', 'not yet')
-                    goal_category TEXT[] DEFAULT NULL,            -- eg work, productivity, chores, relationships, hobbies, self-development, wealth, impact (EA), health, fun, other       
+                    goal_category TEXT[] DEFAULT NULL,            -- eg work, productivity, chores, relationships, hobbies, self-development, money, impact, health, fun, other       
                     completion_time TIMESTAMPTZ DEFAULT NULL,                           -- Time when the goal was completed
                     FOREIGN KEY (user_id, chat_id) REFERENCES manon_users (user_id, chat_id)
                 )
