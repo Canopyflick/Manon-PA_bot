@@ -222,9 +222,9 @@ async def fail_goals_warning(bot, chat_id=None):
         random_emoji = random.choice(warning_emojis)
         if random.random() < 0.02:
             random_emoji = "🍆"
-        
+
         now = datetime.now(tz=BERLIN_TZ)
-        ultimatum_time = now + timedelta(seconds=30)
+        ultimatum_time = now + timedelta(hours=6)
         if chat_id:
             ultimatum_time = now + timedelta(minutes=5)
         logger.info(f'ultimatum time for automatic goal_archival set for {ultimatum_time}')
