@@ -14,5 +14,5 @@ HELP_MESSAGE = (
         '*Info about your goals*\n'
         f'| /today | /tomorrow | /24 | /overdue |\n\n'
         '*Trigger words*\n'
-        '| gm | gn | emoji | pomodoro | koffie | !test | usercontext | clearcontext | resolve | logs<number\\_of\\_lines> | errorlogs | transparant\\_on | transparant\\_off | seintjenatuurlijk |'
+        '| gm | gn | emoji | pomodoro | koffie | !test | usercontext | clearcontext | resolve | logs<number\\_of\\_lines> | errorlogs | transparant\\_on | transparant\\_off | seintjenatuurlijk | jobs |'
     )

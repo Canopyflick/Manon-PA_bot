@@ -4,7 +4,8 @@ from pprint import pformat
 
 from LLMs.config import shared_state
 from features.stats.stats_manager import StatsManager
-from utils.helpers import test_emojis_with_telegram, fetch_logs, delete_message, add_delete_button
+from utils.helpers import test_emojis_with_telegram, delete_message, add_delete_button
+from utils.logger import fetch_logs
 from features.stopwatch.command import emoji_stopwatch
 from utils.scheduler import fail_goals_warning, send_next_jobs
 from features.goals.evening_message import send_evening_message

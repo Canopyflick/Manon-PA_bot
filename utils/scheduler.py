@@ -228,6 +228,7 @@ async def fail_goals_warning(bot, chat_id=None):
 
         now = datetime.now(tz=BERLIN_TZ)
         ultimatum_time = now + timedelta(minutes=952)   # is 09:09 the next morning if first warning time is 17:17
+        day_reference = "tomorrow" if ultimatum_time.date() > now.date() else "today"
         if chat_id:
             ultimatum_time = now + timedelta(minutes=10)
         logger.info(f'ultimatum time for automatic goal_archival set for {ultimatum_time}')
@@ -253,7 +254,7 @@ async def fail_goals_warning(bot, chat_id=None):
                 greeting = (
                     f"Hi {first_name}, you have "
                     f"{'one older /overdue goal' if goals_count == 1 else f'{goals_count} older /overdue goals'} open {PA}\n\n"
-                    f"Report on {'it' if goals_count == 1 else 'them'} by {formatted_ultimatum_time} today if you want to avoid automatic archiving and penalization 🍆 🌚"
+                    f"Report on {'it' if goals_count == 1 else 'them'} by {formatted_ultimatum_time} {day_reference} if you want to avoid automatic archiving and penalization 🍆 🌚"
                 )     
                 if delete_all_expired_goals:
                     greeting.replace("older ", "")
