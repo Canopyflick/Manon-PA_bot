@@ -137,10 +137,10 @@ async def setup(application):
             coalesce=True
         )
         
-        # Check and warn for >22hs overdue goals (2hs later schedule_goal_deletion)
+        # Check and warn for >22hs overdue goals (6hs later schedule_goal_deletion)
         scheduler.add_job(
             fail_goals_warning, 
-            CronTrigger(hour=14, minute=41),
+            CronTrigger(hour=15, minute=11),
             args=[application.bot],
             misfire_grace_time=7200,
             coalesce=True
@@ -201,6 +201,9 @@ def main():
         register_handlers(application)
 
         logger.info("... Starting run_polling")
+
+        # Log the current datetime in database timezone (if different from application timezone)
+        logger.info(f"Current datetime in application timezone (BERLIN_TZ): {datetime.now(tz=BERLIN_TZ)}")
 
         # Start the bot
         application.run_polling()

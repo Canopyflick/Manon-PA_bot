@@ -129,6 +129,9 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 logger.info(f"No overdue goals!")
                 return [], 0, 0, 0
 
+            logger.info(f"Query executed: {query}")
+            logger.info(f"Query parameters: {params}")
+
         pending_goals = []
         total_goal_value = 0
         total_penalty = 0 
@@ -224,7 +227,7 @@ async def fail_goals_warning(bot, chat_id=None):
             random_emoji = "🍆"
 
         now = datetime.now(tz=BERLIN_TZ)
-        ultimatum_time = now + timedelta(hours=6)
+        ultimatum_time = now + timedelta(minutes=5)
         if chat_id:
             ultimatum_time = now + timedelta(minutes=5)
         logger.info(f'ultimatum time for automatic goal_archival set for {ultimatum_time}')
