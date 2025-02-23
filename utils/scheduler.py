@@ -84,7 +84,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
             # Dynamic time condition logic
             if timeframe == "today":            # all pending goals today (4AM this morning - 4AM later tonight) > for the final evening message
                 time_condition = """
-                AND deadline >= DATE_TRUNC('day', NOW()) + INTERVAL '4 hours'
+                AND deadline AT TIME ZONE 'Europe/London' >= DATE_TRUNC('day', NOW()) + INTERVAL '4 hours'
                 AND deadline <= DATE_TRUNC('day', NOW()) + INTERVAL '28 hours'
                 """
             elif timeframe == "overdue":        # all pending goals with deadlines in the past > for /overdue
@@ -247,7 +247,7 @@ async def fail_goals_warning(bot, chat_id=None):
             logging.debug(f"overdue goals for user_id {user_id}: {overdue_goals}")
             if not overdue_goals and delete_all_expired_goals:
                 await bot.send_message(chat_id, f"You have no overdue goals to resolve {PA}")
-                return
+                continue
             elif overdue_goals:
                 greeting = (
                     f"Hi {first_name}, you have "
