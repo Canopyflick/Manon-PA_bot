@@ -261,8 +261,8 @@ async def fail_goals_warning(bot, chat_id=None):
                 if random.random() < 0.0273972603:  # once per year if triggered every 10 days
                     greeting += "\n_Oh yeah, and also: mindfulness could be a great option right now. Same goes for right now, by the way"
                 try:
-                    await bot.send_message(chat_id, random_emoji)
-                    await bot.send_message(chat_id, greeting, parse_mode="Markdown")
+                    await bot.send_message(user_chat_id, random_emoji)
+                    await bot.send_message(user_chat_id, greeting, parse_mode="Markdown")
                     for goal in overdue_goals:
                         logger.warning(f"Overdue goals for user_id {user_id}: {overdue_goals}")
 
@@ -270,7 +270,7 @@ async def fail_goals_warning(bot, chat_id=None):
                             continue
                         await asyncio.sleep(1)
                         await bot.send_message(
-                            chat_id=chat_id,
+                            chat_id=user_chat_id,
                             text=goal["text"],
                             reply_markup=goal["buttons"],
                             parse_mode="Markdown" 
@@ -296,7 +296,7 @@ async def fail_goals_warning(bot, chat_id=None):
                             coalesce=True
                         )
                     if not chat_id:
-                        logger.info(f"Daily older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+                        logger.info(f"Daily older overdue goals warning message sent successfully in chat {user_chat_id} for {first_name}({user_id}).")
                     elif chat_id:
                         logger.info(f"Trigger-word-triggered older overdue goals warning message sent successfully in chat {chat_id} for {first_name}({user_id}).")
                 except Exception as e:
