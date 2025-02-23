@@ -140,7 +140,7 @@ async def setup(application):
         # Check and warn for >22hs overdue goals (2hs later schedule_goal_deletion)
         scheduler.add_job(
             fail_goals_warning, 
-            CronTrigger(hour=14, minute=30),
+            CronTrigger(hour=14, minute=41),
             args=[application.bot],
             misfire_grace_time=7200,
             coalesce=True
