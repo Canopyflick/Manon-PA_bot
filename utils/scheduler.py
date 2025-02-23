@@ -111,7 +111,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 """
             elif timeframe == "older_followup":      # For the midday penalization, deleting all overdue goals older than 26 hours
                 time_condition = """
-                AND DEADLINE <= NOW() - INTERVAL '26 hours'
+                AND DEADLINE <= NOW() - INTERVAL '30 hours'
                 """
             else:
                 raise ValueError(f"Invalid timeframe: {timeframe}")
@@ -120,6 +120,8 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
             query = base_query + time_condition
             params = [chat_id, user_id]
             query += " ORDER BY deadline ASC"
+            logger.info(f"Query executed: {query}")
+            logger.info(f"Query parameters: {params}")
 
             # Execute the query
             rows = await conn.fetch(query, *params)
@@ -129,8 +131,6 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 logger.info(f"No overdue goals!")
                 return [], 0, 0, 0
 
-            logger.info(f"Query executed: {query}")
-            logger.info(f"Query parameters: {params}")
 
         pending_goals = []
         total_goal_value = 0
@@ -237,7 +237,7 @@ async def fail_goals_warning(bot, chat_id=None):
         for user in users:
             user_id = user["user_id"]
             if chat_id:
-                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # all overdue goals more than 24 hours
+                overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")   # all overdue goals
             elif not chat_id:
                 chat_id = user["chat_id"]
                 overdue_goals, _, _, goals_count = await fetch_overdue_goals(chat_id, user_id, timeframe="older")   # overdue for more than 24 hours
