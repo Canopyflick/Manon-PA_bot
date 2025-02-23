@@ -240,7 +240,7 @@ async def fail_goals_warning(bot, chat_id=None):
             if chat_id:
                 overdue_goals, _, _, goals_count = await fetch_overdue_goals(user_chat_id, user_id, timeframe="overdue")   # all overdue goals
             elif not chat_id:
-                chat_id = user["chat_id"]
+                user_chat_id = user["chat_id"]
                 overdue_goals, _, _, goals_count = await fetch_overdue_goals(user_chat_id, user_id, timeframe="older")   # overdue for more than 24 hours
             first_name = user["first_name"] or "Katja"  # Fallback if first_name is NULL or empt
             # 3. Check any >24hs old overdue goals (or all overdue goals, if trigger-word-triggered)
