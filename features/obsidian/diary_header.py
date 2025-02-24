@@ -3,7 +3,7 @@ import asyncio
 from LLMs.config import shared_state
 from LLMs.orchestration import logger, get_input_variables, run_chain
 from LLMs.structured_output_schemas import DiaryHeader
-from utils.helpers import add_delete_button, delete_message
+from telegram_helpers.delete_message import delete_message, add_delete_button
 
 
 async def diary_header(update, context):

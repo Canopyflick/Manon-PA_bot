@@ -6,7 +6,7 @@ from datetime import datetime
 from utils.environment_vars import ENV_VARS, is_running_locally
 from utils.helpers import BERLIN_TZ
 from features.bitcoin.monitoring import monitor_btc_price
-from utils.logger import configure_logging
+from logs.logger import configure_logging
 from utils.session_avatar import PA
 from utils.db import setup_database, Database
 from utils.scheduler import (
@@ -55,9 +55,9 @@ def get_bot_token() -> str:
 def register_handlers(application):
     from leftovers.commands import (
         wow_command, translate_command, profile_command, overdue_command,
-        today_command, twenty_four_hours_command,
-        tomorrow_command
+        today_command, twenty_four_hours_command
     )
+    from features.goals.commands import tomorrow_command
     from features.obsidian.command import diary_command
     from features.bitcoin.command import bitcoin_command
     from features.bitcoin.command import btc_command
@@ -100,7 +100,7 @@ def register_handlers(application):
     application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT & ~filters.COMMAND, print_edit))
     
     # Buttons
-    from utils.helpers import delete_message
+    from telegram_helpers.delete_message import delete_message
     application.add_handler(CallbackQueryHandler(delete_message, pattern=r"delete_message"))
     
     from features.goals.goals import handle_proposal_change_click, accept_goal_proposal, reject_goal_proposal, report_goal_progress

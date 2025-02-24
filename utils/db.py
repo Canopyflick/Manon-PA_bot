@@ -1,21 +1,21 @@
-﻿
+﻿# utils/db.py
 from utils.environment_vars import ENV_VARS, is_running_on_heroku
 from utils.helpers import BERLIN_TZ
 from features.goals.helpers import add_user_context_to_goals
-from utils.logger import logger
+from logs.logger import logger
 from utils.session_avatar import PA
 import logging, asyncpg, re, pytz
 from dateutil.parser import parse
 from datetime import time, datetime, timedelta
 
 
-# Initialization of connection and database tables
-# create a pool during application startup
 def redact_password(url):
-    # Match the "username:password@" part and redact the password
+    """To safely display PostgreSQL database URLs in logs"""
     return re.sub(r":([^:@]*)@", r":*****@", url)
 
 
+# Initialization of connection and database tables
+# create a pool during application startup
 class Database:
     _pool = None
 
@@ -285,11 +285,6 @@ async def setup_database():
 
 
 # Database-related functions \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/   
-def format_array_for_postgres(py_list):
-    if not py_list:
-        return None
-    return '{' + ','.join(f'"{item}"' for item in py_list) + '}'
-
 async def update_goal_data(goal_id, initial_update=False, **kwargs):
     if not kwargs:
         logger.warning(f"{PA} No updates provided to update_goal_data()")

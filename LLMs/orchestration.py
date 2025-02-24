@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 from httpx import Response
 from openai import OpenAI
 from utils.environment_vars import ENV_VARS
-from utils.helpers import BERLIN_TZ, add_delete_button, delete_message, safe_set_reaction
+from utils.helpers import BERLIN_TZ
+from telegram_helpers.emoji_reactions import safe_set_reaction
+from telegram_helpers.delete_message import delete_message, add_delete_button
 from utils.session_avatar import PA
 from features.goals.goals import send_goal_proposal, handle_goal_completion
 from features.goals.helpers import add_user_context_to_goals

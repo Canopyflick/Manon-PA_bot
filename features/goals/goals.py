@@ -417,7 +417,7 @@ async def handle_goal_failure(update, goal_id, query, bot=None, delete_all_expir
         if update == 1.5:   # in case of scheduled archiving job 
             await bot.send_message(
                 chat_id,
-                text=f"❌ Goal #{goal_id} was marked as failed after no progress was reported{'' if delete_all_expired_goals else ' for 26 hours'}. {round(score_decrease, 1)} penalty charged. \n\n✍️_{description}_",
+                text=f"❌ Goal #{goal_id} was marked as failed after no progress was reported{'' if delete_all_expired_goals else ' for >39 hours'}. {round(score_decrease, 1)} penalty charged. \n\n✍️_{description}_",
                 reply_markup=None,
                 parse_mode="Markdown"
             )

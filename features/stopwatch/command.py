@@ -2,7 +2,8 @@ import asyncio
 import re
 
 from LLMs.orchestration import start_initial_classification
-from utils.helpers import logger, delete_message
+from utils.helpers import logger
+from telegram_helpers.delete_message import delete_message
 from utils.session_avatar import PA
 
 

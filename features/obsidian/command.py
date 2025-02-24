@@ -1,6 +1,6 @@
 from features.obsidian.diary_header import diary_header
 from leftovers.commands import logger
-from utils.helpers import safe_set_reaction
+from telegram_helpers.emoji_reactions import safe_set_reaction
 from utils.session_avatar import PA
 
 

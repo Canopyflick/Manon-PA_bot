@@ -1,5 +1,6 @@
 ﻿# leftovers/commands.py
-from utils.helpers import escape_markdown_v2, add_delete_button, delete_message
+from utils.helpers import escape_markdown_v2
+from telegram_helpers.delete_message import delete_message, add_delete_button
 from features.philosophy.philosophical_message import get_random_philosophical_message
 from utils.session_avatar import PA
 from telegram import Update
@@ -7,7 +8,7 @@ from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from telegram.ext import CallbackContext
 from LLMs.orchestration import process_other_language, check_language
-from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
+from utils.scheduler import send_goals_today, fetch_overdue_goals
 
 logger = logging.getLogger(__name__)
 
@@ -180,31 +181,6 @@ async def overdue_command(update, context):
         await context.bot.send_message(
             chat_id=chat_id,
             text="An error occurred while processing your request in overdue_command()",
-            parse_mode="Markdown"
-        )
-        
-
-async def tomorrow_command(update, context):
-    """
-    Replies with tomorrow's goals for the user that sent /tomorrow
-    """
-    try:
-        chat_id = update.message.chat_id
-        user_id = update.effective_user.id
-        
-        # Send upcoming goals
-        result = await fetch_upcoming_goals(chat_id, user_id, timeframe="tomorrow")
-        if result:
-            message_text = result[0]
-            upcoming_goals_message = await context.bot.send_message(chat_id, text=message_text, parse_mode="Markdown")
-            await add_delete_button(update, context, upcoming_goals_message.message_id, delay=4)
-            asyncio.create_task(delete_message(update, context, upcoming_goals_message.message_id, 1200))
-            
-    except Exception as e:
-        logger.error(f"Error in today_command: {e}")
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="An error occurred while processing your request. Please try again later.",
             parse_mode="Markdown"
         )
         

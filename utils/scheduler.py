@@ -105,13 +105,13 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 AND DEADLINE <= NOW()
                 AND deadline >= DATE_TRUNC('day', NOW()) + INTERVAL '4 hours'
                 """
-            elif timeframe == "older":      # For the midday penalization warning message. 
+            elif timeframe == "older":              # For the midday penalization warning message dispatched in fail_goals_warning @17:17
                 time_condition = """
                 AND DEADLINE <= NOW() - INTERVAL '1 day'
                 """
-            elif timeframe == "older_followup":      # For the midday penalization, deleting all overdue goals older than 26 hours
+            elif timeframe == "older_followup":      # For the next morning automatic archival: scheduled_goal_archival @09:09
                 time_condition = """
-                AND DEADLINE <= NOW() - INTERVAL '30 hours'
+                AND DEADLINE <= NOW() - INTERVAL '1 day 15 hours 52 minutes'
                 """
             else:
                 raise ValueError(f"Invalid timeframe: {timeframe}")
@@ -336,8 +336,8 @@ async def send_next_jobs(update, context, N=5):
     for job in jobs[:N]:
         run_time = job.next_run_time.strftime('%H:%M:%S (%a)') if job.next_run_time else "Unknown"
         job_name = job.name if job.name else "Unnamed job"
-        job_details.append(f"🕒 {run_time}\n{job.name}")
+        job_details.append(f"🕒 {run_time}\n_{job.name}_")
 
     # Send the job list as a message
     job_list_text = "\n".join(job_details)
-    await update.message.reply_text(f"{PA} Here are the next scheduled jobs:\n\n{job_list_text}")
+    await update.message.reply_text(f"{PA} Here are the next scheduled jobs:\n\n{job_list_text}", parse_mode="Markdown")

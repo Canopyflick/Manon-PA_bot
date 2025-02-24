@@ -1,13 +1,22 @@
+# utils/logger.py
 import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-from utils.helpers import add_delete_button
+from telegram_helpers.delete_message import add_delete_button
 
 logger = logging.getLogger(__name__)
 
 
 def configure_logging():
+    # Ensure the logs directory exists
+    log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Define file paths in the dedicated logs directory
+    info_log_path = os.path.join(log_dir, "logs_info.log")
+    error_log_path = os.path.join(log_dir, "logs_errors.log")
+
     # Create a formatter for logs
     formatter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)s] %(message)s",
@@ -16,14 +25,14 @@ def configure_logging():
 
     # File handler for INFO logs
     info_handler = RotatingFileHandler(
-        "logs_info.log", maxBytes=1024 * 1024, backupCount=3, encoding='utf-8'  # 1 MB max, keep 3 backups
+        info_log_path, maxBytes=1024 * 1024, backupCount=3, encoding='utf-8'  # 1 MB max, keep 3 backups
     )
     info_handler.setLevel(logging.INFO)
     info_handler.setFormatter(formatter)
 
     # File handler for WARNING and higher logs
     error_handler = RotatingFileHandler(
-        "logs_errors.log", maxBytes=512 * 1024, backupCount=3, encoding='utf-8'  # 512 KB max, keep 3 backups
+        error_log_path, maxBytes=512 * 1024, backupCount=3, encoding='utf-8'  # 512 KB max, keep 3 backups
     )
     error_handler.setLevel(logging.WARNING)
     error_handler.setFormatter(formatter)
@@ -54,8 +63,9 @@ async def fetch_logs(update, context, num_lines, type="info"):
     Sends most recent logs in chat, triggered by trigger words
     """
     try:
-        # Determine the log file path
-        log_file_path = "logs_info.log"  # Adjust to logs_errors.log if needed
+        # Determine the log file path from the dedicated logs directory
+        log_dir = "logs"
+        log_file_path = os.path.join(log_dir, "logs_info.log")
         if type == "error":
             log_file_path = "logs_errors.log"
 

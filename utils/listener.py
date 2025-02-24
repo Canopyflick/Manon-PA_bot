@@ -1,5 +1,5 @@
 ﻿# utils/listener.py
-from utils.helpers import delete_message
+from telegram_helpers.delete_message import delete_message
 from telegram_helpers.security import send_unauthorized_access_notification, is_ben_in_chat
 from utils.session_avatar import PA
 from LLMs.orchestration import start_initial_classification

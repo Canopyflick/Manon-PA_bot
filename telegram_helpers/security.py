@@ -1,6 +1,9 @@
 # telegram_helpers/security.py
 import asyncio, logging
 from telegram import ChatMember, Update
+from telegram.error import TelegramError
+from telegram.ext import CallbackContext
+
 from utils.environment_vars import ENV_VARS
 
 logger = logging.getLogger(__name__)
@@ -28,13 +31,7 @@ async def send_unauthorized_access_notification(update: Update, context):
 # Security check: is there any approved user present in the chat where the bot is used?
 async def is_ben_in_chat(update, context):
     """
-
-    Args:
-        update:
-        context:
-
-    Returns:
-
+    TODO: add description
     """
     approved_user_ids = ENV_VARS.APPROVED_USER_IDS
     chat_id = update.effective_chat.id
@@ -70,4 +67,31 @@ async def is_ben_in_chat(update, context):
 
     except Exception as e:
         logging.error(f"Unexpected error checking chat member: {e}")
+        return False
+
+
+async def check_chat_owner(update: Update, context: CallbackContext):
+    """"
+    TODO: add description
+    """
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    try:
+        # Get chat administrators
+        admins = await context.bot.get_chat_administrators(chat_id)
+
+        # Check if the user is the owner (creator)
+        for admin in admins:
+            if admin.user.id == user_id and admin.status == 'creator':
+                return True
+        return False
+    except TelegramError as e:
+        print(f"Error fetching chat admins, returned False as a fallback (retry if Ben =)): {e}")
+        if hasattr(update, 'message') and update.message:
+            await update.message.reply_text(
+                "🚫 Ik kon ffkes niet checken of je de eigenaar van deze chat bent. Probeer het later opnieuw 🧙‍♂️"
+            )
+        else:
+            print("No message object available to send a reply.")
         return False

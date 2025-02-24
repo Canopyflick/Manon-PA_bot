@@ -2,7 +2,7 @@
 from features.stats.stats_manager import StatsManager
 from features.stats.nonsense import nonsense
 from utils.db import get_first_name
-from utils.helpers import add_delete_button
+from telegram_helpers.delete_message import add_delete_button
 from utils.session_avatar import PA
 
 
