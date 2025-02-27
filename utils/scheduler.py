@@ -60,8 +60,8 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
 
 async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
     """
-    1. fetches (overdue) pending goals
-    2. puts each in a separate message with buttons for reporting progress
+    1. fetches (overdue) pending goals over the given timeframe
+    2. puts each goal in a separate message with buttons for reporting progress
     """
     try:
         async with Database.acquire() as conn:
@@ -100,7 +100,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 time_condition = """
                 AND deadline <= DATE_TRUNC('day', NOW()) - INTERVAL '1 day'
                 """
-            elif timeframe == "yesterday":      # For the morning message, any open deadlines SINCE last night's final evening message (only from 4AM to now, usually 4-6am, unless morning message runs later)
+            elif timeframe == "yesterday":      # For the morning_message, any open deadlines SINCE last night's final evening message (only from 4AM to now, usually 4-6am, unless morning_message runs later)
                 time_condition = """
                 AND DEADLINE <= NOW()
                 AND deadline >= DATE_TRUNC('day', NOW()) + INTERVAL '4 hours'

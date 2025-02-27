@@ -3,6 +3,7 @@ import re, logging
 from pprint import pformat
 
 from LLMs.config import shared_state
+from features.morning_message import send_morning_message
 from features.stats.stats_manager import StatsManager
 from telegram_helpers.delete_message import delete_message, add_delete_button
 from telegram_helpers.emoji_reactions import test_emojis_with_telegram
@@ -10,7 +11,7 @@ from logs.logger import fetch_logs
 from features.stopwatch.command import emoji_stopwatch
 from utils.scheduler import fail_goals_warning, send_next_jobs
 from features.goals.evening_message import send_evening_message
-from features.goals.morning_message import send_morning_message
+# from features.goals.morning_message import send_morning_message
 from utils.session_avatar import PA
 
 logger = logging.getLogger(__name__)

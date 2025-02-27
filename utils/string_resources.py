@@ -1,5 +1,5 @@
 # utils/string_resources.py
-GREETING_GOOD_MORNING="Good morning!"
+GREETING_GOOD_MORNING="Good morning"
 GREETING_WHY_HELLO_THERE="Hello there"
 SHY_MESSAGE="""
 Uhh, hoi... Stiekem ben ik een beetje verlegen. Praat met me in een chat waar Ben bij zit, pas dan voel ik me op mijn gemak 🧙‍♂

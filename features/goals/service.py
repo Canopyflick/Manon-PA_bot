@@ -1,0 +1,64 @@
+# features/goals/service.py
+from datetime import datetime, timedelta
+from utils.helpers import BERLIN_TZ
+from features.goals.queries import get_pending_goals_by_timeframe
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+async def get_overdue_goals(user_id, chat_id, timeframe="today"):
+    """
+    Get overdue goals based on timeframe
+    """
+    now = datetime.now(BERLIN_TZ)
+
+    if timeframe == "yesterday":
+        # For morning_message: any open deadlines since last night
+        start_time = datetime.combine(now.date(), datetime.min.time()).replace(hour=4, tzinfo=BERLIN_TZ)
+        end_time = now
+    elif timeframe == "overdue":
+        # All pending goals with deadlines in the past
+        end_time = now
+        start_time = None  # No start limit
+    # Add other timeframe conditions...
+
+    goals = await get_pending_goals_by_timeframe(
+        user_id, chat_id,
+        start_time=start_time,
+        end_time=end_time
+    )
+
+    total_goal_value = sum(goal.goal_value or 0 for goal in goals)
+    total_penalty = sum(goal.penalty or 0 for goal in goals)
+
+    return goals, total_goal_value, total_penalty, len(goals)
+
+
+async def get_upcoming_goals(user_id, chat_id, timeframe=6):
+    """
+    Get upcoming goals based on timeframe
+    """
+    now = datetime.now(BERLIN_TZ)
+
+    if timeframe == "24hs":
+        end_time = now + timedelta(hours=24)
+    elif timeframe == "rest_of_day":
+        end_time = datetime.combine(now.date(), datetime.min.time()).replace(hour=4, tzinfo=BERLIN_TZ) + timedelta(
+            days=1)
+    elif isinstance(timeframe, int):
+        end_time = datetime.combine(now.date(), datetime.min.time()).replace(hour=4, tzinfo=BERLIN_TZ) + timedelta(
+            days=1)
+        end_time = end_time.replace(hour=timeframe)
+    # Add other timeframe conditions...
+
+    goals = await get_pending_goals_by_timeframe(
+        user_id, chat_id,
+        start_time=now,
+        end_time=end_time
+    )
+
+    total_goal_value = sum(goal.goal_value or 0 for goal in goals)
+    total_penalty = sum(goal.penalty or 0 for goal in goals)
+
+    return goals, total_goal_value, total_penalty, len(goals)

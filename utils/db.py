@@ -819,7 +819,8 @@ async def fetch_pending_goals_count_between_times(chat_id=None):
     try:
         # Define the time range (4 AM today to 4 AM the next day)
         berlin_tz = pytz.timezone("Europe/Berlin")
-        today = today_tz.astimezone(berlin_tz).date()
+        today_tz = datetime.now(berlin_tz)
+        today = today_tz.date()
         start_time = berlin_tz.localize(datetime.combine(today, time(4, 0, 0))) #(localize doesn't work prolly)
         end_time = start_time + timedelta(days=1)
 
