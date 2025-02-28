@@ -3,6 +3,7 @@ import asyncio
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, CallbackQueryHandler, ExtBot
 from datetime import datetime
 
+from features.evening_message.scheduler import setup_evening_message_scheduler
 from features.morning_message.scheduler import setup_morning_message_scheduler
 from utils.environment_vars import ENV_VARS, is_running_locally
 from utils.helpers import BERLIN_TZ
@@ -15,7 +16,6 @@ from utils.scheduler import (
     CronTrigger,
     fail_goals_warning,
 )
-from features.goals.evening_message import evening_message_hours, evening_message_minutes, send_evening_message
 # from features.goals.morning_message import send_morning_message
 from features.reminders.reminders import check_upcoming_reminders
 from features.stats.stats_manager import StatsManager
@@ -129,7 +129,7 @@ async def setup(application):
         logger.info("Database initialization completed.")
 
         setup_morning_message_scheduler(application.bot)
-        scheduler.add_job(send_evening_message, CronTrigger(hour=evening_message_hours, minute=evening_message_minutes), args=[application.bot], misfire_grace_time=7200, coalesce=True)
+        setup_evening_message_scheduler(application.bot)
         scheduler.add_job(
             check_upcoming_reminders, 
             CronTrigger(hour=0, minute=0),  # Run at midnight

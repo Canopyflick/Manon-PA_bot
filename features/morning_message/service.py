@@ -27,8 +27,9 @@ async def create_morning_message_components(user_id, chat_id, first_name):
     greeting, announcement = get_greeting_and_announcement()
 
     # Get overdue goals from early morning
-    overdue_goals, _, _, has_overdue = await get_overdue_goals(user_id, chat_id, timeframe="early")
-    overdue_messages = [format_overdue_goal_with_buttons(goal) for goal in overdue_goals]
+    goals_report = await get_overdue_goals(user_id, chat_id, timeframe="early")
+    has_overdue = goals_report.has_goals
+    overdue_messages = [format_overdue_goal_with_buttons(goal) for goal in goals_report.goals]
 
     # Get upcoming goals
     goals, total_goal_value, total_penalty, goals_count = await get_upcoming_goals(
