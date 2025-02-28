@@ -1,4 +1,4 @@
-# features/goals/morning_message.py
+# features/goals/morning_message_deprecated.py
 # import asyncio
 # import random
 # from datetime import time, datetime

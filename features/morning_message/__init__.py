@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 async def send_morning_message(bot, specific_chat_id=None):
     """
-    Sends a personalized morning message to all users (or to a specific chat, if provided).
+    Sends a personalized morning message to all users (everywhere the bot is active, or to a specific chat, if provided).
     """
     try:
         async with Database.acquire() as conn:
@@ -18,7 +18,7 @@ async def send_morning_message(bot, specific_chat_id=None):
             user_id = user["user_id"]
             chat_id = user["chat_id"]
 
-            if specific_chat_id and chat_id != specific_chat_id:
+            if specific_chat_id and chat_id != specific_chat_id:    # skip all users not in the specific chat
                 continue
 
             first_name = user.get("first_name") or "there"

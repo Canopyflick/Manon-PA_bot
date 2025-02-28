@@ -9,8 +9,8 @@ async def monitor_btc_price(bot: Bot, chat_id: int):
     """
     Function to check Bitcoin price every ten minutes and send a message if it crosses the thresholds
     """
-    lower_threshold = 88888
-    upper_threshold = 111111
+    lower_threshold = 66666
+    upper_threshold = 99999
     upper_threshold_alerted = False
     lower_threshold_alerted = False
     while True:

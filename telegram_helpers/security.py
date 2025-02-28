@@ -45,9 +45,15 @@ async def is_ben_in_chat(update, context):
         if update.effective_chat.type in ["group", "supergroup"]:
             async def check_member(user_id):
                 try:
-                    return await asyncio.wait_for(
+                    member = await asyncio.wait_for(
                         context.bot.get_chat_member(chat_id, user_id), timeout=3
                     )
+                    return member
+                except TelegramError as te:
+                    if "member not found" in str(te).lower():
+                        logging.info(f"User {user_id} is not a member of chat {chat_id}")
+                    else:
+                        logging.warning(f"Failed to check user {user_id} in chat {chat_id}: {te}")
                 except asyncio.TimeoutError:
                     logging.warning(f"Timeout checking user {user_id} in chat {chat_id}")
                 except Exception as e:
