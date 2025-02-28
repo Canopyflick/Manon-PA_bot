@@ -38,13 +38,17 @@ async def create_morning_message_components(user_id, chat_id, first_name):
     # Build goals overview
     if goals_count > 0:
         goals_overview = "\n\n".join([format_goal_for_overview(goal) for goal in goals])
+        # Only include announcement when there are goals
+        main_message = f"{announcement}\n\n{goals_overview}\n\n"
     else:
         goals_overview = "You have no deadlines between now and tomorrow morning ☃️"
+        # Skip the announcement when there are no goals
+        main_message = f"{goals_overview}\n\n"
 
     # Build stakes message
     stakes_message = ""
     if total_goal_value > 0 and goals_count > 1:
-        stakes_message = f"_Go get some (⚡{total_goal_value}) ..!\n... or lose some ({total_penalty}🌚)_\n"
+        stakes_message = f"_Go get some (⚡{total_goal_value:.1f}) ..!\n... or lose some ({total_penalty:.1f}🌚)_\n"
 
     # Random emoji for starting message
     morning_emojis = ["🍵", "☕", "🌄", "🌅", "🌞", "☃️", "❄️"]
@@ -56,7 +60,6 @@ async def create_morning_message_components(user_id, chat_id, first_name):
         greeting_message += "\n_First, some unfinished business:_"
 
     # Main content
-    main_message = f"{announcement}\n\n{goals_overview}\n\n"
     main_message += stakes_message + btc_change_message
 
     # Add motivational quote (rarely)
