@@ -71,14 +71,16 @@ async def create_morning_message_components(user_id, chat_id, first_name):
             "\n\n_'[memorabele quote enzo]'_}"
         )
 
+    random_trigger = random.random() <= 0.00137  # Approx. once per two years if triggered daily
+
     # Determine whether to send the message
-    should_send = goals_count > 0 or btc_change_message or has_overdue or random.random() <= 0.15
+    should_send = goals_count > 0 or btc_change_message or has_overdue or random_trigger
 
     # **LOG should_send and its reasoning**
     logger.info(
         f"should_send: {should_send} | "
         f"goals_count: {goals_count}, btc_change_message: {bool(btc_change_message)}, "
-        f"has_overdue: {has_overdue}, random_trigger: {random.random() <= 0.15}"
+        f"has_overdue: {has_overdue}, random_trigger: {random_trigger}"
     )
     return {
         "start_emoji": random_emoji,
@@ -87,7 +89,7 @@ async def create_morning_message_components(user_id, chat_id, first_name):
         "main_content": main_message,
         "motivational_quote": motivational_quote,
         "end_emoji": "🚀",
-        "should_send": goals_count > 0 or btc_change_message or has_overdue or random.random() <= 0.15
+        "should_send": should_send
     }
 
 

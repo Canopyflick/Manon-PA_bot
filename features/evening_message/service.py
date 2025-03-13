@@ -62,7 +62,7 @@ async def create_evening_message_components(user_id: int, chat_id: int, first_na
     random_emoji = get_random_evening_emoji()
 
     # Determine whether to send the message
-    should_send = goals_report.goals_count > 0 or btc_change_message or random.random() <= 0.15
+    should_send = goals_report.goals_count > 0 or btc_change_message or random.random() <= 0.00137
 
     return {
         "start_emoji": "🌚",
@@ -88,7 +88,7 @@ async def send_personalized_evening_message(bot, chat_id, user_id, first_name):
 
         # Send the message sequence
         await bot.send_message(chat_id, message_components["start_emoji"])
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
         await bot.send_message(chat_id, message_components["greeting"], parse_mode="Markdown")
 
         # Send individual goals with buttons
