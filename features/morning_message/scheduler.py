@@ -5,11 +5,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from features.morning_message import send_morning_message
 from utils.helpers import BERLIN_TZ
+from utils.scheduler import scheduler
+
 
 logger = logging.getLogger(__name__)
-
-# Global scheduler instance
-scheduler = None
 
 
 def initialize_scheduler():
@@ -19,12 +18,9 @@ def initialize_scheduler():
     Returns:
         The scheduler instance
     """
-    global scheduler
-    if scheduler is None:
-        logger.info("Initializing morning message scheduler")
-        scheduler = AsyncIOScheduler(timezone=BERLIN_TZ)
-        if not scheduler.running:
-            scheduler.start()
+    if not scheduler.running:
+        logger.info("Starting scheduler in morning message module")
+        scheduler.start()
     return scheduler
 
 
@@ -37,10 +33,9 @@ def schedule_morning_message(bot, hour=6, minute=6):
         hour (int): Hour of the day (0-23) in Berlin timezone
         minute (int): Minute of the hour (0-59)
     """
-    global scheduler
 
     # Initialize scheduler if not already done
-    scheduler = initialize_scheduler()
+    initialize_scheduler()
 
     # Job ID for the morning message job
     job_id = "morning_message_job"
@@ -71,8 +66,7 @@ def get_scheduler():
     Returns:
         The scheduler instance
     """
-    global scheduler
-    if scheduler is None:
+    if not scheduler.running:
         return initialize_scheduler()
     return scheduler
 
@@ -84,9 +78,6 @@ def is_morning_message_scheduled():
     Returns:
         bool: True if scheduled, False otherwise
     """
-    global scheduler
-    if scheduler is None:
-        return False
     return scheduler.get_job("morning_message_job") is not None
 
 
@@ -97,10 +88,6 @@ def get_next_morning_message_time():
     Returns:
         datetime: The next run time, or None if not scheduled
     """
-    global scheduler
-    if scheduler is None:
-        return None
-
     job = scheduler.get_job("morning_message_job")
     if job:
         return job.next_run_time

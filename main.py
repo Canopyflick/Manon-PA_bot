@@ -128,8 +128,15 @@ async def setup(application):
         
         logger.info("Database initialization completed.")
 
+        # Schedule morning and evening messages
+        logger.info("Setting up morning message scheduler...")
         setup_morning_message_scheduler(application.bot)
+        logger.info("Morning message scheduler setup completed")
+
+        logger.info("Setting up evening message scheduler...")
         setup_evening_message_scheduler(application.bot)
+        logger.info("Evening message scheduler setup completed")
+
         scheduler.add_job(
             check_upcoming_reminders, 
             CronTrigger(hour=0, minute=0),  # Run at midnight
@@ -154,8 +161,18 @@ async def setup(application):
             coalesce=True
         )
 
-        scheduler.start()
-        logger.info("Scheduler started successfully")
+        if not scheduler.running:
+            logger.info("Starting main scheduler...")
+            scheduler.start()
+            logger.info("Main scheduler started")
+        else:
+            logger.info("Scheduler already running, skipping start in setup()")
+
+        # Print all scheduled jobs after setup
+        jobs = scheduler.get_jobs()
+        logger.info(f"Total scheduled jobs: {len(jobs)}")
+        for job in jobs:
+            logger.info(f"Job: {job.name}, Next run: {job.next_run_time}")
         
         # Initialize database, reinitialize reminders and reset necessary data
         await initialize_environment(application)

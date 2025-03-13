@@ -228,9 +228,10 @@ async def fail_goals_warning(bot, chat_id=None):
 
         now = datetime.now(tz=BERLIN_TZ)
         ultimatum_time = now + timedelta(minutes=952)   # is 09:09 the next morning if first warning time is 17:17
-        day_reference = "tomorrow" if ultimatum_time.date() > now.date() else "today"
         if chat_id:
             ultimatum_time = now + timedelta(minutes=10)
+
+        day_reference = "tomorrow" if ultimatum_time.date() > now.date() else "today"
         logger.info(f'ultimatum time for automatic goal_archival set for {ultimatum_time}')
         formatted_ultimatum_time = ultimatum_time.strftime('%H:%M')
 
@@ -260,7 +261,7 @@ async def fail_goals_warning(bot, chat_id=None):
                     greeting.replace("older ", "")
                 # 4. send messages
                 if random.random() < 0.0273972603:  # once per year if triggered every 10 days
-                    greeting += "\n_Oh yeah, and also: mindfulness could be a great option right now. Same goes for right now, by the way"
+                    greeting += "\n_Oh yeah, and also: mindfulness could be a great option right now. \n\nSame goes for right now, by the way"
                 try:
                     await bot.send_message(user_chat_id, random_emoji)
                     await bot.send_message(user_chat_id, greeting, parse_mode="Markdown")
