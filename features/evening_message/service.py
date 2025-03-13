@@ -2,7 +2,6 @@
 import asyncio
 import random
 import logging
-from datetime import datetime
 from features.goals.service import get_overdue_goals
 from features.evening_message.formatter import (
     format_goal_with_buttons,
@@ -10,23 +9,26 @@ from features.evening_message.formatter import (
     get_random_evening_emoji
 )
 from features.bitcoin.monitoring import get_btc_price
-from utils.db import Database
-from utils.helpers import BERLIN_TZ
+from models.bitcoin import BitcoinPrice
 from utils.session_avatar import PA
 
 logger = logging.getLogger(__name__)
 
 
-async def create_evening_message_components(user_id, chat_id, first_name):
+async def create_evening_message_components(user_id: int, chat_id: int, first_name: str) -> dict:
     """
     Create all components for the evening message.
     Returns a dictionary with all message components.
     """
-    # Get Bitcoin price information
-    _, detailed_message, _, usd_change = await get_btc_price()
+    # Get Bitcoin price information as a BitcoinPrice instance
+    bitcoin_price: BitcoinPrice = await get_btc_price()
+
     btc_change_message = ""
-    if abs(usd_change) > 10:
-        btc_change_message = f"\n\n📈 _฿itcoin price changed by {usd_change:.2f}% in the last 24 hours._\n{detailed_message}"
+    if abs(bitcoin_price.usd_change) > 10:
+        btc_change_message = (
+            f"\n\n📈 _฿itcoin price changed by {bitcoin_price.usd_change:.2f}% "
+            f"in the last 24 hours._\n{bitcoin_price.detailed_message}"
+        )
 
     # Get greeting and announcement based on time of day
     greeting, announcement = get_greeting_and_announcement()
