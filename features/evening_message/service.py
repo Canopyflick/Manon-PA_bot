@@ -75,15 +75,18 @@ async def create_evening_message_components(user_id: int, chat_id: int, first_na
     }
 
 
-async def send_personalized_evening_message(bot, chat_id, user_id, first_name):
+async def send_personalized_evening_message(bot, chat_id, user_id, first_name, always_send=False):
     """
     Send the personalized evening message to a user
+
+    Args:
+        always_send: False by default, True when triggered by user request instead of Cron job
     """
     try:
         message_components = await create_evening_message_components(user_id, chat_id, first_name)
 
         # Skip sending if no content
-        if not message_components["should_send"]:
+        if not message_components["should_send"] and not always_send:
             return
 
         # Send the message sequence

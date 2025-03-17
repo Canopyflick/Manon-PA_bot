@@ -1,11 +1,7 @@
-﻿from utils.helpers import BERLIN_TZ
-from utils.session_avatar import PA
-from features.stopwatch.command import emoji_stopwatch
-from features.philosophy.philosophical_message import get_random_philosophical_message
+﻿from models.stats_snapshot import StatsSnapshot
+from utils.helpers import BERLIN_TZ
 import asyncio, random, re, logging
 from utils.db import get_first_name, fetch_user_stats, Database
-from features.start.registration import register_user
-from utils.scheduler import send_goals_today, fetch_overdue_goals, fetch_upcoming_goals
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -94,7 +90,7 @@ class StatsManager:
             raise
 
     @staticmethod
-    async def get_stats_for_period(user_id: int, chat_id: int, days: int) -> Dict:
+    async def get_stats_for_period(user_id: int, chat_id: int, days: int, label: str) -> StatsSnapshot:
         """Get aggregated stats for a specific period"""
         try:
             async with Database.acquire() as conn:
@@ -117,23 +113,24 @@ class StatsManager:
                         AND date BETWEEN $3 AND $4
                 """, user_id, chat_id, start_date, end_date)
 
-                # Convert to dict and ensure no None values
-                result = dict(stats)
-                return {k: v if v is not None else 0 for k, v in result.items()}
+                if stats is None:
+                    raise ValueError(f"No stats found for user {user_id} in chat {chat_id} for the last {days} days.")
+
+                return StatsSnapshot(
+                    total_goals_set=stats['total_goals_set'],
+                    total_goals_finished=stats['total_goals_finished'],
+                    total_goals_failed=stats['total_goals_failed'],
+                    total_score_gained=stats['total_score_gained'],
+                    total_penalties=stats['total_penalties'],
+                    avg_completion_rate=stats['avg_completion_rate'],
+                    avg_daily_goals_set=stats['avg_daily_goals_set'],
+                    avg_daily_goals_finished=stats['avg_daily_goals_finished'],
+                    period_name=label
+                )
 
         except Exception as e:
             logger.error(f"Error fetching period stats: {e}")
-            # Return default values in case of error
-            return {
-                'total_goals_set': 0,
-                'total_goals_finished': 0,
-                'total_goals_failed': 0,
-                'total_score_gained': 0,
-                'total_penalties': 0,
-                'avg_completion_rate': 0,
-                'avg_daily_goals_set': 0,
-                'avg_daily_goals_finished': 0
-            }
+            raise
 
     @staticmethod
     async def get_today_stats(user_id: int, chat_id: int) -> dict:

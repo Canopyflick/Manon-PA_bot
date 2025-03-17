@@ -10,6 +10,10 @@ async def send_evening_message(bot, specific_chat_id=None):
     """
     Sends a personalized evening message to all users (everywhere the bot is active, or to a specific chat, if provided).
     """
+    always_send = False
+    if specific_chat_id:
+        always_send = True
+
     try:
         async with Database.acquire() as conn:
             users = await conn.fetch("SELECT user_id, chat_id, first_name FROM manon_users")
@@ -22,7 +26,7 @@ async def send_evening_message(bot, specific_chat_id=None):
                 continue
 
             first_name = user.get("first_name") or "Sardientje"  # Fallback if first_name is NULL or empty
-            await send_personalized_evening_message(bot, chat_id, user_id, first_name)
+            await send_personalized_evening_message(bot, chat_id, user_id, first_name, always_send)
 
     except Exception as e:
         logger.error(f"Error sending evening messages: {e}")

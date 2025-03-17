@@ -83,10 +83,16 @@ async def get_btc_change_message() -> str:
     Retrieves the Bitcoin price details and returns a formatted update message if the price
     change exceeds 5% over the last 24 hours; otherwise, returns an empty string.
     """
-    bitcoin_price = await get_btc_price()
-    if abs(bitcoin_price.usd_change) > 5:
-        return (
-            f"\n\n📈 _฿itcoin price changed by {bitcoin_price.usd_change:.2f}% "
-            f"in the last 24 hours._\n{bitcoin_price.detailed_message}"
-        )
-    return ""
+    try:
+        bitcoin_price = await get_btc_price()
+        if abs(bitcoin_price.usd_change) > 5:
+            return (
+                f"\n\n📈 _฿itcoin price changed by {bitcoin_price.usd_change:.2f}% "
+                f"in the last 24 hours._\n{bitcoin_price.detailed_message}"
+            )
+        return ""
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_btc_change_message: {e}")
+        return ""

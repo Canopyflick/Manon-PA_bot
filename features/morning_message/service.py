@@ -23,13 +23,23 @@ async def create_morning_message_components(user_id, chat_id, first_name):
     Create all components for the morning_message.
     Returns a dictionary with all message components.
     """
-    btc_change_message = await get_btc_change_message()
-    greeting, announcement = get_greeting_and_announcement()
+    try:
+        btc_change_message = await get_btc_change_message()
+    except Exception as e:
+        logger.error(f"Error fetching BTC change message: {e}")
 
-    # Get overdue goals from early morning
-    goals_report = await get_overdue_goals(user_id, chat_id, timeframe="early")
-    has_overdue = goals_report.has_goals
-    overdue_messages = [format_overdue_goal_with_buttons(goal) for goal in goals_report.goals]
+    try:
+        greeting, announcement = get_greeting_and_announcement()
+    except Exception as e:
+        logger.error(f"Error getting greeting/announcement: {e}")
+
+        # Get overdue goals from early morning
+    try:
+        goals_report = await get_overdue_goals(user_id, chat_id, timeframe="early")
+        has_overdue = goals_report.has_goals
+        overdue_messages = [format_overdue_goal_with_buttons(goal) for goal in goals_report.goals]
+    except Exception as e:
+        logger.error(f"Error fetching overdue goals: {e}")
 
     # Get upcoming goals
     goals, total_goal_value, total_penalty, goals_count = await get_upcoming_goals(
@@ -82,6 +92,7 @@ async def create_morning_message_components(user_id, chat_id, first_name):
         f"goals_count: {goals_count}, btc_change_message: {bool(btc_change_message)}, "
         f"has_overdue: {has_overdue}, random_trigger: {random_trigger}"
     )
+
     return {
         "start_emoji": random_emoji,
         "greeting": greeting_message,
@@ -93,11 +104,15 @@ async def create_morning_message_components(user_id, chat_id, first_name):
     }
 
 
-async def send_personalized_morning_message(bot, chat_id, user_id, first_name=None):
+async def send_personalized_morning_message(bot, chat_id, user_id, first_name=None, always_send=False):
     """
     Send the personalized morning_message to a user
+
+    Args:
+        always_send: False by default, True when triggered by user request instead of Cron job
     """
     try:
+
         if not first_name:
             async with Database.acquire() as conn:
                 user = await User.fetch(conn, user_id, chat_id)
@@ -106,7 +121,7 @@ async def send_personalized_morning_message(bot, chat_id, user_id, first_name=No
         message_components = await create_morning_message_components(user_id, chat_id, first_name)
 
         # Skip sending if no content
-        if not message_components["should_send"]:
+        if not message_components["should_send"] and not always_send:
             return
 
         # Send the message sequence
