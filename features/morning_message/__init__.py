@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 async def send_morning_message(bot, specific_chat_id=None):
     """
     Sends a personalized morning message to all users (everywhere the bot is active, or to a specific chat, if provided).
+    Args:
+         specific_chat_id: If provided, send only to this chat ID and override the should_send check
     """
     always_send = False
     if specific_chat_id:

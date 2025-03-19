@@ -224,11 +224,12 @@ one_time_schedule_template = ChatPromptTemplate([
         description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
 
     ## Goal Description
-    Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain, in order for the goal to make sense on the day of the goal itself. Examples: "I want to meditate tomorrow morning" should become -> "You want to meditate in the morning", "I'm gonna climb mount everest before 18 December/next Wednesday" -> "You're gonna climb mount everest".
+    Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain, in order for the goal to make sense on the day of the goal's deadline itself. Examples: "I want to meditate tomorrow morning" should become -> "You want to meditate in the morning", "I'm gonna climb mount everest before 18 December/next Wednesday" -> "You're gonna climb mount everest". 
+    Include any relevant context that the user might still want to reference between now and the day of the deadline. For example, include important details and specifics like links.
        
     ## Evaluation deadline: when should the goal be evaluated?
     ### Date 
-    When the user doesn't state or imply a deadline, assume they want to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
+    When the user doesn't state a day or imply a deadline, assume they want to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
     ## Time 
     If there's no indication of the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify an exact moment or time of day they want to do the thing, adapt your deadline accordingly.    
     Examples: for the goal "I want to end my workday by 6 latest", if the current time is 15:00, the best evaluation deadline would be "[{now_formatted}]". But if it's already past 18:00 when the user asks this, assume they want to do this tomorrow: "[{tomorrow_formatted}]".
