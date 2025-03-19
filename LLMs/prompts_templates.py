@@ -225,7 +225,7 @@ one_time_schedule_template = ChatPromptTemplate([
 
     ## Goal Description
     Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain, in order for the goal to make sense on the day of the goal's deadline itself. Examples: "I want to meditate tomorrow morning" should become -> "You want to meditate in the morning", "I'm gonna climb mount everest before 18 December/next Wednesday" -> "You're gonna climb mount everest". 
-    Include any relevant context that the user might still want to reference between now and the day of the deadline. For example, include important details and specifics like links.
+    Include any relevant context that the user might still want to reference between now and the day of the deadline. For example, include important details and specifics like URLs.
        
     ## Evaluation deadline: when should the goal be evaluated?
     ### Date 
@@ -308,11 +308,12 @@ recurring_schedule_template = ChatPromptTemplate([
     ## Goal Description
     Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain: '"before 14:00" can stay, "tomorrow" should be removed. This adjustment is in order for the goal to make sense for the user on the day of the goal evaluation itself. 
     Examples: "I want to meditate every Wednesday and Thursday morning" should become -> "Meditate in the morning", "train twice a week next year" -> "Train twice a week", "call my mom weekly on Sundays and Thursdays" ->  "Call your mom", "I want to finish my report on the train Thursday before 17:00" -> "Finish your report on the train before 17:00".
+    Include any relevant context that the user might still want to reference between now and the day of the deadline. For example, include relevant details and specifics like URLs.
      
     ## Evaluation deadlines: when should the goals be evaluated?
     In principle, pick an evaluation deadline for each instance of the goal, however, the scope of these instances can vary. 
     Examples: for the goal "In January {next_year}, I want to call my mom weekly on Thursdays and Sundays", those specific weekdays are the best evaluation deadlines. If today were Thursday, January 2, good deadlines would be: "[{next_year}-01-02T{default_deadline_time}:00, {next_year}-01-05T{default_deadline_time}:00, {next_year}-01-09T{default_deadline_time}:00, {next_year}-01-12T{default_deadline_time}:00, {next_year}-01-16T{default_deadline_time}:00, {next_year}-01-19T{default_deadline_time}:00, {next_year}-01-23T{default_deadline_time}:00, {next_year}-01-26T{default_deadline_time}:00, {next_year}-01-30T{default_deadline_time}:00]".
-    But for the goal "This month, I want to train twice a week", the goal should be evaluated only by the end of the week (aka each Sunday of the month), becaues the specific weekdays may vary.
+    But for the goal "This month, I want to train twice a week", the goal should be evaluated only by the end of the week (aka each Sunday of the month), because the specific weekdays may vary.
     If there's nothing indicating the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify exact moments or times of day they want to do the thing, adapt your deadlines accordingly.    
     Examples: for the goal "This week, I want to end my workday by 6 latest every day", if today were Sunday, 2024-12-08, the best evaluation deadlines would be "[2024-12-09T18:01:00, 2024-01-10T18:01:00, 2024-01-11T18:01:00, 2024-01-12T18:01:00, 2024-01-13T18:01:00]".
     And for the goal "This week, I want to meditate every morning", the best evaluation deadlines would be "[2024-12-09T12:00:00, 2024-01-10T12:00:00, 2024-01-11T12:00:00, 2024-01-12T12:00:00, 2024-01-13T12:00:00, 2024-01-14T12:00:00, 2024-01-15T12:00:00]".
