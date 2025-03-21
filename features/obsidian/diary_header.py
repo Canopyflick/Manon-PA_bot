@@ -9,7 +9,7 @@ from telegram_helpers.delete_message import delete_message, add_delete_button
 async def diary_header(update, context):
     try:
         logger.info("Diary command triggered")
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         output = await run_chain("diary_header", input_vars)
 
         parsed_output = DiaryHeader.model_validate(output)

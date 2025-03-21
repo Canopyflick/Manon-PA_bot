@@ -2,6 +2,8 @@
 from datetime import datetime, timedelta
 from httpx import Response
 from openai import OpenAI
+
+from telegram_helpers.get_user_message import get_user_message
 from utils.environment_vars import ENV_VARS
 from utils.helpers import BERLIN_TZ
 from telegram_helpers.emoji_reactions import safe_set_reaction
@@ -48,7 +50,7 @@ client_EC = OpenAI(api_key=ENV_VARS.EC_OPENAI_API_KEY)
 
 
 
-async def get_input_variables(update, source_text=None, target_language="English", goal_data=None):
+async def get_input_variables(update, context, source_text=None, target_language="English", goal_data=None):
     now = datetime.now(tz=BERLIN_TZ)
     weekday = now.strftime("%A")  # Full weekday name
     tomorrow = (now + timedelta(days=1))
@@ -68,7 +70,7 @@ async def get_input_variables(update, source_text=None, target_language="English
     default_deadline_time = "22:22"
     default_reminder_time = "11:11"
     long_term_goals = await fetch_long_term_goals(chat_id, user_id)
-    user_message = source_text if source_text else update.message.text
+    user_message = source_text if source_text else get_user_message(update, context)
     response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
     goal_data = goal_data if goal_data else "No goal_data passed as argument"
 
@@ -144,7 +146,7 @@ async def run_chain(chain_name, input_variables: dict):
 # pipelines orchestration < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
 async def dummy_call(update, context):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         output = await run_chain("name_of_chain", input_vars)
         
         parsed_output = DummyClass.model_validate(output)
@@ -164,10 +166,10 @@ async def dummy_call(update, context):
         logger.error(f"\n\n🚨 Error in dummy_call(): {e}\n\n")
 
 
-async def start_initial_classification(update, context):
+async def start_initial_classification(update, context, override_text=None):
     try:
         # Extract input variables
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         initial_classification = await run_chain("initial_classification", input_vars)        
         
         if shared_state["transparant_mode"]:
@@ -185,7 +187,7 @@ async def start_initial_classification(update, context):
 async def process_classification_result(update, context, initial_classification):
     chat_id = update.effective_chat.id
     message_id = update.message.message_id
-    user_message = update.message.text
+    user_message = get_user_message(update, context)
     try:
         # Parse the classification result
         parsed_result = InitialClassification.model_validate(initial_classification)
@@ -232,7 +234,7 @@ async def process_classification_result(update, context, initial_classification)
 
 async def handle_goal_classification(update, context, smarter=False):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         goal_classification=None
         if smarter:
             goal_classification = await run_chain("goal_classification_smart", input_vars)  
@@ -276,7 +278,7 @@ async def handle_goal_classification(update, context, smarter=False):
 
 async def goal_setting_analysis(update, context, goal_id, smarter=False):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         goal_setting_analysis = await run_chain("goal_setting_analysis", input_vars)
         parsed_goal_analysis = SetGoalAnalysis.model_validate(goal_setting_analysis)
         
@@ -318,7 +320,7 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
 
 async def goal_valuation(update, context, goal_id, recurrence_type="one-time", smarter=False):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         parsed_goal_valuation = None
         if recurrence_type == 'recurring':
             goal_valuation = await run_chain("recurring_goal_valuation", input_vars)
@@ -347,7 +349,7 @@ async def goal_valuation(update, context, goal_id, recurrence_type="one-time", s
 
 async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smarter=False):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         parsed_planning = None
         if recurrence_type == 'recurring':
             if smarter:
@@ -399,7 +401,7 @@ async def process_other_language(update, context, user_message, language=None, t
 
 async def translate(update, context, source_text, target_language="German", verbose=False):
     try:
-        input_vars = await get_input_variables(update, source_text, target_language)
+        input_vars = await get_input_variables(update, context, source_text, target_language)
         if verbose:
             output = await run_chain("translations", input_vars)
         
@@ -434,7 +436,7 @@ async def translate(update, context, source_text, target_language="German", verb
 
 async def language_correction(update, context):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         output = await run_chain("language_correction", input_vars)
         
         parsed_output = LanguageCorrection.model_validate(output)
@@ -452,7 +454,7 @@ async def language_correction(update, context):
     
 async def check_language(update, context, source_text):
     try:
-        input_vars = await get_input_variables(update, source_text=source_text)
+        input_vars = await get_input_variables(update, context, source_text=source_text)
         output = await run_chain("language_check", input_vars)
         
         parsed_output = LanguageCheck.model_validate(output)
@@ -470,7 +472,7 @@ async def check_language(update, context, source_text):
 # for now, this only works for (replies to) messages that contain the goal_id in plaintext. Should later be expanded with some database content (with the user's recently set goals) that provide potentially relevant goal ids as sadditional context
 async def find_goal_id(update, context, type=None):
     try:
-        input_vars = await get_input_variables(update)      
+        input_vars = await get_input_variables(update, context)
         output = await run_chain("find_goal_id", input_vars)
         
         parsed_output = GoalID.model_validate(output)
@@ -502,7 +504,7 @@ async def prepare_goal_changes(update, context, goal_id):
         # template_required_columns = "goal_description, status, recurrence_type"
         rows_dictionary = await fetch_goal_data(goal_id, columns=columns)
         
-        input_vars = await get_input_variables(update, goal_data=rows_dictionary)      
+        input_vars = await get_input_variables(update, context, goal_data=rows_dictionary)
         output = await run_chain("prepare_goal_changes", input_vars)
         
         parsed_output = UpdatedGoalData.model_validate(output)
@@ -532,7 +534,7 @@ async def prepare_goal_changes(update, context, goal_id):
 
 async def reminder_setting(update, context):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         output = await run_chain("reminder_setting", input_vars)
         
         parsed_output = Reminder.model_validate(output)
@@ -560,7 +562,7 @@ async def reminder_setting(update, context):
 
 async def other_message(update, context):
     try:
-        input_vars = await get_input_variables(update)
+        input_vars = await get_input_variables(update, context)
         output = await run_chain("other", input_vars)
         
         parsed_output = Response.model_validate(output)
@@ -583,8 +585,8 @@ async def other_message_o1(update, context):
     try:
         now = datetime.now(tz=BERLIN_TZ)
         weekday = now.strftime("%A") 
-        user_message = update.message.text
-        await safe_set_reaction(context.bot, update.effective_chat.id, user_message.message_id, "💅")
+        user_message = get_user_message(update, context)
+        await safe_set_reaction(context.bot, update.effective_chat.id, update.message.text.message_id, "💅")
         response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
 
         if response_text:

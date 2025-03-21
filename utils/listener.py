@@ -1,12 +1,14 @@
 ﻿# utils/listener.py
 from telegram_helpers.delete_message import delete_message
+from telegram_helpers.get_user_message import get_user_message
 from telegram_helpers.security import send_unauthorized_access_notification, is_ben_in_chat
 from utils.session_avatar import PA
 from LLMs.orchestration import start_initial_classification
-import logging
+import logging, tempfile, os
 from telegram import MessageEntity
 from utils.string_resources import SHY_MESSAGE
 from utils.triggers import handle_preset_triggers
+from utils.audio_utils import transcribe_voice_message
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,8 @@ async def analyze_any_message(update, context):
         return
 
     try:
-        user_message = update.message.text
+        user_message = get_user_message(update, context)
+        logger.error(f"user_message in analyze_any_message function is: {user_message}")
 
         # Reject long messages
         if await handle_long_message(update, context, user_message):
@@ -44,7 +47,7 @@ async def analyze_any_message(update, context):
         if bot_response_wanted:
             if regular_message or bot_reply_message or bot_mention_message:
                 logger.info("Message received that wants a bot reponse\n")
-                await start_initial_classification(update, context)                                     # < < <
+                await start_initial_classification(update, context)  # < < <
 
     except Exception as e:
         logger.error(f"\n\n🚨 Error in analyze_any_message(): {e}\n\n")
@@ -70,7 +73,7 @@ async def check_reply_or_mention(update, context):
     regular_message = True
     bot_reply_message = False
     bot_mention_message = False
-    message_text = update.message.text or ""
+    message_text = get_user_message(update, context) or ""
 
     # Check if the message is a reply, to bot or someone else
     if update.message.reply_to_message:
@@ -123,7 +126,7 @@ async def suppress_bot_response(update, context, regular_message, bot_response_w
     """
     Ignore messages that include '@'
     """
-    message_text = update.message.text or ""
+    message_text = get_user_message(update, context) or ""
     if regular_message and '@' in message_text and bot_response_wanted:
         reply = await update.message.reply_text(f"OOKAY I'll shut up for this one {PA}")
         await delete_message(update, context, reply.id, 2)
@@ -134,3 +137,25 @@ async def suppress_bot_response(update, context, regular_message, bot_response_w
 async def print_edit(update, context):
     logger.info("Someone edited a message")
 
+
+async def analyze_voice_message(update, context):
+    voice = update.message.voice
+    file = await context.bot.get_file(voice.file_id)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tf:
+        await file.download_to_drive(tf.name)
+        audio_path = tf.name
+
+    try:
+        transcription = await transcribe_voice_message(audio_path)
+        logger.info("[Voice Msg] transcribed as: " + transcription)
+        tagged_transcription = "[Voice Msg] " + transcription.strip()
+        context.user_data["user_message"] = tagged_transcription
+        return await analyze_any_message(update, context)
+
+    except Exception as e:
+        logger.error(f"Transcription error: {e}")
+        await update.message.reply_text(f"Kon je spraakbericht niet omzetten naar tekst {PA}")
+
+    finally:
+        os.remove(audio_path)

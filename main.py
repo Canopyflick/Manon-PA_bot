@@ -92,14 +92,16 @@ def register_handlers(application):
     application.add_handler(CommandHandler("o1", o1_command))
     application.add_handler(CommandHandler("translate", translate_command))
     
-    from utils.listener import analyze_any_message, print_edit  
+    from utils.listener import analyze_any_message, print_edit, analyze_voice_message
     # For any message starting with a digit or colon
     application.add_handler(MessageHandler(filters.Regex(r'^[\d:]'), stopwatch_command))
     # Bind the message analysis to any non-command text messages
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, analyze_any_message))
     # Handler for edited messages
     application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT & ~filters.COMMAND, print_edit))
-    
+    # Handler for audio input
+    application.add_handler(MessageHandler(filters.VOICE, analyze_voice_message))
+
     # Buttons
     from telegram_helpers.delete_message import delete_message
     application.add_handler(CallbackQueryHandler(delete_message, pattern=r"delete_message"))

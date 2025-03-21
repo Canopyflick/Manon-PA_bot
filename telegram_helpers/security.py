@@ -4,6 +4,7 @@ from telegram import ChatMember, Update
 from telegram.error import TelegramError
 from telegram.ext import CallbackContext
 
+from telegram_helpers.get_user_message import get_user_message
 from utils.environment_vars import ENV_VARS
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ async def send_unauthorized_access_notification(update: Update, context):
     first_name = update.effective_user.first_name
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    message = update.message.text
+    message = get_user_message(update, context)
     notification_message = f"You've got mail ✉️🧙‍♂️\n\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage:\n{message}"
     logger.error(
         f"! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! \n\n\n\nUnauthorized Access Detected\n\n\n\n! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\nUser: {first_name}, {user_id}\nChat: {chat_id}\nMessage: {message}")
