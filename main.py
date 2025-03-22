@@ -180,7 +180,8 @@ async def setup(application):
         await initialize_environment(application)
         
         # Start the bitcoin price monitor
-        chat_id = -4788252476  # PA test channel
+        # chat_id = -4788252476  # PA test channel
+        chat_id = 1875436366 # Ben & Manon's private channel
         asyncio.create_task(monitor_btc_price(application.bot, chat_id))
         
         logger.info("Setup completed successfully")

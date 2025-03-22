@@ -51,7 +51,7 @@ async def create_evening_message_components(user_id: int, chat_id: int, first_na
     # Stakes message (only for multiple goals)
     stakes_message = None
     if goals_report.total_goal_value > 0 and goals_report.goals_count > 1:
-        stakes_message = f"_⚡{goals_report.total_goal_value} & 🌚{goals_report.total_penalty:.1f} on the line._\n"
+        stakes_message = f"_⚡{goals_report.total_goal_value:.1f} & 🌚{goals_report.total_penalty:.1f} on the line._\n"
 
     # Random motivational quote (very rarely)
     motivational_quote = None

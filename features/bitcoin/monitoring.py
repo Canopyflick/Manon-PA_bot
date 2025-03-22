@@ -17,11 +17,11 @@ async def monitor_btc_price(bot: Bot, chat_id: int):
         bitcoin_price = await get_btc_price()
         price = bitcoin_price.raw_price
         if price is not None:
-            print(f"Bitcoin price: ${price:,.2f}")  # Log the price
+            print(f"Bitcoin price: ${price:,.0f}")  # Log the price
             if price > upper_threshold and not upper_threshold_alerted:
                 message = (
-                    f"*🚀 Bitcoin price alert!*\n1₿ is now ${price:,.2f} USD, "
-                    f"exceeding the threshold of ${upper_threshold:,.2f}"
+                    f"*🚀 Bitcoin price alert!*\n1₿ is now ${price:,.0f} USD, "
+                    f"exceeding the threshold of ${upper_threshold:,.0f}"
                 )
                 await bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
                 upper_threshold_alerted = True

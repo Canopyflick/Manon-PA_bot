@@ -2,10 +2,13 @@ from dataclasses import dataclass
 import os, logging
 from typing import Optional
 
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
 
 @dataclass
 class EnvironmentVars:
+    ENV_MODE: str
     TELEGRAM_API_KEY: str
     OPENAI_API_KEY: str
     EC_OPENAI_API_KEY: str
@@ -13,24 +16,25 @@ class EnvironmentVars:
     LANGCHAIN_TRACING_V2: bool
     LANGCHAIN_ENDPOINT: str
     LANGCHAIN_API_KEY: str
-    LANGCHAIN_PROJECT: str
     APPROVED_USER_IDS: list[int]
     BEN_ID: int
+    LANGCHAIN_PROJECT: Optional[str] = None
     AUDIO_OPENAI_API_KEY: Optional[str] = None
 
-def is_running_on_heroku() -> bool:
-    return bool(os.getenv('HEROKU_ENV'))
+def detect_env_mode() -> str:
+    mode = os.getenv("ENV_MODE", "").lower()
+    if mode in ("dev", "prod"):
+        return mode
+    return "not set"
 
-def is_running_locally() -> bool:
-    return not is_running_on_heroku()
+ENV_MODE = detect_env_mode()
+logger.info(f"🛠️  Running in {ENV_MODE.upper()} mode")
 
 def load_environment_vars() -> EnvironmentVars:
-    if not is_running_on_heroku():
-        try:
-            from dotenv import load_dotenv
-            load_dotenv(override=True)
-        except ImportError:
-            raise RuntimeError("dotenv module is required but not installed.")
+    try:
+        load_dotenv(override=True)
+    except ImportError:
+        raise RuntimeError("dotenv module is required but not installed.")
 
     def get_env_var(name: str, required: bool = True) -> str | None:
         """Fetch an environment variable, log a warning if optional and missing."""
@@ -44,12 +48,11 @@ def load_environment_vars() -> EnvironmentVars:
         return value
 
     return EnvironmentVars(
-        TELEGRAM_API_KEY=get_env_var('LOCAL_TELEGRAM_API_KEY'),
+        TELEGRAM_API_KEY=get_env_var('TELEGRAM_API_KEY'),
         OPENAI_API_KEY=get_env_var('OPENAI_API_KEY'),
-
         AUDIO_OPENAI_API_KEY=get_env_var('AUDIO_OPENAI_API_KEY', required=False),
         EC_OPENAI_API_KEY=get_env_var('EC_OPENAI_API_KEY', required=False),
-        DATABASE_URL=get_env_var('DATABASE_URL', required=False) or get_env_var('LOCAL_DB_URL', required=False),
+        DATABASE_URL=get_env_var('DATABASE_URL', required=False),
         LANGCHAIN_TRACING_V2=os.getenv('LANGCHAIN_TRACING_V2', 'false').lower() in ('true', '1'),
         LANGCHAIN_ENDPOINT=get_env_var('LANGCHAIN_ENDPOINT', required=False),
         LANGCHAIN_API_KEY=get_env_var('LANGCHAIN_API_KEY', required=False),

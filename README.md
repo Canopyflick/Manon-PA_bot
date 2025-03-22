@@ -36,11 +36,10 @@
 9. python main.py
 10. 🥳
 
-## .env File 
-LOCAL_TELEGRAM_API_KEY=
+## .env File (also see env.template)
+TELEGRAM_API_KEY=
 OPENAI_API_KEY=
-DATABASE_URL=postgresql://postgres:<password>@<ip>/mydbname?timezone=Europe/Berlin
-LOCAL_DB_URL=postgresql://postgres:<password>@localhost/mydbname?timezone=Europe/Berlin
+DATABASE_URL=postgresql://postgres:<password>@<ip>/mydbname?timezone=Europe/Berlin | postgresql://postgres:<password>@localhost/mydbname?timezone=Europe/Berlin
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
 LANGCHAIN_API_KEY="<key>"
