@@ -8,14 +8,14 @@ services:
       - .env
     depends_on:
       - postgres
-    restart: unless-stopped
+    restart: on-failure:5
 
   postgres:
     image: postgres:17
     ports:
       - "5432:5432"
     container_name: manon_db
-    restart: unless-stopped
+    restart: on-failure:5
     environment:
       POSTGRES_USER: manon
       POSTGRES_PASSWORD: supersecret
