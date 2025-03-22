@@ -1,7 +1,7 @@
 services:
-  testmanon:
+  manon:
     build: .
-    container_name: testmanon
+    container_name: manon
     volumes:
       - ./logs:/app/logs
     env_file:
