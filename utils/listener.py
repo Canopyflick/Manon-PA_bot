@@ -26,8 +26,8 @@ async def analyze_any_message(update, context):
         return
 
     try:
+        # Grab user_message text from update or from user context (if audio message)
         user_message = get_user_message(update, context)
-        logger.error(f"user_message in analyze_any_message function is: {user_message}")
 
         # Reject long messages
         if await handle_long_message(update, context, user_message):

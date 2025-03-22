@@ -20,10 +20,10 @@ async def register_user(context, user_id, chat_id):
                     VALUES ($1, $2, $3)
                 """, user_id, chat_id, first_name)
                 logger.warning(f"Inserted new user with user_id: {user_id}, chat_id: {chat_id}, first_name: {first_name}")
-                await context.bot.send_message(chat_id, text=f"_Registered new user,_ *{first_name}*_, with User ID:_", parse_mode="Markdown")
-                await context.bot.send_message(chat_id, text=f"_{user_id}_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text=f"_Registered new user_ [*{first_name}*]_ with User ID:_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text=f"{user_id}", parse_mode="Markdown")
                 await context.bot.send_message(chat_id, text="_in chat:_", parse_mode="Markdown")
-                await context.bot.send_message(chat_id, text=f"_{chat_id}_", parse_mode="Markdown")
+                await context.bot.send_message(chat_id, text=f"{chat_id}", parse_mode="Markdown")
             elif result['first_name'] is None:
                 # User exists but first_name is missing, update it
                 await conn.execute("""

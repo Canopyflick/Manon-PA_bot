@@ -1,0 +1,27 @@
+services:
+  testmanon:
+    build: .
+    container_name: testmanon
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    container_name: manon_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: manon
+      POSTGRES_PASSWORD: supersecret
+      POSTGRES_DB: manon_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
