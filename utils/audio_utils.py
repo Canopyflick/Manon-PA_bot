@@ -17,7 +17,7 @@ async def transcribe_voice_message(file_path: str) -> str:
     if ENV_VARS.AUDIO_OPENAI_API_KEY:
         logger.warning(
             f"⚠️ Temporarily using testManon's AUDIO_OPENAI_API_KEY for audio transcription — "
-            "remember to remove it once {TRANSCRIPTION_MODEL} becomes available for Manon's project key")
+            f"remember to remove it once {TRANSCRIPTION_MODEL} becomes available for Manon's project key")
 
     data = {
         "model": TRANSCRIPTION_MODEL,
