@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os, logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -7,7 +8,6 @@ logger = logging.getLogger(__name__)
 class EnvironmentVars:
     TELEGRAM_API_KEY: str
     OPENAI_API_KEY: str
-    AUDIO_OPENAI_API_KEY: str
     EC_OPENAI_API_KEY: str
     DATABASE_URL: str
     LANGCHAIN_TRACING_V2: bool
@@ -16,6 +16,7 @@ class EnvironmentVars:
     LANGCHAIN_PROJECT: str
     APPROVED_USER_IDS: list[int]
     BEN_ID: int
+    AUDIO_OPENAI_API_KEY: Optional[str] = None
 
 def is_running_on_heroku() -> bool:
     return bool(os.getenv('HEROKU_ENV'))
@@ -45,6 +46,7 @@ def load_environment_vars() -> EnvironmentVars:
     return EnvironmentVars(
         TELEGRAM_API_KEY=get_env_var('LOCAL_TELEGRAM_API_KEY'),
         OPENAI_API_KEY=get_env_var('OPENAI_API_KEY'),
+        AUDIO_OPENAI_API_KEY=get_env_var('AUDIO_OPENAI_API_KEY'),
         EC_OPENAI_API_KEY=get_env_var('EC_OPENAI_API_KEY', required=False),
         DATABASE_URL=get_env_var('DATABASE_URL', required=False) or get_env_var('LOCAL_DB_URL', required=False),
         LANGCHAIN_TRACING_V2=os.getenv('LANGCHAIN_TRACING_V2', 'false').lower() in ('true', '1'),
