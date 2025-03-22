@@ -1,4 +1,4 @@
-name: Build & Publish Docker Image
+name: Build & Publish Docker Image (multi-arch)
 
 on:
   push:
@@ -28,6 +28,7 @@ jobs:
       - name: 🧱 Build and push Docker image
         uses: docker/build-push-action@v6
         with:
+          platforms: linux/amd64,linux/arm64
           context: .
           push: true
           tags: |
