@@ -48,6 +48,7 @@ def load_environment_vars() -> EnvironmentVars:
         return value
 
     return EnvironmentVars(
+        ENV_MODE=get_env_var('ENV_MODE'),
         TELEGRAM_API_KEY=get_env_var('TELEGRAM_API_KEY'),
         OPENAI_API_KEY=get_env_var('OPENAI_API_KEY'),
         AUDIO_OPENAI_API_KEY=get_env_var('AUDIO_OPENAI_API_KEY', required=False),
