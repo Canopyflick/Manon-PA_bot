@@ -27,6 +27,12 @@ def detect_env_mode() -> str:
         return mode
     return "not set"
 
+def is_running_prod() -> bool:
+    return ENV_MODE == "prod"
+
+def is_running_dev() -> bool:
+    return ENV_MODE == "dev"
+
 ENV_MODE = detect_env_mode()
 logger.info(f"🛠️  Running in {ENV_MODE.upper()} mode")
 

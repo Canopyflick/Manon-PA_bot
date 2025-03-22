@@ -5,7 +5,7 @@ from datetime import datetime
 
 from features.evening_message.scheduler import setup_evening_message_scheduler
 from features.morning_message.scheduler import setup_morning_message_scheduler
-from utils.environment_vars import ENV_VARS, is_running_locally
+from utils.environment_vars import ENV_VARS, is_running_dev
 from utils.helpers import BERLIN_TZ
 from features.bitcoin.monitoring import monitor_btc_price
 from logs.logger import configure_logging
@@ -202,7 +202,7 @@ def main():
         asyncio.set_event_loop(loop)
 
         # Log if running locally or hosted
-        logger.info("Using *dev bot* (@TestManon_bot)" if is_running_locally() else "Using & *prod bot* (@Manon_PA_bot)\n")
+        logger.info("Using *dev bot* (@TestManon_bot)" if is_running_dev() else "Using & *prod bot* (@Manon_PA_bot)\n")
         
         # Create the bot application with ApplicationBuilder
         application = ApplicationBuilder() \

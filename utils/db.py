@@ -1,5 +1,5 @@
 ﻿# utils/db.py
-from utils.environment_vars import ENV_VARS, is_running_on_heroku
+from utils.environment_vars import ENV_VARS
 from utils.helpers import BERLIN_TZ
 from features.goals.helpers import add_user_context_to_goals
 from logs.logger import logger
@@ -8,6 +8,8 @@ import logging, asyncpg, re, pytz
 from dateutil.parser import parse
 from datetime import time, datetime, timedelta
 
+# Legacy check from Heroku times, leaving it here to remember that ssl settings matter for that
+is_running_on_heroku = None
 
 def redact_password(url):
     """To safely display PostgreSQL database URLs in logs"""
@@ -42,7 +44,7 @@ class Database:
         URL = ENV_VARS.DATABASE_URL
         cls._pool = await asyncpg.create_pool(
             URL,
-            ssl='require' if is_running_on_heroku() else None,
+            ssl='require' if is_running_on_heroku else None,
             min_size=5,
             max_size=20,
             server_settings={'timezone': 'Europe/Berlin'},
