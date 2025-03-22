@@ -1,6 +1,6 @@
 services:
   manon:
-    build: .
+    image: ghcr.io/canopyflick/manon-pa-bot:latest
     container_name: manon
     volumes:
       - ./logs:/app/logs
