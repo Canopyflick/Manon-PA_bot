@@ -1,5 +1,6 @@
 # utils/audio_utils.py
 import aiohttp
+from utils.helpers import logger
 from utils.environment_vars import ENV_VARS
 
 TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"
@@ -10,8 +11,13 @@ async def transcribe_voice_message(file_path: str) -> str:
     Uses OpenAI's gpt-4o-mini-transcribe model to transcribe an audio file to text.
     """
     headers = {
-        "Authorization": f"Bearer {ENV_VARS.OPENAI_API_KEY}"
+        "Authorization": f"Bearer {ENV_VARS.AUDIO_OPENAI_API_KEY or ENV_VARS.OPENAI_API_KEY}"
     }
+
+    if ENV_VARS.AUDIO_OPENAI_API_KEY:
+        logger.warning(
+            f"⚠️ Temporarily using testManon's AUDIO_OPENAI_API_KEY for audio transcription — "
+            "remember to remove it once {TRANSCRIPTION_MODEL} becomes available for Manon's project key")
 
     data = {
         "model": TRANSCRIPTION_MODEL,

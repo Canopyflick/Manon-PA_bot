@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 class EnvironmentVars:
     TELEGRAM_API_KEY: str
     OPENAI_API_KEY: str
+    AUDIO_OPENAI_API_KEY: str
     EC_OPENAI_API_KEY: str
     DATABASE_URL: str
     LANGCHAIN_TRACING_V2: bool
