@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - main
-  # Optional: trigger on version tags like v1.0.0
-  tags:
-    - 'v*.*.*'
+
 
 jobs:
   build-and-push:
