@@ -20,7 +20,7 @@ async def roll_dice(update, context, user_guess=None):
         else:
             # Give a reply based on the rolled value
             await asyncio.sleep(4)
-            if rolled_value == user_guess:
+            if rolled_value == int(user_guess):
                 await context.bot.send_message(
                     chat_id=update.message.chat_id,
                     text="🎊",

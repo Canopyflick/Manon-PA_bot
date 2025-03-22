@@ -46,7 +46,8 @@ def load_environment_vars() -> EnvironmentVars:
     return EnvironmentVars(
         TELEGRAM_API_KEY=get_env_var('LOCAL_TELEGRAM_API_KEY'),
         OPENAI_API_KEY=get_env_var('OPENAI_API_KEY'),
-        AUDIO_OPENAI_API_KEY=get_env_var('AUDIO_OPENAI_API_KEY'),
+
+        AUDIO_OPENAI_API_KEY=get_env_var('AUDIO_OPENAI_API_KEY', required=False),
         EC_OPENAI_API_KEY=get_env_var('EC_OPENAI_API_KEY', required=False),
         DATABASE_URL=get_env_var('DATABASE_URL', required=False) or get_env_var('LOCAL_DB_URL', required=False),
         LANGCHAIN_TRACING_V2=os.getenv('LANGCHAIN_TRACING_V2', 'false').lower() in ('true', '1'),
