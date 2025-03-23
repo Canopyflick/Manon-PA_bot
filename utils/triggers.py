@@ -24,7 +24,7 @@ triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontex
 
 async def handle_triggers(update, context, trigger_text):
     if trigger_text == "SeintjeNatuurlijk":
-        await update.message.reply_text(f"Ja hoor, hoi! {PA}")
+        await update.message.reply_text(f"Ja hoor, hoi we zijn nieuwer dan nieuw! {PA}")
     elif trigger_text == "Emoji":
         await test_emojis_with_telegram(update, context)
     elif trigger_text == "Stopwatch":
