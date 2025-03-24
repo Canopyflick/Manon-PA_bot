@@ -2,7 +2,7 @@
 
 function show_logs() {
   cd ~/manon_deployer
-  docker logs manon -f
+  docker logger manon -f
 }
 
 function update() {
@@ -13,8 +13,8 @@ function update() {
 function cleanup() {
   # Remove dangling images
   docker image prune -f
-  # Remove old logs that are older than 7 days
-  find ~/manon_deployer/logs -type f -name "*.log*" -mtime +7 -delete
+  # Remove old logger that are older than 7 days
+  find ~/manon_deployer/logger -type f -name "*.log*" -mtime +7 -delete
 }
 
 function backup_db() {
@@ -24,7 +24,7 @@ function backup_db() {
 }
 
 case "$1" in
-  logs) show_logs ;;
+  logger) show_logs ;;
   update) update ;;
   cleanup) cleanup ;;
   backup) backup_db ;;

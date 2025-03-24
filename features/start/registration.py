@@ -1,5 +1,5 @@
 from utils.db import get_first_name, Database
-from logs.logger import logger
+from logger.logger import logger
 
 
 async def register_user(context, user_id, chat_id):

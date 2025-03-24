@@ -3,7 +3,7 @@ services:
     image: ghcr.io/canopyflick/manon-pa-bot:latest
     container_name: manon
     volumes:
-      - ./logs:/app/logs
+      - ./logger:/app/logger
     env_file:
       - .env
     depends_on:

@@ -1,6 +1,8 @@
+# .gitignore
 .vs/
 __pycache__/
 *.pyc
+log_files/
 *.log
 *.log.*
 *.dump

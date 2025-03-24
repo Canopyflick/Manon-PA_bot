@@ -13,7 +13,7 @@ This directory contains tools and instructions for deploying the Manon Telegram 
 1. Create a deployment directory on your server:
 
 ```bash
-mkdir -p ~/manon_deployer/logs
+mkdir -p ~/manon_deployer/logger
 cd ~/manon_deployer
 ```
 

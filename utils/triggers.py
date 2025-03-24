@@ -8,7 +8,7 @@ from features.morning_message import send_morning_message
 from features.stats.stats_manager import StatsManager
 from telegram_helpers.delete_message import delete_message, add_delete_button
 from telegram_helpers.emoji_reactions import test_emojis_with_telegram
-from logs.logger import fetch_logs
+from logger.logger import fetch_logs
 from features.stopwatch.command import emoji_stopwatch
 from utils.scheduler import fail_goals_warning, send_next_jobs
 # from features.goals.evening_message_deprecated import send_evening_message
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext",
             "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats",
-            "logs", "logs100", "errorlogs", "transparant_on", "transparant_off", "Jobs"]
+            "logger", "logs100", "errorlogs", "transparant_on", "transparant_off", "Jobs"]
 
 
 async def handle_triggers(update, context, trigger_text):
@@ -60,11 +60,11 @@ async def handle_triggers(update, context, trigger_text):
         chat_id=update.message.chat_id
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
         await StatsManager.update_daily_stats(specific_chat_id=chat_id)
-    elif re.match(r"^logs\d+$", trigger_text):  # Match logs followed by digits
-        num_lines = int(trigger_text[4:])  # Extract the number after 'logs'
+    elif re.match(r"^logger\d+$", trigger_text):  # Match logger followed by digits
+        num_lines = int(trigger_text[4:])  # Extract the number after 'logger'
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
         await fetch_logs(update, context, abs(num_lines))  # Ensure the number is positive
-    elif trigger_text == "logs":
+    elif trigger_text == "logger":
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
         await fetch_logs(update, context, 6)
     elif trigger_text == "errorlogs":
@@ -72,10 +72,10 @@ async def handle_triggers(update, context, trigger_text):
         await fetch_logs(update, context, 50, type="error")
     elif trigger_text == "transparant_on":
         shared_state["transparant_mode"] = True
-        await update.message.reply_text(f"_transparant mode enabled 🟢_ {PA}\n_(spamming additional logs in chat)_", parse_mode="Markdown")
+        await update.message.reply_text(f"_transparant mode enabled 🟢_ {PA}\n_(spamming additional logger in chat)_", parse_mode="Markdown")
     elif trigger_text == "transparant_off":
         shared_state["transparant_mode"] = False
-        await update.message.reply_text(f"_transparant mode disabled 🔴_ {PA}\n_(no additional logs in chat  )_", parse_mode="Markdown")
+        await update.message.reply_text(f"_transparant mode disabled 🔴_ {PA}\n_(no additional logger in chat  )_", parse_mode="Markdown")
     elif trigger_text == "Jobs":
         await send_next_jobs(update, context, 7)
 
@@ -87,12 +87,12 @@ async def handle_preset_triggers(update, context, user_message):
             logger.info(f"Message received: Trigger ({trigger_text})")
             await handle_triggers(update, context, trigger_text)
             return True
-    # Handle dynamic logs trigger
-    match = re.match(r"^logs(\d+)$", message_lower)
+    # Handle dynamic logger trigger
+    match = re.match(r"^logger(\d+)$", message_lower)
     if match:
-        logger.info(f"Message received: Dynamic logs trigger ({message_lower})")
+        logger.info(f"Message received: Dynamic logger trigger ({message_lower})")
         num_lines = int(match.group(1))
-        await handle_triggers(update, context, f"logs{num_lines}")
+        await handle_triggers(update, context, f"logger{num_lines}")
         return True
     return False
 

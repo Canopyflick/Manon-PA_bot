@@ -45,7 +45,7 @@ from LLMs.prompts_templates import (
 from langchain_openai import ChatOpenAI   
 
 
-# Flag for sending debug logs in chat
+# Flag for sending debug logger in chat
 shared_state = {"transparant_mode": False}
 
 

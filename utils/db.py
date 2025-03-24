@@ -2,7 +2,7 @@
 from utils.environment_vars import ENV_VARS
 from utils.helpers import BERLIN_TZ
 from features.goals.helpers import add_user_context_to_goals
-from logs.logger import logger
+from logger.logger import logger
 from utils.session_avatar import PA
 import logging, asyncpg, re, pytz
 from dateutil.parser import parse
@@ -12,7 +12,7 @@ from datetime import time, datetime, timedelta
 is_running_on_heroku = None
 
 def redact_password(url):
-    """To safely display PostgreSQL database URLs in logs"""
+    """To safely display PostgreSQL database URLs in logger"""
     return re.sub(r":([^:@]*)@", r":*****@", url)
 
 

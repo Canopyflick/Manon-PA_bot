@@ -8,7 +8,7 @@ from features.morning_message.scheduler import setup_morning_message_scheduler
 from utils.environment_vars import ENV_VARS, is_running_dev
 from utils.helpers import BERLIN_TZ
 from features.bitcoin.monitoring import monitor_btc_price
-from logs.logger import configure_logging
+from logger.logger import configure_logging
 from utils.session_avatar import PA
 from utils.db import setup_database, Database
 from utils.scheduler import (
