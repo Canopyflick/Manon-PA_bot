@@ -18,7 +18,8 @@ from LLMs.structured_output_schemas import (
     UpdatedGoalData,
     DiaryHeader,
     Reminder,
-    Response
+    Response,
+    WassupSchema,
 )
 from LLMs.prompts_templates import (
     dummy_template,
@@ -39,7 +40,8 @@ from LLMs.prompts_templates import (
     prepare_goal_changes_template,
     diary_header_template,
     reminder_setting_template,
-    other_template
+    other_template,
+    wassup_flow_template,
 )
 
 from langchain_openai import ChatOpenAI   
@@ -56,11 +58,11 @@ HIGH = 1.2
 
 llms = {
     "gpt4o": ChatOpenAI(model_name="gpt-4o", temperature=LOW),
-    "mini": ChatOpenAI(model_name="gpt-4o-mini", temperature=LOW),
+    "mini": ChatOpenAI(model_name="gpt-4.1-mini", temperature=LOW),
     "gpt4o_high_temp": ChatOpenAI(model_name="gpt-4o", temperature=HIGH),
-    "mini_high_temp": ChatOpenAI(model_name="gpt-4o-mini", temperature=HIGH),
+    "mini_high_temp": ChatOpenAI(model_name="gpt-4.1-mini", temperature=HIGH),
     "o3-mini": ChatOpenAI(model_name="o3-mini"),
-    "o1": ChatOpenAI(model_name="o1"),
+    "smartest": ChatOpenAI(model_name="o3"),
 }
 
 # Centralized Chain Configuration
@@ -183,8 +185,14 @@ chain_configs = {
     "other_plus": {
         "template": other_template,
         "schema": Response,
-        "llm": llms["o1"],
+        "llm": llms["smartest"],
+    },
+    "wassup_flow_1": {
+        "template": wassup_flow_template,   # you'll define a prompt
+        "schema": WassupSchema,
+        "llm": llms["mini"]  # or whichever LLM
     }
+
 }
 
 

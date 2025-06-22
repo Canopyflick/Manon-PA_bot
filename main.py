@@ -70,6 +70,8 @@ def register_handlers(application):
     from features.stopwatch.command import tea_command
     from features.help.command import help_command
     from features.stopwatch.command import stopwatch_command
+    from features.wassup.command import wassup_command
+    application.add_handler(CommandHandler(["wassup", "hey", "hi"], wassup_command))
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
@@ -202,7 +204,7 @@ def main():
         asyncio.set_event_loop(loop)
 
         # Log if running locally or hosted
-        logger.info("Using *dev bot* (@TestManon_bot)" if is_running_dev() else "Using & *prod bot* (@Manon_PA_bot)\n")
+        logger.info("Using *dev bot* (@TestManon_bot)" if is_running_dev() else "Using *prod bot* (@Manon_PA_bot)\n")
         
         # Create the bot application with ApplicationBuilder
         application = ApplicationBuilder() \

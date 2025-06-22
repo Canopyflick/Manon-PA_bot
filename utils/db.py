@@ -1,4 +1,6 @@
 ﻿# utils/db.py
+import socket
+
 from utils.environment_vars import ENV_VARS
 from utils.helpers import BERLIN_TZ
 from features.goals.helpers import add_user_context_to_goals
@@ -42,20 +44,28 @@ class Database:
 
         # Create pool only once with all settings
         URL = ENV_VARS.DATABASE_URL
-        cls._pool = await asyncpg.create_pool(
-            URL,
-            ssl='require' if is_running_on_heroku else None,
-            min_size=5,
-            max_size=20,
-            server_settings={'timezone': 'Europe/Berlin'},
-            command_timeout=60,
-            init=lambda conn: conn.set_type_codec(
-                'timestamptz',
-                encoder=lambda value: value,
-                decoder=timestamp_converter,
-                schema='pg_catalog'
+        if not URL:
+            raise RuntimeError(
+                "DATABASE_URL is not set - cannot create a connection pool"
             )
-        )
+        try:
+            cls._pool = await asyncpg.create_pool(
+                URL,
+                ssl='require' if is_running_on_heroku else None,
+                min_size=5,
+                max_size=20,
+                server_settings={'timezone': 'Europe/Berlin'},
+                command_timeout=60,
+                init=lambda conn: conn.set_type_codec(
+                    'timestamptz',
+                    encoder=lambda value: value,
+                    decoder=timestamp_converter,
+                    schema='pg_catalog'
+                )
+            )
+        except (socket.gaierror, asyncpg.InvalidCatalogNameError) as e:
+            logger.critical("❌ Database connection failed: %s", e)
+            raise
         
         # Test the connection and verify timezone
         async with cls._pool.acquire() as conn:

@@ -122,5 +122,8 @@ class Reminder(BaseModel):
     
 class Response(BaseModel):
     response_text: str
+
+class WassupSchema(BaseModel):
+    response_text: str
     
 

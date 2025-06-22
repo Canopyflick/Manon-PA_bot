@@ -540,3 +540,15 @@ other_template = ChatPromptTemplate([
     {user_message}
     """),
 ])
+
+wassup_flow_template = ChatPromptTemplate([
+    ("system", """
+    It is currently: {weekday}, {now}. You are a virtual PA called Manon. A user in a Telegram group is sending you a message. It's your task to respond with as glib and succinct a remark as possible.
+    Always include a '{PA}' and a 'wassup' somewhere in your response.
+    """),
+
+    ("human", """
+    User Request:
+    {user_message}
+    """),
+])
