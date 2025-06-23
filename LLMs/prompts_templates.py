@@ -308,7 +308,7 @@ recurring_schedule_template = ChatPromptTemplate([
     ## Goal Description
     Rephrase only the user's goal in second-person. Remove or reword time references such that only intra-day references remain: '"before 14:00" can stay, "tomorrow" should be removed. This adjustment is in order for the goal to make sense for the user on the day of the goal evaluation itself. 
     Examples: "I want to meditate every Wednesday and Thursday morning" should become -> "Meditate in the morning", "train twice a week next year" -> "Train twice a week", "call my mom weekly on Sundays and Thursdays" ->  "Call your mom", "I want to finish my report on the train Thursday before 17:00" -> "Finish your report on the train before 17:00".
-    Include any relevant context that the user might still want to reference between now and the day of the deadline. For example, include relevant details and specifics like URLs.
+    Include any relevant context that the user might still want to reference between now and the day of the deadline. For example, include relevant details and specifics, like URLs: if the user sends a weblink in their request, this has to be included in the description.
      
     ## Evaluation deadlines: when should the goals be evaluated?
     In principle, pick an evaluation deadline for each instance of the goal, however, the scope of these instances can vary. 
