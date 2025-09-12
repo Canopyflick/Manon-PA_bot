@@ -57,10 +57,10 @@ MID = 0.7
 HIGH = 1.2
 
 llms = {
-    "gpt4o": ChatOpenAI(model_name="gpt-4o", temperature=LOW),
-    "mini": ChatOpenAI(model_name="gpt-4.1-mini", temperature=LOW),
-    "gpt4o_high_temp": ChatOpenAI(model_name="gpt-4o", temperature=HIGH),
-    "mini_high_temp": ChatOpenAI(model_name="gpt-4.1-mini", temperature=HIGH),
+    "smart": ChatOpenAI(model_name="gpt-5"),
+    "mini": ChatOpenAI(model_name="gpt-5-mini"),
+    "gpt4o_high_temp": ChatOpenAI(model_name="gpt-5", temperature=HIGH),
+    "mini_high_temp": ChatOpenAI(model_name="gpt-5-mini", temperature=HIGH),
     "o3-mini": ChatOpenAI(model_name="o3-mini"),
     "smartest": ChatOpenAI(model_name="o3"),
 }
@@ -85,7 +85,7 @@ chain_configs = {
     "goal_classification_smart": {
         "template": goal_classification_template,
         "schema": GoalClassification,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "goal_setting_analysis": {
         "template": goal_setting_analysis_template,
@@ -95,7 +95,7 @@ chain_configs = {
     "goal_setting_analysis_smart": {
         "template": goal_setting_analysis_template,
         "schema": SetGoalAnalysis,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "goal_valuation": {
         "template": goal_valuation_template,
@@ -105,7 +105,7 @@ chain_configs = {
     "goal_valuation_smart": {
         "template": goal_valuation_template,
         "schema": GoalAssessment,
-        "llm": llms["gpt4o"], 
+        "llm": llms["smart"],
     },
     "recurring_goal_valuation": {
         "template": recurring_goal_valuation_template,
@@ -115,7 +115,7 @@ chain_configs = {
     "recurring_goal_valuation_smart": {
         "template": recurring_goal_valuation_template,
         "schema": GoalInstanceAssessment,
-        "llm": llms["gpt4o"],  # or llms["gpt4o"], llms["mini_high_temp"] etc.
+        "llm": llms["smart"],  # or llms["gpt4o"], llms["mini_high_temp"] etc.
     },
      "schedule_goal": {
         "template": one_time_schedule_template,
@@ -125,7 +125,7 @@ chain_configs = {
      "schedule_goal_smart": {
         "template": one_time_schedule_template,
         "schema": Schedule,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
      "schedule_goals": {
         "template": recurring_schedule_template,
@@ -135,22 +135,22 @@ chain_configs = {
      "schedule_goals_smart": {
         "template": recurring_schedule_template,
         "schema": Planning,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "language_correction": {
         "template": language_correction_template,
         "schema": LanguageCorrection,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "translations": {
         "template": translations_template,
         "schema": Translations,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "translation": {
         "template": translation_template,
         "schema": Translation,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "language_check": {
         "template": language_check_template,
@@ -165,12 +165,12 @@ chain_configs = {
     "prepare_goal_changes": {
         "template": prepare_goal_changes_template,
         "schema": UpdatedGoalData,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "diary_header": {
         "template": diary_header_template,
         "schema": DiaryHeader,
-        "llm": llms["gpt4o"],
+        "llm": llms["smart"],
     },
     "reminder_setting": {
         "template": reminder_setting_template,
