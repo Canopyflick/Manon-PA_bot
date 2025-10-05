@@ -2,8 +2,30 @@ name: Build & Publish Docker Image (multi-arch)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+    # Only build when things that affect the container change
+    paths:
+      - '.github/workflows/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'requirements.txt'
+      - 'requirements/**'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - 'main.py'
+      - 'LLMs/**'
+      - 'modules/**'
+      - 'utils/**'
+      - 'docker-compose.yml'
+
+# Cancel any older job for the same ref if a new push arrives
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build-and-push:
@@ -12,7 +34,11 @@ jobs:
 
     steps:
       - name: 📥 Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      # (optional but helps cross-arch builds behave consistently)
+      - name: ⚙️ Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: 🛠 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -22,14 +48,19 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}  # << Make sure you define this in repo secrets!
+          password: ${{ secrets.GHCR_PAT }}
 
-      - name: 🧱 Build and push Docker image
+      - name: 🧱 Build and push Docker image (with cache)
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/arm64
           context: .
+          platforms: linux/arm64
           push: true
           tags: |
             ghcr.io/canopyflick/manon-pa-bot:latest
             ghcr.io/canopyflick/manon-pa-bot:${{ github.sha }}
+          # 🔑 80/20 speed-up: persist & restore build cache between runs
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Small extra speed gain by skipping SBOM/provenance generation
+          provenance: false
