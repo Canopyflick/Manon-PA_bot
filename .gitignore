@@ -10,3 +10,6 @@ log_files/
 env/
 .venv/
 .git/
+
+# Build artifacts
+utils/version.json

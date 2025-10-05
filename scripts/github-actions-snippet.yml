@@ -1,0 +1,16 @@
+# Add this step to your GitHub Actions workflow
+# This should be added before building your Docker image
+
+- name: Generate Version Info
+  run: |
+    python3 scripts/generate_version.py
+    echo "Generated version.json for deployment"
+    
+# Optional: You can also use GitHub's built-in variables
+- name: Build Docker Image with Version
+  run: |
+    docker build \
+      --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+      --build-arg VCS_REF=${{ github.sha }} \
+      --build-arg VERSION=${{ github.ref_name }} \
+      -t your-bot-image:latest .
