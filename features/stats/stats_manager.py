@@ -104,7 +104,6 @@ class StatsManager:
                         COALESCE(SUM(goals_failed), 0) as total_goals_failed,
                         COALESCE(SUM(score_gained), 0) as total_score_gained,
                         COALESCE(SUM(penalties_incurred), 0) as total_penalties,
-                        COALESCE(AVG(completion_rate), 0) as avg_completion_rate,
                         COALESCE(AVG(goals_set), 0) as avg_daily_goals_set,
                         COALESCE(AVG(goals_finished), 0) as avg_daily_goals_finished
                     FROM manon_stats_snapshots
@@ -116,13 +115,20 @@ class StatsManager:
                 if stats is None:
                     raise ValueError(f"No stats found for user {user_id} in chat {chat_id} for the last {days} days.")
 
+                # Calculate completion rate correctly from period totals
+                total_completed_and_failed = stats['total_goals_finished'] + stats['total_goals_failed']
+                completion_rate = (
+                    (stats['total_goals_finished'] / total_completed_and_failed * 100) 
+                    if total_completed_and_failed > 0 else 0
+                )
+
                 return StatsSnapshot(
                     total_goals_set=stats['total_goals_set'],
                     total_goals_finished=stats['total_goals_finished'],
                     total_goals_failed=stats['total_goals_failed'],
                     total_score_gained=stats['total_score_gained'],
                     total_penalties=stats['total_penalties'],
-                    avg_completion_rate=stats['avg_completion_rate'],
+                    avg_completion_rate=completion_rate,
                     avg_daily_goals_set=stats['avg_daily_goals_set'],
                     avg_daily_goals_finished=stats['avg_daily_goals_finished'],
                     period_name=label

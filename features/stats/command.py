@@ -19,7 +19,7 @@ async def stats_command(update, context):
         if current == baseline:
             return "→"
         # Invert logic for penalties (lower is better)
-        if metric_name == 'Penalties/Day':
+        if metric_name in ['Penalties/Day', 'Penalties/Week']:
             return "🟢↑" if current < baseline else "🔴↓"
         return "🟢↑" if current > baseline else "🔴↓"
 
@@ -107,13 +107,14 @@ async def stats_command(update, context):
         "──────────────────────────────"
     ])
 
-    # Calculate daily averages for each period
+    # Calculate weekly averages for each period
     periods = ['week', 'month', 'quarter', 'year']
     days_in_period = {'week': 7, 'month': 30, 'quarter': 91, 'year': 365}
+    weeks_in_period = {'week': 1, 'month': 30/7, 'quarter': 91/7, 'year': 365/7}
 
     metrics = {
-        'Goals/Day': {
-            period: stats[period].total_goals_set / days_in_period[period]
+        'Goals/Week': {
+            period: stats[period].total_goals_set / weeks_in_period[period]
             for period in periods
         },
         'Points/Day': {
