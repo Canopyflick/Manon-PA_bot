@@ -19,7 +19,7 @@ async def stats_command(update, context):
         if current == baseline:
             return "→"
         # Invert logic for penalties (lower is better)
-        if metric_name in ['Penalties/Day', 'Penalties/Week']:
+        if metric_name == 'Penalties/Week':
             return "🟢↑" if current < baseline else "🔴↓"
         return "🟢↑" if current > baseline else "🔴↓"
 
@@ -117,12 +117,12 @@ async def stats_command(update, context):
             period: (stats[period].total_goals_finished + stats[period].total_goals_failed) / weeks_in_period[period]
             for period in periods
         },
-        'Points/Day': {
-            period: stats[period].total_score_gained / days_in_period[period]
+        'Points/Week': {
+            period: stats[period].total_score_gained / weeks_in_period[period]
             for period in periods
         },
-        'Penalties/Day': {
-            period: stats[period].total_penalties / days_in_period[period]
+        'Penalties/Week': {
+            period: stats[period].total_penalties / weeks_in_period[period]
             for period in periods
         },
         'Complete %': {
