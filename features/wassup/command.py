@@ -55,7 +55,7 @@ async def wassup_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             
             # Send the two messages as requested
             await update.message.reply_text(
-                f"On {formatted_date} you expressed the intention to one day✨ do something. You said:",
+                f"{PA} On {formatted_date} you expressed the intention to one day✨ do something. You said:",
                 parse_mode="Markdown"
             )
             
