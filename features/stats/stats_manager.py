@@ -280,7 +280,7 @@ class StatsManager:
         stats = {}
         for period_name, days in periods.items():
             stats[period_name] = await StatsManager.get_stats_for_period(
-                user_id, chat_id, days
+                user_id, chat_id, days, period_name
             )
             
         return stats

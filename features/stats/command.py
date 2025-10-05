@@ -14,7 +14,7 @@ async def stats_command(update, context):
     # Get comprehensive stats
     stats = await StatsManager.get_comprehensive_stats(user_id, chat_id)
 
-    def get_trend_arrow(current, baseline):
+    def get_trend_arrow(current, baseline, metric_name):
         """Returns emoji arrow based on comparison with weekly baseline"""
         if current == baseline:
             return "→"
@@ -28,7 +28,7 @@ async def stats_command(update, context):
         values = []
         for period in periods:
             value = metric_values.get(period, 0) or 0
-            trend = get_trend_arrow(value, metric_values['week'])
+            trend = get_trend_arrow(value, metric_values['week'], metric_name)
             values.append(f"{value:7.1f}{trend}")
         return f"{metric_name:<14} {' | '.join(values)}"
 
@@ -113,19 +113,19 @@ async def stats_command(update, context):
 
     metrics = {
         'Goals/Day': {
-            period: stats[period].get('total_goals_set', 0) / days_in_period[period]
+            period: stats[period].total_goals_set / days_in_period[period]
             for period in periods
         },
         'Points/Day': {
-            period: stats[period].get('total_score_gained', 0) / days_in_period[period]
+            period: stats[period].total_score_gained / days_in_period[period]
             for period in periods
         },
         'Penalties/Day': {
-            period: stats[period].get('total_penalties', 0) / days_in_period[period]
+            period: stats[period].total_penalties / days_in_period[period]
             for period in periods
         },
         'Complete %': {
-            period: stats[period].get('avg_completion_rate', 0)
+            period: stats[period].avg_completion_rate
             for period in periods
         }
     }
