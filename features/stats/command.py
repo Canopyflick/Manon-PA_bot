@@ -109,12 +109,12 @@ async def stats_command(update, context):
 
     # Calculate weekly averages for each period
     periods = ['week', 'month', 'quarter', 'year']
-    days_in_period = {'week': 7, 'month': 30, 'quarter': 91, 'year': 365}
-    weeks_in_period = {'week': 1, 'month': 30/7, 'quarter': 91/7, 'year': 365/7}
+    days_in_period = {'week': 7, 'month': 30, 'quarter': 90, 'year': 365}
+    weeks_in_period = {'week': 1, 'month': 30/7, 'quarter': 90/7, 'year': 365/7}
 
     metrics = {
         'Goals/Week': {
-            period: stats[period].total_goals_set / weeks_in_period[period]
+            period: (stats[period].total_goals_finished + stats[period].total_goals_failed) / weeks_in_period[period]
             for period in periods
         },
         'Points/Day': {
@@ -141,7 +141,7 @@ async def stats_command(update, context):
 
     message_parts.extend([
         "",
-        "                      91d | 365d",
+        "                      90d | 365d",
         "──────────────────────────────"
     ])
 
