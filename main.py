@@ -71,10 +71,12 @@ def register_handlers(application):
     from features.help.command import help_command
     from features.stopwatch.command import stopwatch_command
     from features.wassup.command import wassup_command
+    from utils.version_command import version_command
     application.add_handler(CommandHandler(["wassup", "hey", "hi"], wassup_command))
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
+    application.add_handler(CommandHandler("version", version_command))
     application.add_handler(CommandHandler(["wow", "inspiration", "filosofie", "philosophy"], wow_command))
     application.add_handler(CommandHandler("profile", profile_command))
     application.add_handler(CommandHandler(["stopwatch", "timer"], stopwatch_command))
