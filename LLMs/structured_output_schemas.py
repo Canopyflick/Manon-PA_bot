@@ -61,8 +61,40 @@ class Planning(BaseModel):
         default=None,
         description="The timestamp for the reminder(s) in ISO 8601 format, or null if no reminder is scheduled."
     )
-    
-    
+
+
+# Compact pipeline: combined valuation + scheduling for one-time goals (replaces GoalAssessment + Schedule)
+class CompactSchedule(BaseModel):
+    reasoning: str
+    goal_description: str
+    evaluation_deadline: str
+    schedule_reminder: bool
+    reminder_time: Union[str, None] = Field(
+        default=None,
+        description="The timestamp for the reminder in ISO 8601 format, or null if no reminder is scheduled."
+    )
+    time_investment_value: float
+    difficulty_multiplier: float
+    impact_multiplier: float
+    failure_penalty: Literal['no', 'small', 'big']
+
+# Compact pipeline: combined valuation + scheduling for recurring goals (replaces GoalInstanceAssessment + Planning)
+class CompactPlanning(BaseModel):
+    reasoning: str
+    goal_description: str
+    evaluation_deadlines: List[str]
+    interval: Literal['intra-day', 'daily', 'every few days', 'weekly', 'every few weeks', 'monthly', 'every few months', 'bi-annually', 'yearly', 'longer than yearly', 'custom']
+    schedule_reminder: bool
+    reminder_times: Union[str, None] = Field(
+        default=None,
+        description="The timestamp for the reminder(s) in ISO 8601 format, or null if no reminder is scheduled."
+    )
+    time_investment_value: float       # per instance, not cumulative
+    difficulty_multiplier: float
+    impact_multiplier: float
+    failure_penalty: Literal['no', 'small', 'big']
+
+
 # Goal setting #2.1 (one-time goals)
 class GoalSetData(BaseModel):
     deadline: str  # Use string instead of datetime for compatibility

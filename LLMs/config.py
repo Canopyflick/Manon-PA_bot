@@ -20,6 +20,8 @@ from LLMs.structured_output_schemas import (
     Reminder,
     Response,
     WassupSchema,
+    CompactSchedule,
+    CompactPlanning,
 )
 from LLMs.prompts_templates import (
     dummy_template,
@@ -42,6 +44,8 @@ from LLMs.prompts_templates import (
     reminder_setting_template,
     other_template,
     wassup_flow_template,
+    compact_one_time_template,
+    compact_recurring_template,
 )
 
 from langchain_openai import ChatOpenAI   
@@ -188,10 +192,31 @@ chain_configs = {
         "llm": llms["smartest"],
     },
     "wassup_flow_1": {
-        "template": wassup_flow_template,   # you'll define a prompt
+        "template": wassup_flow_template,
         "schema": WassupSchema,
-        "llm": llms["mini"]  # or whichever LLM
-    }
+        "llm": llms["mini"]
+    },
+    # Compact pipeline: combined valuation + scheduling in one call
+    "compact_schedule": {
+        "template": compact_one_time_template,
+        "schema": CompactSchedule,
+        "llm": llms["mini"],
+    },
+    "compact_schedule_smart": {
+        "template": compact_one_time_template,
+        "schema": CompactSchedule,
+        "llm": llms["smart"],
+    },
+    "compact_planning": {
+        "template": compact_recurring_template,
+        "schema": CompactPlanning,
+        "llm": llms["mini"],
+    },
+    "compact_planning_smart": {
+        "template": compact_recurring_template,
+        "schema": CompactPlanning,
+        "llm": llms["smart"],
+    },
 
 }
 

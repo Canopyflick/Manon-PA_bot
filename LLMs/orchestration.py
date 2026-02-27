@@ -38,8 +38,13 @@ from LLMs.structured_output_schemas import (
     UpdatedGoalData,
     Reminder,
     Response,
+    CompactSchedule,
+    CompactPlanning,
 )
 #########################################################################
+
+# Toggle between old (3-call) and new (2-call) compact goal pipeline
+COMPACT_PIPELINE = True
 
 logger = logging.getLogger(__name__)
 
@@ -325,6 +330,8 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
             await complete_limbo_goal(update, context, goal_id, initial_update=True)
             return
         
+        elif COMPACT_PIPELINE:
+            await compact_goal_pipeline(update, context, goal_id, recurrence_type, smarter)
         elif recurrence_type == 'one-time':
             await goal_valuation(update, context, goal_id, smarter=smarter)
         elif recurrence_type == 'recurring':
@@ -402,6 +409,36 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
     except Exception as e:
         await update.message.reply_text(f"Error in prepare_goal_proposal():\n {e}")
         logger.error(f"\n\n🚨 Error in prepare_goal_proposal(): {e}\n\n")
+
+
+async def compact_goal_pipeline(update, context, goal_id, recurrence_type, smarter=False):
+    """Compact pipeline: combined valuation + scheduling in one LLM call (replaces goal_valuation + prepare_goal_proposal)."""
+    try:
+        input_vars = await get_input_variables(update, context)
+
+        if recurrence_type == 'recurring':
+            chain_name = "compact_planning_smart" if smarter else "compact_planning"
+            result = await run_chain(chain_name, input_vars)
+            parsed_result = CompactPlanning.model_validate(result)
+        else:
+            chain_name = "compact_schedule_smart" if smarter else "compact_schedule"
+            result = await run_chain(chain_name, input_vars)
+            parsed_result = CompactSchedule.model_validate(result)
+
+        if shared_state["transparant_mode"]:
+            debug_message = await update.message.reply_text(f"compact_goal_pipeline: \n{parsed_result}")
+            await add_delete_button(update, context, debug_message.message_id)
+            asyncio.create_task(delete_message(update, context, debug_message.message_id, 200))
+
+        # Store valuation and planning fields in context (same field names as old pipeline)
+        await add_user_context_to_goals(context, goal_id, parsed_goal_valuation=parsed_result)
+        await add_user_context_to_goals(context, goal_id, parsed_planning=parsed_result)
+
+        await send_goal_proposal(update, context, goal_id)
+
+    except Exception as e:
+        await update.message.reply_text(f"Error in compact_goal_pipeline():\n {e}")
+        logger.error(f"\n\n🚨 Error in compact_goal_pipeline(): {e}\n\n")
 
 
 # /translate + any other non-English or non-Dutch messages pass through this
