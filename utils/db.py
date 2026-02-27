@@ -551,10 +551,12 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
                 kwargs["reminders_times"] = goal_data.get("reminders_times")
      
             recurrence_type = goal_data.get("recurrence_type")
+            deadlines = goal_data.get("deadlines")
             if recurrence_type == "recurring":
-                kwargs["deadlines"] = goal_data.get("deadlines")
+                kwargs["deadlines"] = deadlines
             else:
-                kwargs["deadline"] = goal_data.get("deadlines")             
+                # One-time goals: extract single deadline string from the list
+                kwargs["deadline"] = deadlines[0] if isinstance(deadlines, list) and deadlines else deadlines
 
         # Update the goal data in the database
         await update_goal_data(goal_id, initial_update, **kwargs)
