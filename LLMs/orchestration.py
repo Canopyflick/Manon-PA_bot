@@ -586,7 +586,7 @@ async def other_message_pro(update, context):
         now = datetime.now(tz=BERLIN_TZ)
         weekday = now.strftime("%A") 
         user_message = get_user_message(update, context)
-        await safe_set_reaction(context.bot, update.effective_chat.id, update.message.text.message_id, "💅")
+        await safe_set_reaction(context.bot, update.effective_chat.id, update.message.message_id, "💅")
         response_text = update.message.reply_to_message.text if update.message.reply_to_message else None
 
         if response_text:
