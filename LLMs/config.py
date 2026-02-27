@@ -48,7 +48,8 @@ from LLMs.prompts_templates import (
     compact_recurring_template,
 )
 
-from langchain_openai import ChatOpenAI   
+from langchain_openai import ChatOpenAI
+from utils.environment_vars import ENV_VARS
 
 
 # Flag for sending debug logger in chat
@@ -68,6 +69,15 @@ llms = {
     "o3-mini": ChatOpenAI(model_name="o3-mini", temperature=1),
     "smartest": ChatOpenAI(model_name="gpt-5.2-pro", temperature=1),
 }
+
+# OpenRouter: model-switching without code changes (configure preset at openrouter.ai)
+if ENV_VARS.OPENROUTER_API_KEY:
+    llms["openrouter_fast"] = ChatOpenAI(
+        model_name="@preset/manon-fast",
+        base_url="https://openrouter.ai/api/v1",
+        api_key=ENV_VARS.OPENROUTER_API_KEY,
+        temperature=1,
+    )
 
 # Centralized Chain Configuration
 chain_configs = {
@@ -197,10 +207,11 @@ chain_configs = {
         "llm": llms["mini"]
     },
     # Compact pipeline: combined valuation + scheduling in one call
+    # Uses OpenRouter preset when available, falls back to OpenAI mini/smart
     "compact_schedule": {
         "template": compact_one_time_template,
         "schema": CompactSchedule,
-        "llm": llms["mini"],
+        "llm": llms.get("openrouter_fast", llms["mini"]),
     },
     "compact_schedule_smart": {
         "template": compact_one_time_template,
@@ -210,7 +221,7 @@ chain_configs = {
     "compact_planning": {
         "template": compact_recurring_template,
         "schema": CompactPlanning,
-        "llm": llms["mini"],
+        "llm": llms.get("openrouter_fast", llms["mini"]),
     },
     "compact_planning_smart": {
         "template": compact_recurring_template,

@@ -21,6 +21,7 @@ class EnvironmentVars:
     BEN_ID: int
     LANGCHAIN_PROJECT: Optional[str] = None
     AUDIO_OPENAI_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
 
 def detect_env_mode() -> str:
     mode = os.getenv("ENV_MODE", "").lower()
@@ -69,6 +70,7 @@ def load_environment_vars() -> EnvironmentVars:
             int(uid) for uid in os.getenv("APPROVED_USER_IDS", "").split(",") if uid.strip().isdigit()
         ] if os.getenv("APPROVED_USER_IDS") else [],
         BEN_ID=int(get_env_var('BEN_ID')),
+        OPENROUTER_API_KEY=get_env_var('OPENROUTER_API_KEY', required=False),
     )
 
 # Global ENV_VARS object
