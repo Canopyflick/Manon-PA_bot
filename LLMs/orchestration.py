@@ -592,23 +592,21 @@ async def other_message_pro(update, context):
         if response_text:
             user_message = f"{user_message}\n\n(As a reply to message: {response_text})"
         
-        response = client_EC.chat.completions.create(
+        response = client_EC.responses.create(
             model="gpt-5.2-pro",
-            messages=[
-                {"role": "developer", "content": f"""
-                It is currently: {weekday}, {now}. You are a virtual PA called Manon. A user in a Telegram group is sending you a message. It's your task to respond to it, be as glib and helpful as possible. 
+            instructions=f"""
+                It is currently: {weekday}, {now}. You are a virtual PA called Manon. A user in a Telegram group is sending you a message. It's your task to respond to it, be as glib and helpful as possible.
                 Don't mince words, don't be nuanced, just give your best attempt at the most accurate and helpful response. No intro, no outro, no disclaimers. The user already knows that you're a chatbot and they should not take your words for truth.
-                Always include a {PA} somewhere in your response. If you expect your response to be helpful to the user, also include a 🍌. If you think it's probavly medium-helpful, include a 🕳️. If you don't think it's helpful, include a 🍆."""},
-                {"role": "user", "content": f"User message:\n{user_message}"}
-            ],
+                Always include a {PA} somewhere in your response. If you expect your response to be helpful to the user, also include a 🍌. If you think it's probavly medium-helpful, include a 🕳️. If you don't think it's helpful, include a 🍆.""",
+            input=f"User message:\n{user_message}",
         )
-        
+
         if shared_state["transparant_mode"]:
             debug_message = await update.message.reply_text(f"other_message_result: \n{response}")
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
-        
-        response_message = response.choices[0].message.content
+
+        response_message = response.output_text
         other_message_1 = await update.message.reply_text(response_message)
         
         await add_delete_button(update, context, other_message_1.message_id)
