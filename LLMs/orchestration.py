@@ -581,7 +581,7 @@ async def other_message(update, context):
         logger.error(f"\n\n🚨 Error in other_message(): {e}\n\n")
         
 
-async def other_message_o1(update, context):
+async def other_message_pro(update, context):
     try:
         now = datetime.now(tz=BERLIN_TZ)
         weekday = now.strftime("%A") 
@@ -593,7 +593,7 @@ async def other_message_o1(update, context):
             user_message = f"{user_message}\n\n(As a reply to message: {response_text})"
         
         response = client_EC.chat.completions.create(
-            model="o1",
+            model="gpt-5.2-pro",
             messages=[
                 {"role": "developer", "content": f"""
                 It is currently: {weekday}, {now}. You are a virtual PA called Manon. A user in a Telegram group is sending you a message. It's your task to respond to it, be as glib and helpful as possible. 

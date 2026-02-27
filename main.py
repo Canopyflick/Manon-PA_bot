@@ -63,7 +63,7 @@ def register_handlers(application):
     from features.bitcoin.command import bitcoin_command
     from features.bitcoin.command import btc_command
     from LLMs.commands import smarter_command
-    from LLMs.commands import o1_command
+    from LLMs.commands import pro_command
     from features.diceroll.command import dice_command
     from features.start.command import start_command
     from features.stats.command import stats_command
@@ -93,7 +93,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler("bitcoin", bitcoin_command))
     
     application.add_handler(CommandHandler("smarter", smarter_command))
-    application.add_handler(CommandHandler("o1", o1_command))
+    application.add_handler(CommandHandler("pro", pro_command))
     application.add_handler(CommandHandler("translate", translate_command))
     
     from utils.listener import analyze_any_message, print_edit, analyze_voice_message

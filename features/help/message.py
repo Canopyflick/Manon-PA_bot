@@ -8,7 +8,7 @@ HELP_MESSAGE = (
         '🉑 /translate - 肏你妈\n'
         '🎲 /dice - 1-6\n'
         '✍️ /smarter - 4o instead of 4o-mini\n'
-        '🤔 /o1 - use sparingly (expensive) xx\n'
+        '🤔 /pro - use sparingly (expensive) xx\n'
         '🗒️🚧 /profile - What I know about you\n'
         '💭🚧 /wow - Get inspired\n'
         '📊 /stats - Your goal statistics\n'

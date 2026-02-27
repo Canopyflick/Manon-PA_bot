@@ -57,12 +57,12 @@ MID = 0.7
 HIGH = 1.2
 
 llms = {
-    "smart": ChatOpenAI(model_name="gpt-5", temperature=1),
+    "smart": ChatOpenAI(model_name="gpt-5.2", temperature=1),
     "mini": ChatOpenAI(model_name="gpt-5-mini", temperature=1),
-    "gpt4o_high_temp": ChatOpenAI(model_name="gpt-5", temperature=1),
+    "gpt4o_high_temp": ChatOpenAI(model_name="gpt-5.2", temperature=1),
     "mini_high_temp": ChatOpenAI(model_name="gpt-5-mini", temperature=1),
     "o3-mini": ChatOpenAI(model_name="o3-mini", temperature=1),
-    "smartest": ChatOpenAI(model_name="o3", temperature=1),
+    "smartest": ChatOpenAI(model_name="gpt-5.2-pro", temperature=1),
 }
 
 # Centralized Chain Configuration
