@@ -49,6 +49,26 @@ client_EC = OpenAI(api_key=ENV_VARS.EC_OPENAI_API_KEY)
 #########################################################################
 
 
+TG_MAX = 4000  # Telegram hard limit is 4096; leave a small margin
+
+def split_message(text: str, max_len: int = TG_MAX) -> list[str]:
+    """Split a long string into Telegram-safe chunks, breaking on paragraph
+    boundaries where possible, then on newlines, then hard-cutting."""
+    if len(text) <= max_len:
+        return [text]
+    chunks = []
+    while len(text) > max_len:
+        split_at = text.rfind("\n\n", 0, max_len)
+        if split_at == -1:
+            split_at = text.rfind("\n", 0, max_len)
+        if split_at == -1:
+            split_at = max_len
+        chunks.append(text[:split_at].rstrip())
+        text = text[split_at:].lstrip()
+    if text:
+        chunks.append(text)
+    return chunks
+
 
 async def get_input_variables(update, context, source_text=None, target_language="English", goal_data=None):
     now = datetime.now(tz=BERLIN_TZ)
@@ -607,9 +627,10 @@ async def other_message_pro(update, context):
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
         response_message = response.output_text
-        other_message_1 = await update.message.reply_text(response_message)
-        
-        await add_delete_button(update, context, other_message_1.message_id)
+        chunks = split_message(response_message)
+        for i, chunk in enumerate(chunks):
+            sent = await update.message.reply_text(chunk)
+            await add_delete_button(update, context, sent.message_id)
         
     except Exception as e:
         await update.message.reply_text(f"Error in other_message_1():\n {e}")
