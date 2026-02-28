@@ -16,6 +16,7 @@ from dateutil.parser import parse
 from utils.db import (
     fetch_goal_data,
     fetch_long_term_goals,
+    fetch_active_goals_summary,
     create_limbo_goal,
     complete_limbo_goal,
     record_reminder,
@@ -526,10 +527,16 @@ async def check_language(update, context, source_text):
         logger.error(f"\n\n🚨 Error in check_language(): {e}\n\n")
 
 
-# for now, this only works for (replies to) messages that contain the goal_id in plaintext. Should later be expanded with some database content (with the user's recently set goals) that provide potentially relevant goal ids as sadditional context
 async def find_goal_id(update, context, type=None):
     try:
         input_vars = await get_input_variables(update, context)
+
+        # Fetch active goals from DB so the LLM can match by description/deadline
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        active_goals = await fetch_active_goals_summary(user_id, chat_id)
+        input_vars["active_goals"] = active_goals
+
         output = await run_chain("find_goal_id", input_vars)
         
         parsed_output = GoalID.model_validate(output)

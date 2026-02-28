@@ -583,9 +583,64 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
         raise
 
 
-# Dummy function, not yet interacting with db        
+# Dummy function, not yet interacting with db
 async def fetch_long_term_goals(chat_id, user_id):
     return "To be increasingly kind and useful to others. To set myself up for continuous learning, self-improvement, longevity and rich relationships."
+
+
+async def fetch_active_goals_summary(user_id, chat_id):
+    """Fetch active goals summary for LLM context (goal matching).
+    Combines recently set goals + goals with upcoming deadlines, deduplicated."""
+    try:
+        async with Database.acquire() as conn:
+            # Query 1: 15 most recently set active goals
+            recent_rows = await conn.fetch('''
+                SELECT goal_id, goal_description, status, deadline, recurrence_type
+                FROM manon_goals
+                WHERE user_id = $1 AND chat_id = $2
+                  AND status IN ('pending', 'limbo', 'prepared', 'paused')
+                ORDER BY set_time DESC
+                LIMIT 15
+            ''', user_id, chat_id)
+
+            # Query 2: all active goals with deadline in the next 3 days
+            upcoming_rows = await conn.fetch('''
+                SELECT goal_id, goal_description, status, deadline, recurrence_type
+                FROM manon_goals
+                WHERE user_id = $1 AND chat_id = $2
+                  AND status IN ('pending', 'limbo', 'prepared', 'paused')
+                  AND deadline >= NOW()
+                  AND deadline <= NOW() + INTERVAL '3 days'
+            ''', user_id, chat_id)
+
+        # Merge and deduplicate by goal_id
+        seen_ids = set()
+        combined = []
+        for row in list(recent_rows) + list(upcoming_rows):
+            if row["goal_id"] not in seen_ids:
+                seen_ids.add(row["goal_id"])
+                combined.append(row)
+
+        if not combined:
+            return "No active goals found."
+
+        # Format as a simple list for LLM context
+        lines = []
+        for row in combined:
+            desc = row["goal_description"] or "No description"
+            deadline = row["deadline"]
+            if deadline:
+                deadline_str = deadline.astimezone(BERLIN_TZ).strftime("%a %d %b %H:%M")
+            else:
+                deadline_str = "no deadline"
+            status = row["status"]
+            lines.append(f"#{row['goal_id']} — {desc} (deadline: {deadline_str}, status: {status})")
+
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.error(f"Error in fetch_active_goals_summary(): {e}")
+        return "Could not retrieve active goals."
 
 
 async def adjust_penalty_or_goal_value(update, context, goal_id, action, direction):

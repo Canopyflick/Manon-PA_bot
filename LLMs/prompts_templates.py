@@ -631,11 +631,16 @@ language_check_template = ChatPromptTemplate([
 
 find_goal_id_template = ChatPromptTemplate([
     ("system", """
-    It is currently: {weekday}, {now}. A user wants to edit something about one of their goals. It is your task to map their request onto the relevant goal they're talking about. For this, only refer to the correct goal_id, which is an integer that servers as a goal's unique identifier. 
+    It is currently: {weekday}, {now}. A user wants to edit something about one of their goals. It is your task to map their request onto the relevant goal they're talking about. For this, only refer to the correct goal_id, which is an integer that serves as a goal's unique identifier.
     Generally, Goal IDs are displayed like this: #<goal_id>.
-    Pick the best matching Goal ID by evaluating all of the context available. If you have nothing to go off (for example when there's no goal IDs in the available context), pick 0 as a fallback value.
+
+    Here are the user's currently active goals:
+    {active_goals}
+
+    Pick the best matching Goal ID by evaluating the user's message against the goals listed above. Match by goal description, deadline, or any other relevant context. If the user's message contains a #<goal_id>, verify it exists in the list above.
+    If no reasonable match can be found, pick 0 as a fallback value.
     """),
-    
+
     ("human", """
     User message:
     {user_message}
