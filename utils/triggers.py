@@ -61,7 +61,7 @@ async def handle_triggers(update, context, trigger_text):
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
         await StatsManager.update_daily_stats(specific_chat_id=chat_id)
     elif re.match(r"^logger\d+$", trigger_text):  # Match logger followed by digits
-        num_lines = int(trigger_text[4:])  # Extract the number after 'logger'
+        num_lines = int(trigger_text[6:])  # Extract the number after 'logger'
         await context.bot.setMessageReaction(chat_id=update.effective_chat.id, message_id=update.message.message_id, reaction="👍")
         await fetch_logs(update, context, abs(num_lines))  # Ensure the number is positive
     elif trigger_text == "logger":
