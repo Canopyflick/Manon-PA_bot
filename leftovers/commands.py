@@ -8,6 +8,7 @@ from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from telegram.ext import CallbackContext
 from LLMs.orchestration import process_other_language, check_language, run_chain
+from telegram_helpers.security import is_ben_in_chat
 from utils.db import fetch_active_goals_summary
 from utils.scheduler import send_goals_today, fetch_overdue_goals
 
@@ -49,37 +50,38 @@ async def process_emojis(escaped_emoji_string, escaped_pending_emojis):
 
 async def wow_command(update, context):
     chat_type = update.effective_chat.type
-    # Check if the chat is private or group/supergroup
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # Private chat flavor text
     if chat_type == 'private':
         await update.message.reply_text("Hihi hoi. Ik werk eigenlijk liever in een groepssetting... 🧙‍♂️")
         await asyncio.sleep(3)
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
         await asyncio.sleep(1)
         await update.message.reply_text("... maarrr, vooruit dan maar, een stukje inspiratie kan ik je niet ontzeggen ...")
-        philosophical_message = get_random_philosophical_message(normal_only=True)
         await asyncio.sleep(2)
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-        await asyncio.sleep(4)
-        await asyncio.sleep(1)
-        await update.message.reply_text(f'_{philosophical_message}_', parse_mode="Markdown")
-        return
+
     try:
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        active_goals = await fetch_active_goals_summary(user_id, chat_id)
-        if active_goals and active_goals != "No active goals found.":
+        use_fallback = random.random() < 0.2
+        # Try grandpa quote if approved user, has active goals, and not in the 20% fallback
+        if not use_fallback and await is_ben_in_chat(update, context):
+            active_goals = await fetch_active_goals_summary(user_id, chat_id)
+            if active_goals and active_goals != "No active goals found.":
                 await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
                 result = await run_chain("grandpa_quote", {"active_goals": active_goals})
                 grandpa_quote = result.response_text
                 random_delay = random.uniform(2, 8)
                 await asyncio.sleep(random_delay)
                 await update.message.reply_text(f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨", parse_mode="Markdown")
-        else:
-            await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
-            random_delay = random.uniform(2, 5)
-            await asyncio.sleep(random_delay)
-            philosophical_message = get_random_philosophical_message(normal_only=True)
-            await update.message.reply_text(f'_{philosophical_message}_', parse_mode="Markdown")
+                return
+
+        # Fallback: prewritten philosophical quote
+        await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+        random_delay = random.uniform(2, 5)
+        await asyncio.sleep(random_delay)
+        philosophical_message = get_random_philosophical_message(normal_only=True)
+        await update.message.reply_text(f'_{philosophical_message}_', parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Error in wow_command: {e}")
 
