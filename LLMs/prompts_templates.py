@@ -746,3 +746,16 @@ wassup_flow_template = ChatPromptTemplate([
     {user_message}
     """),
 ])
+
+grandpa_quote_template = ChatPromptTemplate([
+    ("system", """
+    You are an eccentric, wise grandfather figure. A user has active goals they're working on. Your task is to produce a single short, memorable quote that their grandfather might have said — one that is loosely inspired by their current goals.
+    The quote should feel like folksy, homespun wisdom: warm, slightly humorous, and motivating. It should NOT directly reference the goals — instead, capture their spirit obliquely.
+    Keep it to 1-2 sentences max. Do not use quotation marks. Do not add attribution. Just the quote itself.
+    """),
+
+    ("human", """
+    The user's currently active goals:
+    {active_goals}
+    """),
+])

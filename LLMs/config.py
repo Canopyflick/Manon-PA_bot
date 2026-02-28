@@ -46,6 +46,7 @@ from LLMs.prompts_templates import (
     wassup_flow_template,
     compact_one_time_template,
     compact_recurring_template,
+    grandpa_quote_template,
 )
 
 from langchain_openai import ChatOpenAI
@@ -74,6 +75,12 @@ llms = {
 if ENV_VARS.OPENROUTER_API_KEY:
     llms["openrouter_fast"] = ChatOpenAI(
         model_name="@preset/manon-fast",
+        base_url="https://openrouter.ai/api/v1",
+        api_key=ENV_VARS.OPENROUTER_API_KEY,
+        temperature=1,
+    )
+    llms["openrouter_smart"] = ChatOpenAI(
+        model_name="@preset/manon-smart",
         base_url="https://openrouter.ai/api/v1",
         api_key=ENV_VARS.OPENROUTER_API_KEY,
         temperature=1,
@@ -227,6 +234,11 @@ chain_configs = {
         "template": compact_recurring_template,
         "schema": CompactPlanning,
         "llm": llms["smart"],
+    },
+    "grandpa_quote": {
+        "template": grandpa_quote_template,
+        "schema": Response,
+        "llm": llms.get("openrouter_smart", llms["smart"]),
     },
 
 }

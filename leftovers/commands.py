@@ -7,7 +7,8 @@ from telegram import Update
 from telegram.constants import ChatAction
 import asyncio, random, re, logging
 from telegram.ext import CallbackContext
-from LLMs.orchestration import process_other_language, check_language
+from LLMs.orchestration import process_other_language, check_language, run_chain
+from utils.db import fetch_active_goals_summary
 from utils.scheduler import send_goals_today, fetch_overdue_goals
 
 logger = logging.getLogger(__name__)
@@ -65,22 +66,22 @@ async def wow_command(update, context):
     try:
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-        goal_text = fetch_goal_text(update)
-        if goal_text != '' and goal_text != None:
-                messages = await prepare_openai_messages(update, user_message="onzichtbaar", message_type = 'grandpa quote', goal_text=goal_text)
-                grandpa_quote = await send_openai_request(messages, "gpt-4o")
-                await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        active_goals = await fetch_active_goals_summary(user_id, chat_id)
+        if active_goals and active_goals != "No active goals found.":
+                await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+                result = await run_chain("grandpa_quote", {"active_goals": active_goals})
+                grandpa_quote = result.response_text
                 random_delay = random.uniform(2, 8)
                 await asyncio.sleep(random_delay)
                 await update.message.reply_text(f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨", parse_mode="Markdown")
         else:
-            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+            await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
             random_delay = random.uniform(2, 5)
             await asyncio.sleep(random_delay)
             philosophical_message = get_random_philosophical_message(normal_only=True)
             await update.message.reply_text(f'_{philosophical_message}_', parse_mode="Markdown")
     except Exception as e:
-        logger.error(f"Error in filosofie_command: {e}")
+        logger.error(f"Error in wow_command: {e}")
 
 
 async def translate_command(update: Update, context: CallbackContext):
