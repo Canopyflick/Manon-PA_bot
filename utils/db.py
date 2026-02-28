@@ -546,7 +546,8 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
             reminders = goal_data.get("reminders_times", [])
             reminders_count = len(reminders) if isinstance(reminders, list) else 0
             if reminders_count == 1:
-                kwargs["reminder_time"] = goal_data.get("reminders_times")
+                # Extract single string from list to match DB column type (TIMESTAMPTZ, not TEXT[])
+                kwargs["reminder_time"] = reminders[0] if isinstance(reminders, list) else reminders
             if reminders_count > 1:
                 kwargs["reminders_times"] = goal_data.get("reminders_times")
      
@@ -579,7 +580,7 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
 
     except Exception as e:
         logger.error(f'Unexpected error in complete_limbo_goal(): \n{e}')
-        return None
+        raise
 
 
 # Dummy function, not yet interacting with db        

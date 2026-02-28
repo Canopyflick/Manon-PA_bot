@@ -300,8 +300,11 @@ async def accept_goal_proposal(update, context):
             await update_goal_data(goal_id, status="pending", deadline=first_deadline, iteration=1, group_id=goal_id)
         
         if recurrence_type == "one-time":
+            # Check current status before accepting — avoid double-counting edits of already-pending goals
+            current_status = await fetch_goal_data(goal_id, columns="status", single_value=True)
             await update_goal_data(goal_id, status="pending")
-            await update_user_data(user_id, chat_id, increment_pending_goals=1)
+            if current_status != "pending":
+                await update_user_data(user_id, chat_id, increment_pending_goals=1)
             
 
         # Validate goal constraints (either for goup goal's first, or for one-time goal)
