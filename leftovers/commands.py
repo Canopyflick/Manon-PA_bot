@@ -54,13 +54,16 @@ async def wow_command(update, context):
     chat_id = update.effective_chat.id
 
     approved = await is_ben_in_chat(update, context)
+    logger.info(f"🔍 /wow: user_id={user_id}, chat_id={chat_id}, chat_type={chat_type}, approved={approved}")
 
     try:
         # Approved user: try grandpa quote (30% of the time)
         if approved:
             use_fallback = random.random() < 0.7
+            logger.info(f"🔍 /wow: use_fallback={use_fallback}")
             if not use_fallback:
                 todays_goal = await fetch_random_todays_goal(user_id, chat_id)
+                logger.info(f"🔍 /wow: todays_goal={'found' if todays_goal else 'None'}")
                 if todays_goal:
                     await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
                     result = await run_chain("grandpa_quote", {"active_goals": todays_goal})
