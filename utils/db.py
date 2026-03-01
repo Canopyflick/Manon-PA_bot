@@ -588,6 +588,31 @@ async def fetch_long_term_goals(chat_id, user_id):
     return "To be increasingly kind and useful to others. To set myself up for continuous learning, self-improvement, longevity and rich relationships."
 
 
+async def fetch_random_todays_goal(user_id, chat_id):
+    """Fetch 1 random active goal with a deadline today (Berlin time).
+    Returns just the goal description string, or None if no goals today."""
+    try:
+        async with Database.acquire() as conn:
+            row = await conn.fetchrow('''
+                SELECT goal_description
+                FROM manon_goals
+                WHERE user_id = $1 AND chat_id = $2
+                  AND status IN ('pending', 'limbo', 'prepared', 'paused')
+                  AND deadline >= (NOW() AT TIME ZONE 'Europe/Berlin')::date
+                  AND deadline < (NOW() AT TIME ZONE 'Europe/Berlin')::date + INTERVAL '1 day'
+                ORDER BY RANDOM()
+                LIMIT 1
+            ''', user_id, chat_id)
+
+        if row:
+            return row["goal_description"]
+        return None
+
+    except Exception as e:
+        logger.error(f"Error fetching random today's goal: {e}")
+        return None
+
+
 async def fetch_active_goals_summary(user_id, chat_id):
     """Fetch active goals summary for LLM context (goal matching).
     Combines recently set goals + goals with upcoming deadlines, deduplicated."""

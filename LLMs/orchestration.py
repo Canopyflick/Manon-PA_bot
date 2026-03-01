@@ -149,9 +149,17 @@ async def run_chain(chain_name, input_variables: dict):
         chain = chains.get(chain_name)
         if not chain:
             raise KeyError(f"Chain '{chain_name}' not found in the chains dictionary.")
+
+        # Diagnostic: log the underlying LLM for this chain
+        bound_llm = getattr(chain["chain"], 'first', None) or getattr(chain["chain"], 'bound', None)
+        if bound_llm:
+            logger.info(f"🔍 run_chain('{chain_name}'): model={getattr(bound_llm, 'model_name', '?')}, base_url={getattr(bound_llm, 'openai_api_base', 'default')}")
+        else:
+            logger.info(f"🔍 run_chain('{chain_name}'): could not inspect LLM (chain type: {type(chain['chain']).__name__})")
+
         # Generate the prompt using the chain's template
         prompt_value = chain["template"].format_prompt(**input_variables)
-        
+
         # Invoke the LLM with the formatted prompt
         result = await chain["chain"].ainvoke(prompt_value.to_messages())
         

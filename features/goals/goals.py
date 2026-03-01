@@ -107,10 +107,7 @@ async def populate_goal_template(update, context, goal_id):
     try:
         goal_data = context.user_data["goals"].get(goal_id) # In case of an adjustment, goal_data should have already been fetched from db in prepare_goal_changes()
 
-        # Log all keys and their values
-        logger.info(f"Logging entire goal_data before populating template\n:")
-        for key, value in goal_data.items():
-            logger.info(f"Key: {key}, Value: {value}, Type: {type(value)}")
+        logger.info(f"Populating goal template for #{goal_id}: {goal_data.get('goal_description', '?')}")
 
         template = Template(TEMPLATE_TEXT)
         return template.render(**goal_data)

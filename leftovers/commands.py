@@ -9,7 +9,7 @@ import asyncio, random, re, logging
 from telegram.ext import CallbackContext
 from LLMs.orchestration import process_other_language, check_language, run_chain
 from telegram_helpers.security import is_ben_in_chat
-from utils.db import fetch_active_goals_summary
+from utils.db import fetch_active_goals_summary, fetch_random_todays_goal
 from utils.scheduler import send_goals_today, fetch_overdue_goals
 
 logger = logging.getLogger(__name__)
@@ -66,10 +66,10 @@ async def wow_command(update, context):
         use_fallback = random.random() < 0.2
         # Try grandpa quote if approved user, has active goals, and not in the 20% fallback
         if not use_fallback and await is_ben_in_chat(update, context):
-            active_goals = await fetch_active_goals_summary(user_id, chat_id)
-            if active_goals and active_goals != "No active goals found.":
+            todays_goal = await fetch_random_todays_goal(user_id, chat_id)
+            if todays_goal:
                 await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
-                result = await run_chain("grandpa_quote", {"active_goals": active_goals})
+                result = await run_chain("grandpa_quote", {"active_goals": todays_goal})
                 grandpa_quote = result.response_text
                 random_delay = random.uniform(2, 8)
                 await asyncio.sleep(random_delay)

@@ -51,7 +51,9 @@ from LLMs.prompts_templates import (
 
 from langchain_openai import ChatOpenAI
 from utils.environment_vars import ENV_VARS
+import logging
 
+logger = logging.getLogger(__name__)
 
 # Flag for sending debug logger in chat
 shared_state = {"transparant_mode": False}
@@ -85,6 +87,9 @@ if ENV_VARS.OPENROUTER_API_KEY:
         api_key=ENV_VARS.OPENROUTER_API_KEY,
         temperature=1,
     )
+    logger.info(f"✅ OpenRouter LLMs created: {[k for k in llms if k.startswith('openrouter_')]}")
+else:
+    logger.warning("⚠️ OPENROUTER_API_KEY not set — OpenRouter LLMs not created")
 
 # Centralized Chain Configuration
 chain_configs = {
@@ -242,6 +247,10 @@ chain_configs = {
     },
 
 }
+
+# Diagnostic: log which LLM the grandpa_quote chain resolved to
+_gq_llm = chain_configs["grandpa_quote"]["llm"]
+logger.info(f"🔍 grandpa_quote LLM resolved to: model={_gq_llm.model_name}, base_url={getattr(_gq_llm, 'openai_api_base', 'default')}")
 
 
 # Function to create chains
