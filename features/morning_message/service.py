@@ -10,6 +10,7 @@ from features.morning_message.formatter import (
     get_greeting_and_announcement
 )
 from features.bitcoin.monitoring import get_btc_change_message
+from features.weather.monitoring import get_weather_change_message
 from utils.db import Database, fetch_random_todays_goal
 from utils.helpers import BERLIN_TZ
 from LLMs.orchestration import run_chain
@@ -28,6 +29,13 @@ async def create_morning_message_components(user_id, chat_id, first_name):
         btc_change_message = await get_btc_change_message()
     except Exception as e:
         logger.error(f"Error fetching BTC change message: {e}")
+        btc_change_message = ""
+
+    try:
+        weather_change_message = await get_weather_change_message()
+    except Exception as e:
+        logger.error(f"Error fetching weather change message: {e}")
+        weather_change_message = ""
 
     try:
         greeting, announcement = get_greeting_and_announcement()
@@ -72,7 +80,7 @@ async def create_morning_message_components(user_id, chat_id, first_name):
         greeting_message += "\n_First, some unfinished business:_"
 
     # Main content
-    main_message += stakes_message + btc_change_message
+    main_message += stakes_message + btc_change_message + weather_change_message
 
     # Add motivational quote (rarely)
     motivational_quote = None
@@ -85,12 +93,13 @@ async def create_morning_message_components(user_id, chat_id, first_name):
     random_trigger = random.random() <= 0.00137  # Approx. once per two years if triggered daily
 
     # Determine whether to send the message
-    should_send = goals_count > 0 or btc_change_message or has_overdue or random_trigger
+    should_send = goals_count > 0 or btc_change_message or weather_change_message or has_overdue or random_trigger
 
     # **LOG should_send and its reasoning**
     logger.info(
         f"should_send: {should_send} | "
         f"goals_count: {goals_count}, btc_change_message: {bool(btc_change_message)}, "
+        f"weather_change_message: {bool(weather_change_message)}, "
         f"has_overdue: {has_overdue}, random_trigger: {random_trigger}"
     )
 
