@@ -1,42 +1,83 @@
 # features/bitcoin/monitoring.py
 import asyncio
+import logging
 from models.bitcoin import BitcoinPrice
 import requests
 from telegram import Bot
 
+logger = logging.getLogger(__name__)
+
+STEP_PERCENT = 0.15  # 15% change triggers an alert
+
+# Module-level state for threshold monitoring
+_btc_state = {
+    "anchor_price": None,   # Price that thresholds are based on; set on first fetch or via command
+    "alerted_upper": False,
+    "alerted_lower": False,
+}
+
+
+def get_btc_thresholds():
+    """Return (lower, upper) thresholds based on current anchor, or (None, None) if no anchor."""
+    anchor = _btc_state["anchor_price"]
+    if anchor is None:
+        return None, None
+    return anchor * (1 - STEP_PERCENT), anchor * (1 + STEP_PERCENT)
+
+
+def set_btc_anchor(price: float):
+    """Set a new anchor price and reset alert flags."""
+    _btc_state["anchor_price"] = price
+    _btc_state["alerted_upper"] = False
+    _btc_state["alerted_lower"] = False
+    logger.info(f"BTC anchor set to ${price:,.0f} — thresholds: ${price * (1 - STEP_PERCENT):,.0f} / ${price * (1 + STEP_PERCENT):,.0f}")
+
 
 async def monitor_btc_price(bot: Bot, chat_id: int):
     """
-    Function to check Bitcoin price every ten minutes and send a message if it crosses a threshold
+    Check Bitcoin price every ten minutes. Alert when price moves ±15% from anchor.
+    On alert, anchor auto-steps to the new price.
     """
-    lower_threshold = 99999
-    upper_threshold = 130000
-    upper_threshold_alerted = False
-    lower_threshold_alerted = False
     while True:
-        bitcoin_price = await get_btc_price()
-        price = bitcoin_price.raw_price
-        if price is not None:
-            print(f"Bitcoin price: ${price:,.0f}")  # Log the price
-            if price > upper_threshold and not upper_threshold_alerted:
+        try:
+            bitcoin_price = await get_btc_price()
+            price = bitcoin_price.raw_price
+            if price is None or price == 0.0:
+                await asyncio.sleep(600)
+                continue
+
+            logger.info(f"Bitcoin price: ${price:,.0f}")
+
+            # Initialize anchor on first successful fetch
+            if _btc_state["anchor_price"] is None:
+                set_btc_anchor(price)
+                await asyncio.sleep(600)
+                continue
+
+            lower, upper = get_btc_thresholds()
+
+            if price > upper and not _btc_state["alerted_upper"]:
+                pct = ((price - _btc_state["anchor_price"]) / _btc_state["anchor_price"]) * 100
                 message = (
-                    f"*🚀 Bitcoin price alert!*\n1₿ is now ${price:,.0f} USD, "
-                    f"exceeding the threshold of ${upper_threshold:,.0f}"
+                    f"*🚀 Bitcoin price alert!*\n1₿ is now ${price:,.0f} USD "
+                    f"(+{pct:.1f}% from ${_btc_state['anchor_price']:,.0f})"
                 )
                 await bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
-                upper_threshold_alerted = True
-                lower_threshold_alerted = False  # Reset lower threshold flag
+                set_btc_anchor(price)  # Auto-step: new anchor at current price
 
-            elif price < lower_threshold and not lower_threshold_alerted:
+            elif price < lower and not _btc_state["alerted_lower"]:
+                pct = ((_btc_state["anchor_price"] - price) / _btc_state["anchor_price"]) * 100
                 message = (
-                    f"*📉 Bitcoin price alert!*\n1₿ is now ${price:,.2f} USD, "
-                    f"dropping below the threshold of ${lower_threshold:,.2f}"
+                    f"*📉 Bitcoin price alert!*\n1₿ is now ${price:,.0f} USD "
+                    f"(-{pct:.1f}% from ${_btc_state['anchor_price']:,.0f})"
                 )
                 await bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
-                lower_threshold_alerted = True
-                upper_threshold_alerted = False  # Reset upper threshold flag
+                set_btc_anchor(price)  # Auto-step: new anchor at current price
 
-        await asyncio.sleep(600)  # Wait for 10 minutes before checking again
+        except Exception as e:
+            logger.error(f"Error in monitor_btc_price loop: {e}")
+
+        await asyncio.sleep(600)  # 10 minutes
 
 
 async def get_btc_price() -> BitcoinPrice:
@@ -92,7 +133,5 @@ async def get_btc_change_message() -> str:
             )
         return ""
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Error in get_btc_change_message: {e}")
         return ""

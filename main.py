@@ -60,8 +60,7 @@ def register_handlers(application):
     )
     from features.goals.commands import tomorrow_command
     from features.obsidian.command import diary_command
-    from features.bitcoin.command import bitcoin_command
-    from features.bitcoin.command import btc_command
+    from features.bitcoin.command import bitcoin_command, btc_command, btc_alert_command
     from LLMs.commands import smarter_command
     from LLMs.commands import pro_command
     from features.diceroll.command import dice_command
@@ -88,9 +87,10 @@ def register_handlers(application):
     application.add_handler(CommandHandler(["tomorrow", "morgen"], tomorrow_command))
     application.add_handler(CommandHandler(["diary", "header"], diary_command))
     
-    # /btc /bitcoin command handler
+    # /btc /bitcoin /btc_alert command handlers
     application.add_handler(CommandHandler("btc", btc_command))
     application.add_handler(CommandHandler("bitcoin", bitcoin_command))
+    application.add_handler(CommandHandler("btc_alert", btc_alert_command))
     
     application.add_handler(CommandHandler("smarter", smarter_command))
     application.add_handler(CommandHandler("pro", pro_command))
