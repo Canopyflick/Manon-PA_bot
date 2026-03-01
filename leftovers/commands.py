@@ -53,28 +53,31 @@ async def wow_command(update, context):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
-    # Private chat flavor text
-    if chat_type == 'private':
-        await update.message.reply_text("Hihi hoi. Ik werk eigenlijk liever in een groepssetting... 🧙‍♂️")
-        await asyncio.sleep(3)
-        await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
-        await asyncio.sleep(1)
-        await update.message.reply_text("... maarrr, vooruit dan maar, een stukje inspiratie kan ik je niet ontzeggen ...")
-        await asyncio.sleep(2)
+    approved = await is_ben_in_chat(update, context)
 
     try:
-        use_fallback = random.random() < 0.2
-        # Try grandpa quote if approved user, has active goals, and not in the 20% fallback
-        if not use_fallback and await is_ben_in_chat(update, context):
-            todays_goal = await fetch_random_todays_goal(user_id, chat_id)
-            if todays_goal:
-                await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
-                result = await run_chain("grandpa_quote", {"active_goals": todays_goal})
-                grandpa_quote = result.response_text
-                random_delay = random.uniform(2, 8)
-                await asyncio.sleep(random_delay)
-                await update.message.reply_text(f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨", parse_mode="Markdown")
-                return
+        # Approved user: try grandpa quote (30% of the time)
+        if approved:
+            use_fallback = random.random() < 0.7
+            if not use_fallback:
+                todays_goal = await fetch_random_todays_goal(user_id, chat_id)
+                if todays_goal:
+                    await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+                    result = await run_chain("grandpa_quote", {"active_goals": todays_goal})
+                    grandpa_quote = result.response_text
+                    random_delay = random.uniform(2, 8)
+                    await asyncio.sleep(random_delay)
+                    await update.message.reply_text(f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨", parse_mode="Markdown")
+                    return
+
+        # Non-approved user in private chat: flavor text
+        if not approved and chat_type == 'private':
+            await update.message.reply_text("Hihi hoi. Ik werk eigenlijk liever in een groepssetting... 🧙‍♂️")
+            await asyncio.sleep(3)
+            await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+            await asyncio.sleep(1)
+            await update.message.reply_text("... maarrr, vooruit dan maar, een stukje inspiratie kan ik je niet ontzeggen ...")
+            await asyncio.sleep(2)
 
         # Fallback: prewritten philosophical quote
         await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
