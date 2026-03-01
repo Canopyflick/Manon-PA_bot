@@ -10,8 +10,9 @@ from features.morning_message.formatter import (
     get_greeting_and_announcement
 )
 from features.bitcoin.monitoring import get_btc_change_message
-from utils.db import Database
+from utils.db import Database, fetch_random_todays_goal
 from utils.helpers import BERLIN_TZ
+from LLMs.orchestration import run_chain
 import logging
 from utils.session_avatar import PA
 
@@ -150,6 +151,18 @@ async def send_personalized_morning_message(bot, chat_id, user_id, first_name=No
         # Send final emoji
         await asyncio.sleep(4)
         await bot.send_message(chat_id, message_components["end_emoji"])
+
+        # 30% chance: send a grandpa quote based on a random today's goal
+        if random.random() < 0.3:
+            todays_goal = await fetch_random_todays_goal(user_id, chat_id)
+            if todays_goal:
+                try:
+                    result = await run_chain("grandpa_quote", {"active_goals": todays_goal})
+                    grandpa_quote = result.response_text
+                    await asyncio.sleep(random.uniform(3, 6))
+                    await bot.send_message(chat_id, f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨", parse_mode="Markdown")
+                except Exception as e:
+                    logger.error(f"Error sending grandpa quote in morning message: {e}")
 
         logger.info(f"Morning message sent successfully to {first_name}({user_id}) in chat {chat_id}")
 
