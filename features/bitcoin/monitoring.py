@@ -1,6 +1,7 @@
 # features/bitcoin/monitoring.py
 import asyncio
 import logging
+import math
 from models.bitcoin import BitcoinPrice
 import requests
 from telegram import Bot
@@ -22,7 +23,9 @@ def get_btc_thresholds():
     anchor = _btc_state["anchor_price"]
     if anchor is None:
         return None, None
-    return anchor * (1 - STEP_PERCENT), anchor * (1 + STEP_PERCENT)
+    lower = math.floor(anchor * (1 - STEP_PERCENT) / 1000) * 1000
+    upper = math.ceil(anchor * (1 + STEP_PERCENT) / 1000) * 1000
+    return lower, upper
 
 
 def set_btc_anchor(price: float):
@@ -30,7 +33,8 @@ def set_btc_anchor(price: float):
     _btc_state["anchor_price"] = price
     _btc_state["alerted_upper"] = False
     _btc_state["alerted_lower"] = False
-    logger.info(f"BTC anchor set to ${price:,.0f} — thresholds: ${price * (1 - STEP_PERCENT):,.0f} / ${price * (1 + STEP_PERCENT):,.0f}")
+    lower, upper = get_btc_thresholds()
+    logger.info(f"BTC anchor set to ${price:,.0f} — thresholds: ${lower:,.0f} / ${upper:,.0f}")
 
 
 async def monitor_btc_price(bot: Bot, chat_id: int):
