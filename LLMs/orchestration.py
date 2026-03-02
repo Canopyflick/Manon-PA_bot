@@ -634,20 +634,40 @@ async def reminder_setting(update, context):
 
 async def other_message(update, context):
     try:
-        input_vars = await get_input_variables(update, context)
-        output = await run_chain("other", input_vars)
-        
-        parsed_output = Response.model_validate(output)
-        response = parsed_output.response_text
-        
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        first_name = update.effective_user.first_name
+        user_message = get_user_message(update, context)
+
+        # Include replied-to context if present
+        response_text = (
+            update.message.reply_to_message.text
+            if update.message.reply_to_message else None
+        )
+        if response_text:
+            user_message = f"{user_message}\n\n(As a reply to message: {response_text})"
+
+        from features.agent.loop import run_agent_loop
+
+        final_response = await run_agent_loop(
+            user_message=user_message,
+            user_id=user_id,
+            chat_id=chat_id,
+            first_name=first_name,
+        )
+
         if shared_state["transparant_mode"]:
-            debug_message = await update.message.reply_text(f"other_message_result: \n{output}")
+            debug_message = await update.message.reply_text(
+                f"agent response (raw):\n{final_response[:3900]}"
+            )
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
-        other_message = await update.message.reply_text(response)
-        await add_delete_button(update, context, other_message.message_id)
-        
+        chunks = split_message(final_response)
+        for chunk in chunks:
+            sent = await update.message.reply_text(chunk, parse_mode="Markdown")
+            await add_delete_button(update, context, sent.message_id)
+
     except Exception as e:
         await update.message.reply_text(f"Error in other_message():\n {e}")
         logger.error(f"\n\n🚨 Error in other_message(): {e}\n\n")
