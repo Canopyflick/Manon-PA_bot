@@ -82,3 +82,41 @@ async def get_weather_change_message() -> str:
     except Exception as e:
         logger.error(f"Error in get_weather_change_message: {e}")
         return ""
+
+
+async def get_weather_summary() -> str:
+    """
+    Fetch a concise weather summary for Leipzig: today's max temperature
+    plus a short 5-day forecast with daily max temps.
+    """
+    try:
+        today = datetime.now(BERLIN_TZ).date()
+
+        response = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": LEIPZIG_LAT,
+                "longitude": LEIPZIG_LON,
+                "daily": "temperature_2m_max,temperature_2m_min",
+                "forecast_days": 5,
+                "timezone": "Europe/Berlin",
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        dates = data["daily"]["time"]
+        maxs = data["daily"]["temperature_2m_max"]
+        mins = data["daily"]["temperature_2m_min"]
+
+        lines = [f"Weather in Leipzig (5-day forecast):"]
+        for d, hi, lo in zip(dates, maxs, mins):
+            day_label = "Today" if d == today.isoformat() else datetime.fromisoformat(d).strftime("%a %d")
+            lines.append(f"  {day_label}: {lo:.0f}°C – {hi:.0f}°C")
+
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.error(f"Error in get_weather_summary: {e}")
+        return "Could not fetch weather data."

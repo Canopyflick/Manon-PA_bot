@@ -7,7 +7,7 @@ from langchain_core.tools import tool
 from utils.db import Database
 from utils.helpers import BERLIN_TZ
 from features.bitcoin.monitoring import get_btc_price
-from features.weather.monitoring import get_weather_change_message
+from features.weather.monitoring import get_weather_change_message, get_weather_summary
 
 logger = logging.getLogger(__name__)
 
@@ -195,10 +195,13 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
 
     @tool
     async def get_weather_tool() -> str:
-        """Get weather temperature info for Leipzig (significant temperature
-        changes between yesterday, today, and 4 days out)."""
-        msg = await get_weather_change_message()
-        return msg if msg else "No significant temperature changes to report."
+        """Get current weather info for Leipzig: today's max temperature,
+        a 5-day forecast, and any significant temperature swings."""
+        summary = await get_weather_summary()
+        change_msg = await get_weather_change_message()
+        if change_msg:
+            return f"{summary}\n{change_msg}"
+        return summary
 
     # Build dynamic description with user context for custom SQL
     custom_sql_description = (

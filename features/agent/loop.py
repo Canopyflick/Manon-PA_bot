@@ -15,6 +15,31 @@ logger = logging.getLogger(__name__)
 MAX_ITERATIONS = 5
 
 
+def _extract_text(response) -> str:
+    """
+    Extract plain text from an AIMessage response.
+    Handles: str content, None, and list-of-content-blocks
+    (e.g. [{"type": "text", "text": "..."}] from Anthropic-style models).
+    """
+    if response is None:
+        return ""
+    content = response.content
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        # List of content blocks — extract text parts
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif isinstance(block, str):
+                parts.append(block)
+        return "\n".join(parts)
+    return str(content)
+
+
 async def run_agent_loop(
     user_message: str,
     user_id: int,
@@ -55,6 +80,13 @@ async def run_agent_loop(
     for iteration in range(MAX_ITERATIONS):
         response: AIMessage = await llm_with_tools.ainvoke(messages)
         messages.append(response)
+
+        logger.info(
+            f"🤖 Agent iter {iteration+1}: "
+            f"tool_calls={len(response.tool_calls) if response.tool_calls else 0}, "
+            f"content_type={type(response.content).__name__}, "
+            f"content_preview={str(response.content)[:200]!r}"
+        )
 
         # No tool calls → we have the final answer
         if not response.tool_calls:
@@ -108,9 +140,14 @@ async def run_agent_loop(
             + json.dumps(tool_log, indent=2, default=str)
         )
 
-    # 6. Extract final text
-    final_text = response.content if response else ""
-    if not final_text or not final_text.strip():
+    # 6. Extract final text (handles str, None, and list-of-content-blocks)
+    final_text = _extract_text(response)
+    if not final_text.strip():
+        logger.warning(
+            f"⚠️ Agent loop produced empty response. "
+            f"raw content type={type(response.content).__name__ if response else 'NoResponse'}, "
+            f"raw content={response.content!r if response else 'N/A'}"
+        )
         final_text = f"I wasn't able to come up with a response {PA}"
 
     return final_text
