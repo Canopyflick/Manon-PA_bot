@@ -10,7 +10,7 @@ class DummyClass(BaseModel):
     
 class InitialClassification(BaseModel):
     user_message_language: Literal['English', 'German', 'Dutch', 'other']
-    classification: Literal['Goals', 'Reminders', 'Meta', 'Other'] 
+    classification: Literal['Goals', 'Reminders', 'Other']  # Meta removed — handled by agentic "Other" pipeline
 
 
 

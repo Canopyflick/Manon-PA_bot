@@ -251,10 +251,8 @@ async def process_classification_result(update, context, initial_classification)
             await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
             await reminder_setting(update, context)                                     # < < < < <
             # await context.bot.setMessageReaction(chat_id=chat_id, message_id=message_id, reaction=later_reaction)
-        elif initial_classification == "Meta":
-            preset_reaction = "💩"
-            await update.message.reply_text("This is a meta query about the bot.\n_(remaining flow not yet implemented)_", parse_mode="Markdown")                                              # < < < < <
-            await safe_set_reaction(context.bot, chat_id=chat_id, message_id=message_id, reaction=preset_reaction)
+        # NOTE: "Meta" removed from classification — meta queries (about the bot, user data, etc.)
+        # are now routed to the agentic "Other" pipeline which has tool access to answer them.
         else:
             preset_reaction = "😘"
             await other_message(update, context)                                        # < < < < <

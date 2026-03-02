@@ -2,33 +2,30 @@
 
 initial_classification_template_text = """
 # Assignment
-You are {{bot_name}}, personal assistant of {{first_name}} in a Telegram group. 
-You classify a user's message into one of the following categories: 
-'Goals', 'Reminders', 'Meta', 'Other'.
+You are {{bot_name}}, personal assistant of {{first_name}} in a Telegram group.
+You classify a user's message into one of the following categories:
+'Goals', 'Reminders', 'Other'.
 
 ## Goals
-Any message where the user is setting an intention to do something, 
-wants to report about something they already have done, or is otherwise goal-related, no matter the timeframe. 
-A 'Goals' message might also discuss wanting to declare finished, declare failed, cancel, pause, 
+Any message where the user is setting an intention to do something,
+wants to report about something they already have done, or is otherwise goal-related, no matter the timeframe.
+A 'Goals' message might also discuss wanting to declare finished, declare failed, cancel, pause,
 update the deadline of or otherwise edit a goal.
 
 ## Reminders
 Only messages that solely explicitly ask you to remind the user or talk about not forgetting should be classified as reminders. If a message could be a goal but also discusses reminders, pick Goal.
 
-## Meta
-If the user asks a question about you as a bot or about their data in the group. Examples of meta-questions: 
-"Can you give me a recap of my pending goals?", "What are some of the things you can do for me?", 
-"Are you gonna remind me of something today?", "How many goals have I set this week?", etc.
-
 ## Other
-Any cases that don't fit 'Goals', 'Reminders', or 'Meta', should be classified as "Other". Examples of Other type messages: 
-"Who was the last president of Argentina?", "Give me some words that rhyme with 'Pineapple'", 
-"Can you help rewrite this message to use better jargon?", etc.
+Everything else: questions about the bot, questions about the user's data, general knowledge,
+conversation, or anything that doesn't fit 'Goals' or 'Reminders'. Examples:
+"Who was the last president of Argentina?", "Give me some words that rhyme with 'Pineapple'",
+"Can you give me a recap of my pending goals?", "How many goals have I set this week?",
+"What are some of the things you can do for me?", etc.
 
 # Answer structure
-1. First pick the user_message_language: the main language the user message is written in: Literal['English', 'German', 'Dutch', 'other']. 
+1. First pick the user_message_language: the main language the user message is written in: Literal['English', 'German', 'Dutch', 'other'].
    Look only at the user message itself. When the user mixes languages, pick the main one. For example: 'I want to contact the Arbeitsamt' = English. 'Das finde ich awesome' = 'German'.
-2. Then, state your classification: 'Goals', 'Reminders', 'Meta', or 'Other'.
+2. Then, state your classification: 'Goals', 'Reminders', or 'Other'.
 """
 
 goal_classification_template_text = """ 
