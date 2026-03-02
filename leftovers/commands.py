@@ -59,7 +59,7 @@ async def wow_command(update, context):
     try:
         # Approved user: try grandpa quote (30% of the time)
         if approved:
-            use_fallback = random.random() < 0.7
+            use_fallback = random.random() < 0.3
             logger.info(f"🔍 /wow: use_fallback={use_fallback}")
             if not use_fallback:
                 todays_goal = await fetch_random_todays_goal(user_id, chat_id)

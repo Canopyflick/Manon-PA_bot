@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/Ben/source/repos/PA_bot -type f -name \"*.py\" -exec grep -l \"weather\\\\|Weather\\\\|WEATHER\" {} ;)",
+      "Bash(find /c/Users/Ben/source/repos/PA_bot/.claude/worktrees/bold-dubinsky -name \"*.py\" -exec grep -l \"CREATE TABLE\" {} ;)",
+      "Bash(xargs grep -l \"tool\\\\|Tool\")"
+    ]
+  }
+}
