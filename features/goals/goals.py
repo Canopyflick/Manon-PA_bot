@@ -1,4 +1,4 @@
-﻿from features.goals.helpers import add_user_context_to_goals
+from features.goals.helpers import add_user_context_to_goals
 from utils.helpers import BERLIN_TZ, logger
 from utils.session_avatar import PA
 from utils.db import(
@@ -88,7 +88,7 @@ async def send_goal_proposal(update, context, goal_id, adjust=False):
         logger.error(f"Error in send_goal_proposal(): {e}")
     
         
-TEMPLATE_TEXT = """*{{ recurrence_type | capitalize }} Goal Proposal* {{ PA }}‍ 
+TEMPLATE_TEXT = """*{{ recurrence_type | capitalize }} Goal Proposal* {{ PA }}
 ✍️ {{ goal_description }}
 
 📅 {{ "Deadline" if deadline_count == 1 else deadline_count ~ " Deadlines" }}:
