@@ -21,12 +21,13 @@ cd ~/manon_deployer
    - `docker-compose.yml`
    - `update_container.sh`
    - `manage_manon.sh`
+   - `weekly_restart.sh`
    - `.env.template` (rename to `.env` and fill in your API keys)
 
 3. Make the scripts executable:
 
 ```bash
-chmod +x update_container.sh manage_manon.sh
+chmod +x update_container.sh manage_manon.sh weekly_restart.sh
 ```
 
 4. Create a `.env` file with your configuration:
@@ -68,6 +69,33 @@ Add this line to check for updates every hour:
 ```
 0 * * * * cd /home/your_username/manon_deployer && ./update_container.sh >> update_container.log 2>&1
 ```
+
+## Weekly restart (Tuesday & Friday 03:00)
+
+The bot can hang while the Docker container still appears healthy. Twice-weekly restarts clear that state.
+
+1. Copy `weekly_restart.sh` to your deploy directory and make it executable (see Initial Setup).
+2. Install the cron job (uses the server’s local timezone, e.g. Europe/Berlin on the Pi):
+
+```bash
+crontab -e
+```
+
+Add:
+
+```
+0 3 * * 2,5 /home/your_username/manon_deployer/weekly_restart.sh >> /home/your_username/manon_deployer/weekly_restart.log 2>&1
+```
+
+(`2` = Tuesday, `5` = Friday.)
+
+Or install in one step (replace `your_username`):
+
+```bash
+( crontab -l 2>/dev/null | grep -v weekly_restart.sh; echo '0 3 * * 2,5 /home/your_username/manon_deployer/weekly_restart.sh >> /home/your_username/manon_deployer/weekly_restart.log 2>&1' ) | crontab -
+```
+
+Logs are appended to `weekly_restart.log` in the deploy directory.
 
 ## Troubleshooting
 
