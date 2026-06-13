@@ -146,7 +146,8 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | MCP Connection Test | Manual trigger — verifies MCP connectivity |
 | Nathan Telegram Test | Manual trigger — sends a Telegram test message |
 | Nathan Calendar Bot | Telegram Trigger → AI Agent + Google Calendar tools → Telegram reply. **Error workflow:** Nathan Error Notifier |
-| **Send Message via Manon** (`zCzJmgdkSZwCKWo3`) | Sub-workflow — call via **Execute Sub-workflow** to send Telegram messages from @Manon_PA_bot |
+| **Send Message via Nathan** (`C9wBLIsEiZje0tEk`) | Sub-workflow — call via **Execute Sub-workflow** to send Telegram messages from @Nathan_PA_bot |
+| **Mathijs Last Friday Discord Invite** (`p6oTzjcOJbNjjlV7`) | Schedule: last Friday of month 17:00 Europe/Berlin → Send Message via Nathan to chat `-1003758814644` |
 | **Nathan Error Notifier** (`F8jhQSnsX59ZTYkQ`) | Error Trigger → format alert → Send Message via Manon. Assigned as error workflow on Nathan Calendar Bot |
 | Test Send Message via Manon (`EU17ZwFO5PSBxd9s`) | Manual test harness for the Manon sub-workflow |
 | Test Nathan Error Notifier (`Q7wF4ELCNWoJHLR2`) | Manual Stop-and-Error harness (fires error workflow only in production) |
