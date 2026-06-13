@@ -1,0 +1,44 @@
+---
+description: n8n automation patterns for PA_bot Raspberry Pi ops
+globs: ops/raspberry-pi/**
+alwaysApply: false
+---
+
+# n8n Integration (ops/raspberry-pi)
+
+Instance: `https://n8n.bentenberge.com`. Operational context in `ops/raspberry-pi/context.md`.
+
+## Two tools — use both
+
+| Tool | Secrets? | Use for |
+| --- | --- | --- |
+| **n8n MCP** (`user-n8n-mcp`) | No | Workflow SDK: build, validate, update, execute; search nodes; assign credential IDs |
+| **n8n REST API** | Yes (`N8N_API_KEY` in `ops/raspberry-pi/.env`) | Create token credentials; full JSON; executions |
+
+Pattern: MCP builds workflow → API creates credentials from `.env` → MCP assigns credential IDs to nodes.
+
+## Workflow build pipeline (MCP)
+
+1. `get_sdk_reference` — read SDK patterns first
+2. `search_nodes` / `get_suggested_nodes`
+3. `get_node_types` — exact parameter names; never guess
+4. `validate_workflow`
+5. `create_workflow_from_code` or `update_workflow`
+
+## Credentials
+
+- **Token-based** (Telegram, OpenRouter): REST API `POST /api/v1/credentials`
+- **OAuth** (Google Calendar): user must connect in n8n UI — not automatable
+
+Existing creds: Nathan (`telegramApi`), OpenRouter Persoonlijk (`openRouterApi`), Google Calendar (OAuth, UI).
+
+## Chat Hub vs Telegram
+
+- `/home/chat?agentId=...` = n8n Personal Agent (browser only) — **not** callable from Telegram
+- Telegram bots need **Telegram Trigger** + **AI Agent** workflow
+- Chat Hub exposure: **Chat Trigger** with "Make Available in n8n Chat" + streaming AI Agent
+
+## Secrets
+
+- Local `.env` at `ops/raspberry-pi/.env` (gitignored) — see `.env.example`
+- Never put real keys in committed docs or rules

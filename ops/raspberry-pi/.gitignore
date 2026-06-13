@@ -1,0 +1,12 @@
+private-notes.md
+*.env
+*.sql
+*.dump
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.key
+*.pem
+*credentials*.json
+docker-config.json
