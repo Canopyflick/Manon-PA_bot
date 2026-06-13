@@ -20,7 +20,7 @@ fi
 
 if [ -d "$OBSIDIAN_VAULT_DIR" ] || [ -L "$OBSIDIAN_VAULT_DIR" ]; then
   md_count=$(find -L "$OBSIDIAN_VAULT_DIR" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
-  vault_mtime=$(find -L "$OBSIDIAN_VAULT_DIR" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
+  vault_mtime=$(find -L "$OBSIDIAN_VAULT_DIR" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1 || true)
   if [ -n "${vault_mtime:-}" ]; then
     echo "latest_vault_file_epoch=${vault_mtime}"
     echo "latest_vault_file_time=$(date -d "@${vault_mtime}" --iso-8601=seconds 2>/dev/null || date -r "${vault_mtime}" --iso-8601=seconds 2>/dev/null || echo unknown)"
