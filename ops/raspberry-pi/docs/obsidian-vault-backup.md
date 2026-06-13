@@ -76,6 +76,7 @@ Obsidian-friendly client settings:
 ## GitHub backup
 
 - Repo: `git@github.com:Canopyflick/obsidian-vault-backup.git` (private)
+- Commit author (bare repo local config): `Canopyflick <30658946+Canopyflick@users.noreply.github.com>`
 - Git metadata is stored outside the vault using `--git-dir` / `--work-tree`
 - No `.git` directory inside the synced vault folder
 - Auth: repo-scoped SSH deploy key at `~/.ssh/obsidian_vault_backup`
