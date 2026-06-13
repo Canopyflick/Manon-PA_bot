@@ -118,9 +118,11 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | --- | --- |
 | MCP Connection Test | Manual trigger — verifies MCP connectivity |
 | Nathan Telegram Test | Manual trigger — sends a Telegram test message |
-| Nathan Calendar Bot | Telegram Trigger → AI Agent + Google Calendar tools → Telegram reply |
+| Nathan Calendar Bot | Telegram Trigger → AI Agent + Google Calendar tools → Telegram reply. **Error workflow:** Nathan Error Notifier |
 | **Send Message via Manon** (`zCzJmgdkSZwCKWo3`) | Sub-workflow — call via **Execute Sub-workflow** to send Telegram messages from @Manon_PA_bot |
+| **Nathan Error Notifier** (`F8jhQSnsX59ZTYkQ`) | Error Trigger → format alert → Send Message via Manon. Assigned as error workflow on Nathan Calendar Bot |
 | Test Send Message via Manon (`EU17ZwFO5PSBxd9s`) | Manual test harness for the Manon sub-workflow |
+| Test Nathan Error Notifier (`Q7wF4ELCNWoJHLR2`) | Manual Stop-and-Error harness (fires error workflow only in production) |
 
 **Send Message via Manon** input contract (all fields optional except `text`):
 
@@ -129,6 +131,20 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 ```
 
 Defaults: `chatId` → Ben's Telegram user ID, `parseMode` → `Markdown`.
+
+**Nathan error notifications:** When Nathan Calendar Bot fails in production, n8n runs **Nathan Error Notifier**, which sends a Markdown alert via Manon with workflow name, failing node, error message, and execution link. Error workflows do not run for manual test executions — only live/production failures.
+
+To assign an error workflow via REST API (PATCH is not supported on this instance — use PUT with `settings.errorWorkflow`):
+
+```powershell
+$headers = @{ "X-N8N-API-KEY" = $env:N8N_API_KEY; "Content-Type" = "application/json" }
+$wf = Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/workflows/WORKFLOW_ID" -Headers $headers
+$body = @{
+  name = $wf.name; nodes = $wf.nodes; connections = $wf.connections
+  settings = @{ executionOrder = "v1"; errorWorkflow = "F8jhQSnsX59ZTYkQ" }
+} | ConvertTo-Json -Depth 100 -Compress
+Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/workflows/WORKFLOW_ID" -Method Put -Headers $headers -Body $body
+```
 
 Workflow names/IDs may drift; search in n8n UI or via MCP/API if IDs are needed.
 
