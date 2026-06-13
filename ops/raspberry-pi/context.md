@@ -15,9 +15,36 @@ n8n.bentenberge.com
   -> localhost:5678
   -> n8n-n8n-1 container
   -> Docker volume n8n_n8n_data
+n8n.bentenberge.com
+  -> Cloudflare Tunnel
+  -> localhost:5678
+  -> n8n-n8n-1 container
+  -> Docker volume n8n_n8n_data
+
+Obsidian vault (OneDrive Obsidian/hej)
+  -> onedrive Docker container
+  -> /home/ben/obsidian/vault
+  -> nightly git push
+  -> Canopyflick/obsidian-vault-backup (private)
 ```
 
 Manon does not use a public webhook. It uses Telegram `run_polling()`.
+
+## Obsidian vault
+
+- Deploy directory: `/home/ben/obsidian`
+- Vault path (symlink): `/home/ben/obsidian/vault` → `/home/ben/obsidian/onedrive/Obsidian/hej`
+- OneDrive account: personal `ben_ten_berge@hotmail.com` (device auth)
+- OneDrive client: `driveone/onedrive:debian` container named `onedrive`
+- Config: `/home/ben/obsidian/onedrive-conf/` (bind-mounted to `/onedrive/conf`)
+- GitHub backup: `git@github.com:Canopyflick/obsidian-vault-backup.git`
+- Git metadata: `/home/ben/obsidian/backup-git/vault.git` (no `.git` inside vault)
+- SSH deploy key: `~/.ssh/obsidian_vault_backup`
+- Nightly backup: cron `30 3 * * * /home/ben/obsidian/scripts/obsidian-nightly-backup.sh`
+
+Full runbook: `docs/obsidian-vault-backup.md`.
+
+Initial vault bootstrap used Windows OneDrive copy; ongoing sync uses the OneDrive Docker client after device auth.
 
 ## Manon
 
@@ -168,6 +195,7 @@ User crontab on the Pi:
 ```cron
 17 3 * * * /home/ben/backup_services.sh >> /home/ben/backups/backup.log 2>&1
 05 3 * * * /home/ben/manon_healthcheck.sh >> /home/ben/healthchecks/cron.log 2>&1
+30 3 * * * /home/ben/obsidian/scripts/obsidian-nightly-backup.sh
 0 4 * * * /home/ben/manon_deployer/weekly_restart.sh >> /home/ben/manon_deployer/weekly_restart.log 2>&1
 ```
 

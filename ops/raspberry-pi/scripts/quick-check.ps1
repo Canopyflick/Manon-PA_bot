@@ -45,6 +45,11 @@ echo "== Cron =="
 crontab -l 2>/dev/null || true
 echo
 
+echo "== Obsidian =="
+docker ps -f name=onedrive --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || true
+/home/ben/obsidian/scripts/obsidian-sync-status.sh 2>/dev/null || true
+echo
+
 echo "== Recent Backups =="
 find "$HOME/backups" -maxdepth 2 -type f -printf "%TY-%Tm-%Td %TH:%TM %p %s bytes\n" 2>/dev/null | sort | tail -12 || true
 echo

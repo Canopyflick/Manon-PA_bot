@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("manon", "manon_db", "n8n", "cloudflared", "health", "backup", "restart")]
+    [ValidateSet("manon", "manon_db", "n8n", "cloudflared", "health", "backup", "restart", "obsidian", "onedrive")]
     [string]$Service = "manon",
     [int]$Lines = 120,
     [switch]$Follow,
@@ -35,5 +35,11 @@ switch ($Service) {
     }
     "restart" {
         ssh $target "tail $(if ($Follow) { '-f' } else { '' }) -n $Lines ~/manon_deployer/weekly_restart.log 2>/dev/null || true"
+    }
+    "obsidian" {
+        ssh $target "tail $(if ($Follow) { '-f' } else { '' }) -n $Lines ~/obsidian/logs/obsidian-nightly-backup.log 2>/dev/null || true"
+    }
+    "onedrive" {
+        ssh $target "docker logs $followFlag --tail $Lines onedrive 2>&1"
     }
 }

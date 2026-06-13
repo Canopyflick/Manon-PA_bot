@@ -1,0 +1,12 @@
+services:
+  onedrive:
+    image: driveone/onedrive:debian
+    container_name: onedrive
+    restart: unless-stopped
+    environment:
+      ONEDRIVE_UID: "1000"
+      ONEDRIVE_GID: "1000"
+    volumes:
+      - /home/ben/obsidian/onedrive-conf:/onedrive/conf
+      - /home/ben/obsidian/onedrive:/onedrive/data
+      - /home/ben/obsidian/logs:/onedrive/logs

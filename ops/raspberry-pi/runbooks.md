@@ -22,6 +22,41 @@ ssh ben@raspberrypi "date -Is; uptime; df -h /; free -h; docker ps -a; crontab -
 .\ops\raspberry-pi\scripts\tail-logs.ps1 -Service n8n -Lines 100
 .\ops\raspberry-pi\scripts\tail-logs.ps1 -Service health -Lines 100
 .\ops\raspberry-pi\scripts\tail-logs.ps1 -Service backup -Lines 100
+.\ops\raspberry-pi\scripts\tail-logs.ps1 -Service obsidian -Lines 100
+.\ops\raspberry-pi\scripts\tail-logs.ps1 -Service onedrive -Lines 100
+```
+
+## Obsidian Vault Status
+
+```powershell
+ssh ben@raspberrypi "~/obsidian/scripts/obsidian-sync-status.sh"
+```
+
+## Run Obsidian Git Backup Now
+
+```powershell
+ssh ben@raspberrypi "~/obsidian/scripts/obsidian-nightly-backup.sh"
+ssh ben@raspberrypi "tail -30 ~/obsidian/logs/obsidian-nightly-backup.log"
+```
+
+## OneDrive Obsidian Sync
+
+Check container:
+
+```powershell
+ssh ben@raspberrypi "docker ps -f name=onedrive; docker logs onedrive --tail 50"
+```
+
+One-time or re-authentication (interactive):
+
+```powershell
+ssh -t ben@raspberrypi "~/obsidian/scripts/obsidian-onedrive-auth.sh"
+```
+
+Start monitor after auth:
+
+```powershell
+ssh ben@raspberrypi "cd ~/obsidian && docker compose up -d"
 ```
 
 ## Restart Manon

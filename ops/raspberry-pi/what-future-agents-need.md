@@ -5,9 +5,9 @@ This is the short list of things that would make future Raspberry Pi help faster
 ## Highest Value
 
 1. Off-Pi backups configured and documented.
-   - Current backups are local at `/home/ben/backups`.
-   - Pick OneDrive, NAS, or another target.
-   - Add the remote name, sync command, and restore test date to `private-notes.md`.
+   - Obsidian vault nightly GitHub backup is configured at `Canopyflick/obsidian-vault-backup`.
+   - Manon/n8n still use local `/home/ben/backups` only.
+   - Record restore test dates in `private-notes.md`.
 
 2. GHCR package access fixed.
    - Current workaround is a local image build on the Pi.

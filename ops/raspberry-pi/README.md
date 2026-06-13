@@ -10,6 +10,7 @@ It is intentionally secret-free. Keep live tokens, passwords, private keys, Clou
 - Host timezone: `Europe/Berlin`
 - Main deploy directory: `/home/ben/manon_deployer`
 - n8n deploy directory: `/home/ben/n8n`
+- Obsidian vault directory: `/home/ben/obsidian`
 - Local backup root: `/home/ben/backups`
 
 ## Services
@@ -19,10 +20,12 @@ It is intentionally secret-free. Keep live tokens, passwords, private keys, Clou
 - `n8n-n8n-1`: n8n container, exposed through Cloudflare Tunnel
 - `cloudflared`: systemd service for `n8n.bentenberge.com`
 - `cron`: local scheduled backups and health checks
+- `onedrive`: Docker container syncing Obsidian vault from OneDrive
 
 ## Useful Entry Points
 
 - `context.md`: high-level architecture, known gotchas, and recovery notes.
+- `docs/obsidian-vault-backup.md`: Obsidian vault sync and GitHub backup runbook.
 - `runbooks.md`: commands for diagnosis, restart, backups, restore, and updates.
 - `scripts/quick-check.ps1`: Windows-side SSH health check.
 - `scripts/tail-logs.ps1`: Windows-side SSH log tail helper.
@@ -64,6 +67,6 @@ ssh -o StrictHostKeyChecking=accept-new ben@raspberrypi hostname
 
 ## Current Limitations
 
-- The Pi currently has local backups only. Off-Pi backup sync still needs to be wired to OneDrive, a NAS, or another destination.
+- Obsidian vault GitHub backup is configured; live OneDrive sync on the Pi requires completing one-time device auth (`docs/obsidian-vault-backup.md`).
 - GHCR pulls previously returned `403 Forbidden`; Manon was rebuilt locally from `Canopyflick/Manon-PA_bot` and tagged as `ghcr.io/canopyflick/manon-pa-bot:latest`. Fixing GHCR package permissions would make `update_container.sh` useful again.
 - n8n was rebuilt fresh after SD-card data loss. Old workflows/credentials were not recoverable unless an external n8n volume backup appears. Post-rebuild workflows and credentials are documented in `context.md`.

@@ -1,0 +1,8 @@
+enable_logging = "true"
+log_dir = "/onedrive/logs"
+force_session_upload = "true"
+delay_inotify_processing = "true"
+inotify_delay = "10"
+skip_file = "~|.tmp|.swp|Thumbs.db|.DS_Store"
+skip_dir = ".trash"
+use_device_auth = "true"
