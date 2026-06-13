@@ -1,5 +1,6 @@
 enable_logging = "true"
 log_dir = "/onedrive/logs"
+sync_dir = "/onedrive/data"
 force_session_upload = "true"
 delay_inotify_processing = "true"
 inotify_delay = "10"
