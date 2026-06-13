@@ -40,13 +40,17 @@ OneSync is Android-only. The Pi syncs the OneDrive folder that OneSync writes to
 - Service: `docker ps -f name=onedrive` or optional user systemd unit `systemctl --user status onedrive`
 - Logs: `docker logs onedrive` and `/home/ben/obsidian/logs/onedrive*.log`
 
-### One-time device authentication
+### One-time browser authentication
+
+Personal Microsoft accounts (`@hotmail.com`, `@outlook.com`, etc.) **cannot** use device-code login (`login.microsoft.com/device`). Microsoft blocks that OAuth flow for third-party apps on personal accounts; approving the Authenticator number match immediately shows "The code you entered has expired" even when you tap promptly. Use interactive browser OAuth instead.
 
 ```bash
 ssh -t ben@raspberrypi /home/ben/obsidian/scripts/obsidian-onedrive-auth.sh
 ```
 
-Open https://login.microsoft.com/device, enter the displayed code, sign in as `ben_ten_berge@hotmail.com`, and approve the Microsoft Authenticator prompt. Then start monitor mode:
+The script prints an authorize URL. Open it, sign in as `ben_ten_berge@hotmail.com`, complete MFA, then copy the full redirect URL from the blank page (`https://login.microsoftonline.com/common/oauth2/nativeclient?code=...`) and paste it back at the prompt.
+
+Then start monitor mode:
 
 ```bash
 ssh ben@raspberrypi "cd ~/obsidian && docker compose up -d"
