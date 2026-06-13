@@ -50,6 +50,8 @@ ssh -t ben@raspberrypi /home/ben/obsidian/scripts/obsidian-onedrive-auth.sh
 
 The script prints an authorize URL. Open it, sign in as `ben_ten_berge@hotmail.com`, complete MFA, then copy the full redirect URL from the blank page (`https://login.microsoftonline.com/common/oauth2/nativeclient?code=...`) and paste it back at the prompt.
 
+Microsoft may briefly show a phishing warning, then redirect to `.../common/wrongplace` ("This is not the right page"). That redirect is expected for the `nativeclient` callback — copy the `nativeclient?code=...` URL from the address bar **immediately** after sign-in, before the redirect, or paste it from your browser history.
+
 Then start monitor mode:
 
 ```bash
