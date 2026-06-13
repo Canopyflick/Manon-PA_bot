@@ -66,6 +66,8 @@ Local secrets for Cursor agents live in `ops/raspberry-pi/.env` (gitignored via 
 | --- | --- |
 | `N8N_API_KEY` | REST API at `https://n8n.bentenberge.com/api/v1` |
 | `NATHAN_TELEGRAM_BOT_API_KEY` | Telegram bot token for Nathan (@Nathan_PA_bot) credential creation |
+| `MANON_TELEGRAM_BOT_API_KEY` | Telegram bot token for Manon (@Manon_PA_bot) — outbound sub-workflow |
+| `TELEGRAM_USER_ID_BEN` | Default chat ID for Manon test sends |
 
 ### n8n MCP (`user-n8n-mcp`)
 
@@ -106,6 +108,7 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | Name | Type | Notes |
 | --- | --- | --- |
 | Nathan | `telegramApi` | Telegram bot @Nathan_PA_bot |
+| Manon | `telegramApi` | Telegram bot @Manon_PA_bot — outbound only |
 | OpenRouter Persoonlijk | `openRouterApi` | LLM routing |
 | Google Calendar | OAuth | User must connect in n8n UI — not automatable via MCP/API |
 
@@ -116,6 +119,16 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | MCP Connection Test | Manual trigger — verifies MCP connectivity |
 | Nathan Telegram Test | Manual trigger — sends a Telegram test message |
 | Nathan Calendar Bot | Telegram Trigger → AI Agent + Google Calendar tools → Telegram reply |
+| **Send Message via Manon** (`zCzJmgdkSZwCKWo3`) | Sub-workflow — call via **Execute Sub-workflow** to send Telegram messages from @Manon_PA_bot |
+| Test Send Message via Manon (`EU17ZwFO5PSBxd9s`) | Manual test harness for the Manon sub-workflow |
+
+**Send Message via Manon** input contract (all fields optional except `text`):
+
+```json
+{ "chatId": "1875436366", "text": "Your message", "parseMode": "Markdown" }
+```
+
+Defaults: `chatId` → Ben's Telegram user ID, `parseMode` → `Markdown`.
 
 Workflow names/IDs may drift; search in n8n UI or via MCP/API if IDs are needed.
 
