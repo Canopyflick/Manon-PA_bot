@@ -31,10 +31,10 @@ Never create `.git` inside the OneDrive vault folder. Pi nightly backup (03:30 E
 1. `python ops/raspberry-pi/obsidian-vault/scripts/analyze-diary-headers.py --summary-only` — understand scope
 2. Review `reports/` output; confirm fix categories with Ben when ambiguous
 3. Git snapshot (pre)
-4. Fix script with `--dry-run` first; `--apply` only after review (phase 2)
+4. Fix script with `--dry-run` first; `--apply` only after review
 5. Git snapshot (post)
 
-Scaffold reference: `ops/raspberry-pi/obsidian-vault/docs/diary-structure.md`. Issue taxonomy: `ops/raspberry-pi/obsidian-vault/docs/analysis-taxonomy.md`.
+Agent conventions: `ops/raspberry-pi/obsidian-vault/docs/working-in-the-diary.md`. Scaffold: `docs/diary-structure.md`. Taxonomy: `docs/analysis-taxonomy.md`.
 
 ## Gotchas
 

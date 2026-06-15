@@ -26,10 +26,15 @@ Pi sync/backup runbook: `ops/raspberry-pi/docs/obsidian-vault-backup.md`.
 | `vault-git-bootstrap.ps1` | One-time Windows git mirror setup |
 | `vault-git-snapshot.ps1` | Commit before/after vault edits (`-Push` optional) |
 | `analyze-diary-headers.py` | Read-only Diary header/scaffold scan |
+| `fix-diary-nav.py` | Fix wrong dates on existing nav lines only (never adds lines) |
 
 ## Git safety
 
 Always run `vault-git-snapshot.ps1` **before and after** any vault file mutation from Cursor. Never add `.git` inside the OneDrive vault folder.
+
+## Agent conventions
+
+Read `obsidian-vault/docs/working-in-the-diary.md` before editing Diary notes.
 
 ## Analysis output
 

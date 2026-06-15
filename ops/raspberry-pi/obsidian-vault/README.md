@@ -72,10 +72,11 @@ Use `--file "Diary/2026-05-07, Thu.md"` to test a single note. `--skip-git` only
 1. Always git-snapshot **before and after** vault mutations.
 2. Skip sync-conflict files (`(conflict ...)`) — resolve manually.
 3. Old notes (2016–2025) have intentional format drift — do not normalize blindly.
-4. Phase 1 is read-only analysis only; no auto-fix without review.
+4. Nav fixes: existing lines only; never add missing nav lines.
 
 ## Docs
 
+- [`docs/working-in-the-diary.md`](docs/working-in-the-diary.md) — **start here** — conventions and agent rules
 - [`docs/diary-structure.md`](docs/diary-structure.md) — canonical daily note scaffold
 - [`docs/analysis-taxonomy.md`](docs/analysis-taxonomy.md) — issue categories from analyzer runs
 
