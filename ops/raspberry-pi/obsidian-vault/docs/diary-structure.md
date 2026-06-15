@@ -60,6 +60,10 @@ Interessant:
 
 Current template uses bare labels (`day`, `week`, …). Older notes may use parentheses: `>> (day)`.
 
+### Nav link validation
+
+Each wikilink must match the note's own date plus the template offset (−1/+1 day, −7/+7 week, −30/+30 month, −90/+90 quarter, −365/+365 year). Wrong links are flagged as `nav.wrong_prev_date` / `nav.wrong_next_date`. See `docs/analysis-taxonomy.md` for scan results — e.g. May 2026 notes with stale copied nav blocks.
+
 ### 3. Hotseat marker + separator
 
 ```

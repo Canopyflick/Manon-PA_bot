@@ -20,7 +20,7 @@ copy ops\raspberry-pi\obsidian-vault\config.example.env ops\raspberry-pi\obsidia
 .\ops\raspberry-pi\obsidian-vault\scripts\vault-git-bootstrap.ps1
 ```
 
-Requires GitHub SSH access to `Canopyflick/obsidian-vault-backup` (deploy key or your GitHub SSH key).
+Requires GitHub SSH access to `Canopyflick/obsidian-vault-backup`. Your personal GitHub SSH key (`~/.ssh/id_ed25519` or similar, already on your GitHub account) is sufficient — you do not need the Pi deploy key.
 
 ## Git snapshots (before/after vault edits)
 
@@ -37,14 +37,14 @@ Pi nightly cron still runs at 03:30 Europe/Berlin; local snapshots are for immed
 ## Diary header analysis (read-only)
 
 ```powershell
+# Interval nav link validation (wrong prev/next day/week/month/quarter/year)
+python ops\raspberry-pi\obsidian-vault\scripts\analyze-diary-headers.py --nav-only --limit 0 --summary-only
+
 # Quick summary (default: 50 most recent daily notes)
 python ops\raspberry-pi\obsidian-vault\scripts\analyze-diary-headers.py --summary-only
 
 # Full scan since a date
 python ops\raspberry-pi\obsidian-vault\scripts\analyze-diary-headers.py --since 2024-01-01 --limit 0
-
-# All files, no limit
-python ops\raspberry-pi\obsidian-vault\scripts\analyze-diary-headers.py --limit 0
 ```
 
 Reports land in `reports/` (gitignored). Issue taxonomy: [`docs/analysis-taxonomy.md`](docs/analysis-taxonomy.md).
