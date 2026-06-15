@@ -27,7 +27,7 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-text="Obsidian vault backed up (${commit_sha}): ${REPO_URL}"
+text="📓 Obsidian vault backed up (${commit_sha}): ${REPO_URL}"
 payload=$(jq -n --arg text "$text" '{text: $text}')
 
 curl -fsS --max-time 30 -X POST "$NOTIFY_WEBHOOK_URL" \
