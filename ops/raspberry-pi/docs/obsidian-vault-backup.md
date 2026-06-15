@@ -97,7 +97,7 @@ Obsidian-friendly client settings:
 The notify script runs only after a successful `git push`. It sends Markdown like:
 
 ```text
-📓 Obsidian vault backed up (1d9e895): https://github.com/Canopyflick/obsidian-vault-backup
+📓 Obsidian vault backed up ([1d9e895](https://github.com/Canopyflick/obsidian-vault-backup/commit/1d9e895))
 ```
 
 Manual test:
