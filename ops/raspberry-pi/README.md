@@ -26,6 +26,7 @@ It is intentionally secret-free. Keep live tokens, passwords, private keys, Clou
 
 - `context.md`: high-level architecture, known gotchas, and recovery notes.
 - `docs/obsidian-vault-backup.md`: Obsidian vault sync and GitHub backup runbook.
+- `obsidian-vault/`: Windows-side vault tooling (Diary analysis, git snapshots). See `obsidian-vault/README.md`.
 - `runbooks.md`: commands for diagnosis, restart, backups, restore, and updates.
 - `scripts/quick-check.ps1`: Windows-side SSH health check.
 - `scripts/tail-logs.ps1`: Windows-side SSH log tail helper.
@@ -48,6 +49,10 @@ Workflow build pipeline: `get_sdk_reference` → `search_nodes` → `get_node_ty
 OAuth credentials (e.g. Google Calendar) must be connected in the n8n UI; neither MCP nor API can complete browser OAuth.
 
 See `context.md` (n8n section) for credentials inventory, existing workflows, and Chat Hub vs Telegram bot patterns.
+
+## Cursor + Obsidian Vault
+
+Daily notes and vault edits from Cursor use `obsidian-vault/` (Windows git mirror + read-only Diary analyzer). Always git-snapshot before and after vault mutations. See `obsidian-vault/README.md` and `.cursor/skills/obsidian-vault/SKILL.md`.
 
 ## First Commands For Future Agents
 

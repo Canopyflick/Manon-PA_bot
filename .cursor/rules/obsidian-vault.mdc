@@ -1,0 +1,36 @@
+---
+description: Obsidian vault management for PA_bot (Diary daily notes, Windows git mirror)
+globs: ops/raspberry-pi/obsidian-vault/**
+alwaysApply: false
+---
+
+# Obsidian Vault (ops/raspberry-pi/obsidian-vault)
+
+Vault lives on OneDrive, **outside** this repo. Daily notes: `Diary/`. Skill: `.cursor/skills/obsidian-vault/SKILL.md`.
+
+## Paths
+
+| Environment | Vault | Git metadata |
+| --- | --- | --- |
+| Windows | `C:\Users\Ben\OneDrive\Obsidian\hej` | `%USERPROFILE%\.obsidian-vault-backup\vault.git` |
+| Raspberry Pi | `/home/ben/obsidian/vault` | `/home/ben/obsidian/backup-git/vault.git` |
+
+Local config (gitignored): `ops/raspberry-pi/obsidian-vault/config.env` — copy from `config.example.env`.
+
+Pi sync/backup runbook: `ops/raspberry-pi/docs/obsidian-vault-backup.md`.
+
+## Scripts
+
+| Script | Use for |
+| --- | --- |
+| `vault-git-bootstrap.ps1` | One-time Windows git mirror setup |
+| `vault-git-snapshot.ps1` | Commit before/after vault edits (`-Push` optional) |
+| `analyze-diary-headers.py` | Read-only Diary header/scaffold scan |
+
+## Git safety
+
+Always run `vault-git-snapshot.ps1` **before and after** any vault file mutation from Cursor. Never add `.git` inside the OneDrive vault folder.
+
+## Analysis output
+
+Reports go to `obsidian-vault/reports/` (gitignored). Committed taxonomy summary: `obsidian-vault/docs/analysis-taxonomy.md`.
