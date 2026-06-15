@@ -1,5 +1,6 @@
 private-notes.md
 *.env
+!obsidian-vault/config.example.env
 obsidian-vault/config.env
 obsidian-vault/reports/*
 !obsidian-vault/reports/.gitkeep
