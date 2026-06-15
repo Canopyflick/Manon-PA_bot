@@ -20,7 +20,13 @@ copy ops\raspberry-pi\obsidian-vault\config.example.env ops\raspberry-pi\obsidia
 .\ops\raspberry-pi\obsidian-vault\scripts\vault-git-bootstrap.ps1
 ```
 
-Requires GitHub SSH access to `Canopyflick/obsidian-vault-backup`. Your personal GitHub SSH key (`~/.ssh/id_ed25519` or similar, already on your GitHub account) is sufficient — you do not need the Pi deploy key.
+Requires GitHub access to `Canopyflick/obsidian-vault-backup`. On Windows, **HTTPS via `gh auth login`** is recommended (uses your token in the OS keyring — no SSH key needed). Pi uses SSH deploy key separately.
+
+```powershell
+gh auth status   # should show Canopyflick, protocol https
+```
+
+SSH alternative: add your public key to GitHub and set `GIT_REMOTE=git@github.com:Canopyflick/obsidian-vault-backup.git` in `config.env`.
 
 ## Git snapshots (before/after vault edits)
 

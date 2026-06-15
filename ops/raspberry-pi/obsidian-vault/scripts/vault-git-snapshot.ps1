@@ -49,9 +49,9 @@ function Invoke-Git {
     param(
         [string]$GitDir,
         [string]$WorkTree,
-        [string[]]$Args
+        [string[]]$GitArgs
     )
-    $allArgs = @("--git-dir=$GitDir", "--work-tree=$WorkTree") + $Args
+    $allArgs = @("--git-dir=$GitDir", "--work-tree=$WorkTree") + $GitArgs
     & git @allArgs
     return $LASTEXITCODE
 }
@@ -68,25 +68,25 @@ if (Test-Path (Join-Path $vaultPath ".git")) {
     throw "Refusing snapshot: .git found inside vault folder"
 }
 
-$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("add", "-A")
+$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("add", "-A")
 if ($exitCode -ne 0) { throw "git add failed" }
 
-$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("diff", "--cached", "--quiet")
+$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("diff", "--cached", "--quiet")
 if ($exitCode -eq 0) {
     Write-Host "No changes to commit."
     exit 0
 }
 
-$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("commit", "-m", $Message)
+$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("commit", "-m", $Message)
 if ($exitCode -ne 0) { throw "git commit failed" }
 
 $hash = & git --git-dir=$gitDir --work-tree=$vaultPath rev-parse --short HEAD
-Write-Host "Committed: $hash — $Message"
+Write-Host "Committed: $hash - $Message"
 
 if ($Push) {
-    $exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("push", "origin", "main")
+    $exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "main")
     if ($exitCode -ne 0) {
-        $exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("push", "origin", "HEAD")
+        $exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "HEAD")
         if ($exitCode -ne 0) { throw "git push failed" }
     }
     Write-Host "Pushed to origin."

@@ -43,12 +43,12 @@ function Invoke-Git {
     param(
         [string]$GitDir,
         [string]$WorkTree,
-        [string[]]$Args
+        [string[]]$GitArgs
     )
-    $allArgs = @("--git-dir=$GitDir", "--work-tree=$WorkTree") + $Args
+    $allArgs = @("--git-dir=$GitDir", "--work-tree=$WorkTree") + $GitArgs
     & git @allArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "git $($Args -join ' ') failed with exit code $LASTEXITCODE"
+        throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE"
     }
 }
 
@@ -84,7 +84,7 @@ if (-not $mdFiles) {
 
 if (Test-Path $gitDir) {
     Write-Host "Git dir already exists; verifying configuration..."
-    Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("rev-parse", "--git-dir")
+    Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("rev-parse", "--git-dir")
     $currentRemote = & git --git-dir=$gitDir --work-tree=$vaultPath remote get-url origin 2>$null
     if ($currentRemote -and $currentRemote -ne $remote) {
         Write-Warning "Existing origin ($currentRemote) differs from config ($remote)"
@@ -104,8 +104,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "git clone --bare failed. Ensure SSH access to $remote"
 }
 
-Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("config", "core.worktree", $vaultPath)
-Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -Args @("status", "--short")
+Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("config", "core.worktree", $vaultPath)
+Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("status", "--short")
 
 Write-Host ""
 Write-Host "Bootstrap complete. Use vault-git-snapshot.ps1 to commit changes."

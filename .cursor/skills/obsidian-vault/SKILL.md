@@ -22,6 +22,8 @@ After changes:
 
 One-time setup: copy `config.example.env` → `config.env`, then run `vault-git-bootstrap.ps1`.
 
+Windows uses **HTTPS + `gh auth`** (no SSH key needed). Pi uses SSH deploy key separately.
+
 Never create `.git` inside the OneDrive vault folder. Pi nightly backup (03:30 Europe/Berlin) is supplemental — do not rely on it alone when editing from Cursor.
 
 ## Diary work pipeline
