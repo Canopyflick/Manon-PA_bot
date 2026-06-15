@@ -95,9 +95,7 @@ def load_config(config_path: Path) -> dict[str, str]:
             continue
         key, _, value = line.partition("=")
         value = value.strip()
-        if value.startswith("%") and value.endswith("%"):
-            env_key = value[1:-1]
-            value = os.environ.get(env_key, "")
+        value = os.path.expandvars(value)
         config[key.strip()] = value
     return config
 

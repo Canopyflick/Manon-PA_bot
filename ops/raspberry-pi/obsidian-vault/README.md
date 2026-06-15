@@ -49,6 +49,18 @@ python ops\raspberry-pi\obsidian-vault\scripts\analyze-diary-headers.py --since 
 
 Reports land in `reports/` (gitignored). Issue taxonomy: [`docs/analysis-taxonomy.md`](docs/analysis-taxonomy.md).
 
+## Fix interval nav dates
+
+```powershell
+# Dry-run (default)
+python ops\raspberry-pi\obsidian-vault\scripts\fix-diary-nav.py --since 2024-01-01
+
+# Apply (git snapshot pre/post recommended)
+python ops\raspberry-pi\obsidian-vault\scripts\fix-diary-nav.py --since 2024-01-01 --apply --push
+```
+
+Use `--file "Diary/2026-05-07, Thu.md"` to test a single note. `--skip-git` only if vault git mirror is not bootstrapped yet.
+
 ## Safety rules
 
 1. Always git-snapshot **before and after** vault mutations.

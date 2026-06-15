@@ -17,13 +17,13 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ScriptRoot = $PSScriptRoot
 
 function Get-ObsidianVaultConfig {
     param([string]$Path)
 
     if (-not $Path) {
-        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-        $Path = Join-Path (Split-Path -Parent $scriptDir) "config.env"
+        $Path = Join-Path (Split-Path -Parent $ScriptRoot) "config.env"
     }
 
     if (-not (Test-Path $Path)) {
@@ -38,9 +38,7 @@ function Get-ObsidianVaultConfig {
         if ($parts.Count -eq 2) {
             $key = $parts[0].Trim()
             $value = $parts[1].Trim()
-            if ($value -match "^%(.+)%$") {
-                $value = [Environment]::GetEnvironmentVariable($Matches[1])
-            }
+            $value = [Environment]::ExpandEnvironmentVariables($value)
             $config[$key] = $value
         }
     }
