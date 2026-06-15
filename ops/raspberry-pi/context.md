@@ -150,6 +150,7 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | **Mathijs Last Friday Discord Invite** (`p6oTzjcOJbNjjlV7`) | Schedule: last Friday of month 17:00 Europe/Berlin → Send Message via Nathan to chat `-1003758814644`. **Error workflow:** Nathan Error Notifier |
 | **Nathan Error Notifier** (`F8jhQSnsX59ZTYkQ`) | Error Trigger → format alert → Send Message via Manon. Assigned as error workflow on Nathan Calendar Bot |
 | Test Send Message via Manon (`EU17ZwFO5PSBxd9s`) | Manual test harness for the Manon sub-workflow |
+| **Obsidian Backup Notify** (`mKVcGheBxim9Yoo1`) | Webhook → Send Message via Manon; called by Pi after nightly vault push |
 | Test Nathan Error Notifier (`Q7wF4ELCNWoJHLR2`) | Manual Stop-and-Error harness (fires error workflow only in production) |
 
 **Send Message via Manon** input contract (all fields optional except `text`):
@@ -159,6 +160,8 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 ```
 
 Defaults: `chatId` → Ben's Telegram user ID, `parseMode` → `Markdown`.
+
+**Obsidian backup notification:** After a successful nightly git push, `/home/ben/obsidian/scripts/obsidian-backup-notify.sh` POSTs to `http://127.0.0.1:5678/webhook/obsidian-backup-notify`, which runs **Obsidian Backup Notify** → **Send Message via Manon**. See `docs/obsidian-vault-backup.md`.
 
 **Nathan error notifications:** When Nathan Calendar Bot fails in production, n8n runs **Nathan Error Notifier**, which sends a Markdown alert via Manon with workflow name, failing node, error message, and execution link. Error workflows do not run for manual test executions — only live/production failures.
 

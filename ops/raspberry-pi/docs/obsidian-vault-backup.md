@@ -81,6 +81,30 @@ Obsidian-friendly client settings:
 - No `.git` directory inside the synced vault folder
 - Auth: repo-scoped SSH deploy key at `~/.ssh/obsidian_vault_backup`
 - Schedule: cron at 03:30 Europe/Berlin
+- After a successful push, the backup script POSTs to the n8n **Obsidian Backup Notify** webhook, which calls **Send Message via Manon** (`zCzJmgdkSZwCKWo3`) for a one-line Telegram message with the repo link
+
+## Telegram notification
+
+| Item | Value |
+| --- | --- |
+| n8n workflow | **Obsidian Backup Notify** (`mKVcGheBxim9Yoo1`) |
+| Workflow URL | `https://n8n.bentenberge.com/workflow/mKVcGheBxim9Yoo1` |
+| Sub-workflow | **Send Message via Manon** (`zCzJmgdkSZwCKWo3`) |
+| Pi webhook (local) | `http://127.0.0.1:5678/webhook/obsidian-backup-notify` |
+| Notify script | `/home/ben/obsidian/scripts/obsidian-backup-notify.sh` |
+| Optional config | `/home/ben/obsidian/notify.env` (copy from repo `scripts/notify.env.example`) |
+
+The notify script runs only after a successful `git push`. It sends Markdown like:
+
+```text
+Obsidian vault backed up (1d9e895): https://github.com/Canopyflick/obsidian-vault-backup
+```
+
+Manual test:
+
+```bash
+/home/ben/obsidian/scripts/obsidian-backup-notify.sh "$(git --git-dir=/home/ben/obsidian/backup-git/vault.git rev-parse --short HEAD)"
+```
 
 ## Manual commands
 
@@ -130,12 +154,16 @@ cd /home/ben/obsidian && docker compose up -d
 
 | Symptom | Likely cause | Action |
 | --- | --- | --- |
-| Vault stale on Pi | OneDrive container down or auth expired | `docker ps -f name=onedrive`; re-run device auth |
+| Vault stale on Pi | OneDrive container down or auth expired | `docker ps -f name=onedrive`; `cd ~/obsidian && docker compose up -d`; re-run device auth if needed |
+| Nightly log says "No changes to commit" but you edited notes | OneDrive not syncing to Pi (container was down) | Start OneDrive; wait for sync; run backup manually — cron was running, vault was just frozen |
 | Backup skipped with deletion error | Incomplete sync or real mass delete | Inspect OneDrive logs and vault before overriding guard |
 | Push failed | Deploy key or GitHub access issue | Test `GIT_SSH_COMMAND='ssh -i ~/.ssh/obsidian_vault_backup' git push` |
 | `.git` in vault | Misconfigured git init | Remove immediately; never `git init` inside vault |
+| No Telegram after push | n8n down or Obsidian Backup Notify inactive | `curl -fsS http://127.0.0.1:5678/`; activate workflow in n8n UI |
 
 ## Future Telegram bot integration
+
+The nightly backup already sends a one-line Manon Telegram message after each successful push (see **Telegram notification** above). The items below describe a future read-only vault bot, not the backup notifier.
 
 | Setting | Value |
 | --- | --- |
@@ -162,8 +190,10 @@ Copy scripts and systemd unit from this repo to the Pi:
 ```bash
 mkdir -p ~/obsidian/scripts
 install -m 755 obsidian-nightly-backup.sh ~/obsidian/scripts/
+install -m 755 obsidian-backup-notify.sh ~/obsidian/scripts/
 install -m 755 obsidian-sync-status.sh ~/obsidian/scripts/
 install -m 755 obsidian-onedrive-auth.sh ~/obsidian/scripts/
+install -m 644 notify.env.example ~/obsidian/notify.env.example
 install -m 644 docker-compose.yml ~/obsidian/
 install -m 644 onedrive-config ~/obsidian/onedrive-conf/config
 install -m 644 sync_list ~/obsidian/onedrive-conf/sync_list

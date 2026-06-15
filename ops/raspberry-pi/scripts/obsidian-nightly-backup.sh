@@ -57,7 +57,12 @@ fi
 
 if command -v docker >/dev/null 2>&1; then
   if ! docker ps --format '{{.Names}}' | grep -qx onedrive; then
-    log "Warning: onedrive docker container is not running"
+    log "Warning: onedrive docker container is not running; attempting start"
+    if (cd "$OBSIDIAN_BASE_DIR" && docker compose up -d onedrive); then
+      log "onedrive container start requested (vault may still be stale until sync completes)"
+    else
+      log "Warning: failed to start onedrive container"
+    fi
   fi
 elif command -v systemctl >/dev/null 2>&1; then
   if ! systemctl --user is-active --quiet onedrive 2>/dev/null; then
@@ -95,4 +100,16 @@ commit_msg="Nightly Obsidian backup $(date +%Y-%m-%d)"
 git_cmd commit -m "$commit_msg"
 git_cmd branch -M main
 git_cmd push origin main
-log "Backup complete: $(git_cmd rev-parse --short HEAD)"
+commit_sha=$(git_cmd rev-parse --short HEAD)
+log "Backup complete: ${commit_sha}"
+
+notify_script="${OBSIDIAN_BASE_DIR}/scripts/obsidian-backup-notify.sh"
+if [ -x "$notify_script" ]; then
+  if "$notify_script" "$commit_sha"; then
+    log "Backup notification sent"
+  else
+    log "Warning: backup notification failed"
+  fi
+else
+  log "Warning: notify script missing or not executable: ${notify_script}"
+fi
