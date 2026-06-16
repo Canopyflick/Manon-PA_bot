@@ -11,7 +11,7 @@ DELETION_PERCENT_THRESHOLD="${DELETION_PERCENT_THRESHOLD:-20}"
 REPO_URL="${OBSIDIAN_BACKUP_REPO_URL:-https://github.com/Canopyflick/obsidian-vault-backup}"
 ONEDRIVE_CONTAINER="${ONEDRIVE_CONTAINER:-onedrive}"
 ONEDRIVE_START_WAIT_SEC="${ONEDRIVE_START_WAIT_SEC:-60}"
-ONEDRIVE_SYNC_TIMEOUT_SEC="${ONEDRIVE_SYNC_TIMEOUT_SEC:-600}"
+ONEDRIVE_SYNC_TIMEOUT_SEC="${ONEDRIVE_SYNC_TIMEOUT_SEC:-900}"
 
 mkdir -p "$LOG_DIR"
 exec >> "${LOG_DIR}/obsidian-nightly-backup.log" 2>&1
@@ -98,9 +98,8 @@ ensure_onedrive_container() {
 }
 
 wait_for_onedrive_sync_complete() {
-  local log_lines_before elapsed=0
+  local started_at elapsed=0
 
-  log_lines_before=$(docker logs "$ONEDRIVE_CONTAINER" 2>&1 | wc -l | tr -d ' ')
   log "Restarting OneDrive container to pull latest vault changes from cloud"
   if ! docker restart "$ONEDRIVE_CONTAINER" >/dev/null 2>&1; then
     log "Failed to restart OneDrive container"
@@ -108,22 +107,28 @@ wait_for_onedrive_sync_complete() {
     return 1
   fi
 
+  while [ "$elapsed" -lt "$ONEDRIVE_START_WAIT_SEC" ]; do
+    if docker ps --format '{{.Names}}' | grep -qx "$ONEDRIVE_CONTAINER"; then
+      break
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+
+  if ! docker ps --format '{{.Names}}' | grep -qx "$ONEDRIVE_CONTAINER"; then
+    log "OneDrive container did not restart"
+    ONEDRIVE_SYNC_FAILED=true
+    return 1
+  fi
+
+  started_at=$(docker inspect -f '{{.State.StartedAt}}' "$ONEDRIVE_CONTAINER")
+  elapsed=0
+
   while [ "$elapsed" -lt "$ONEDRIVE_SYNC_TIMEOUT_SEC" ]; do
-    if ! docker ps --format '{{.Names}}' | grep -qx "$ONEDRIVE_CONTAINER"; then
-      sleep 5
-      elapsed=$((elapsed + 5))
-      continue
+    if docker logs --since "$started_at" "$ONEDRIVE_CONTAINER" 2>&1 | grep -q "Sync with Microsoft OneDrive is complete"; then
+      log "OneDrive sync complete"
+      return 0
     fi
-
-    local log_lines_now
-    log_lines_now=$(docker logs "$ONEDRIVE_CONTAINER" 2>&1 | wc -l | tr -d ' ')
-    if [ "$log_lines_now" -gt "$log_lines_before" ]; then
-      if docker logs "$ONEDRIVE_CONTAINER" 2>&1 | tail -40 | grep -q "Sync with Microsoft OneDrive is complete"; then
-        log "OneDrive sync complete"
-        return 0
-      fi
-    fi
-
     sleep 5
     elapsed=$((elapsed + 5))
   done
