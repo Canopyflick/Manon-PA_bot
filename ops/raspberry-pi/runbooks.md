@@ -39,12 +39,12 @@ ssh ben@raspberrypi "~/obsidian/scripts/obsidian-nightly-backup.sh"
 ssh ben@raspberrypi "tail -30 ~/obsidian/logs/obsidian-nightly-backup.log"
 ```
 
-Sends a Manon Telegram one-liner after a successful push (via n8n **Obsidian Backup Notify** webhook).
+Sends a Manon Telegram ping every run — success, skip reason, or failure (via n8n **Obsidian Backup Notify** webhook).
 
 ## Test Obsidian Backup Telegram Notify
 
 ```powershell
-ssh ben@raspberrypi "~/obsidian/scripts/obsidian-backup-notify.sh \$(git --git-dir=~/obsidian/backup-git/vault.git rev-parse --short HEAD)"
+ssh ben@raspberrypi '~/obsidian/scripts/obsidian-backup-notify.sh "📓 No Obsidian backup: no vault changes."'
 ```
 
 ## OneDrive Obsidian Sync

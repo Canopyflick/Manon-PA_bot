@@ -4,16 +4,15 @@ set -euo pipefail
 OBSIDIAN_BASE_DIR="${OBSIDIAN_BASE_DIR:-/home/ben/obsidian}"
 NOTIFY_ENV="${OBSIDIAN_NOTIFY_ENV:-${OBSIDIAN_BASE_DIR}/notify.env}"
 NOTIFY_WEBHOOK_URL="${OBSIDIAN_NOTIFY_WEBHOOK_URL:-http://127.0.0.1:5678/webhook/obsidian-backup-notify}"
-REPO_URL="${OBSIDIAN_BACKUP_REPO_URL:-https://github.com/Canopyflick/obsidian-vault-backup}"
 
 if [ -f "$NOTIFY_ENV" ]; then
   # shellcheck source=/dev/null
   source "$NOTIFY_ENV"
 fi
 
-commit_sha="${1:-}"
-if [ -z "$commit_sha" ]; then
-  echo "Usage: obsidian-backup-notify.sh COMMIT_SHA" >&2
+text="${1:-}"
+if [ -z "$text" ]; then
+  echo "Usage: obsidian-backup-notify.sh MESSAGE" >&2
   exit 1
 fi
 
@@ -27,8 +26,6 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-commit_url="${REPO_URL}/commit/${commit_sha}"
-text="📓 Obsidian vault backed up ([${commit_sha}](${commit_url}))"
 payload=$(jq -n --arg text "$text" '{text: $text}')
 
 curl -fsS --max-time 30 -X POST "$NOTIFY_WEBHOOK_URL" \

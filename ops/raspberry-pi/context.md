@@ -161,7 +161,7 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 
 Defaults: `chatId` → Ben's Telegram user ID, `parseMode` → `Markdown`.
 
-**Obsidian backup notification:** After a successful nightly git push, `/home/ben/obsidian/scripts/obsidian-backup-notify.sh` POSTs to `http://127.0.0.1:5678/webhook/obsidian-backup-notify`, which runs **Obsidian Backup Notify** → **Send Message via Manon**. See `docs/obsidian-vault-backup.md`.
+**Obsidian backup notification:** Every nightly cron run sends a Manon Telegram ping via `obsidian-backup-notify.sh` → `http://127.0.0.1:5678/webhook/obsidian-backup-notify` → **Obsidian Backup Notify** → **Send Message via Manon**. Reports success, skip reason, or failure. See `docs/obsidian-vault-backup.md`.
 
 **Nathan error notifications:** When Nathan Calendar Bot fails in production, n8n runs **Nathan Error Notifier**, which sends a Markdown alert via Manon with workflow name, failing node, error message, and execution link. Error workflows do not run for manual test executions — only live/production failures.
 

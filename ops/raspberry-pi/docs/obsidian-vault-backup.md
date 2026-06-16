@@ -81,7 +81,7 @@ Obsidian-friendly client settings:
 - No `.git` directory inside the synced vault folder
 - Auth: repo-scoped SSH deploy key at `~/.ssh/obsidian_vault_backup`
 - Schedule: cron at 03:30 Europe/Berlin
-- After a successful push, the backup script POSTs to the n8n **Obsidian Backup Notify** webhook, which calls **Send Message via Manon** (`zCzJmgdkSZwCKWo3`) for a one-line Telegram message with the repo link
+- Every cron run sends a Manon Telegram ping via n8n **Obsidian Backup Notify** → **Send Message via Manon** (`zCzJmgdkSZwCKWo3`), whether or not a commit was pushed
 
 ## Telegram notification
 
@@ -94,16 +94,19 @@ Obsidian-friendly client settings:
 | Notify script | `/home/ben/obsidian/scripts/obsidian-backup-notify.sh` |
 | Optional config | `/home/ben/obsidian/notify.env` (copy from repo `scripts/notify.env.example`) |
 
-The notify script runs only after a successful `git push`. It sends Markdown like:
+The nightly backup script always notifies. Example messages:
 
 ```text
 📓 Obsidian vault backed up ([1d9e895](https://github.com/Canopyflick/obsidian-vault-backup/commit/1d9e895))
+📓 No Obsidian backup: no vault changes. OneDrive was offline at backup time.
+📓 Obsidian backup failed: git push to GitHub
 ```
 
 Manual test:
 
 ```bash
-/home/ben/obsidian/scripts/obsidian-backup-notify.sh "$(git --git-dir=/home/ben/obsidian/backup-git/vault.git rev-parse --short HEAD)"
+/home/ben/obsidian/scripts/obsidian-backup-notify.sh "📓 No Obsidian backup: no vault changes."
+/home/ben/obsidian/scripts/obsidian-nightly-backup.sh
 ```
 
 ## Manual commands
@@ -159,7 +162,7 @@ cd /home/ben/obsidian && docker compose up -d
 | Backup skipped with deletion error | Incomplete sync or real mass delete | Inspect OneDrive logs and vault before overriding guard |
 | Push failed | Deploy key or GitHub access issue | Test `GIT_SSH_COMMAND='ssh -i ~/.ssh/obsidian_vault_backup' git push` |
 | `.git` in vault | Misconfigured git init | Remove immediately; never `git init` inside vault |
-| No Telegram after push | n8n down or Obsidian Backup Notify inactive | `curl -fsS http://127.0.0.1:5678/`; activate workflow in n8n UI |
+| No Telegram at 03:30 | Cron did not run or n8n down | Check `tail ~/obsidian/logs/obsidian-nightly-backup.log`; `curl -fsS http://127.0.0.1:5678/` |
 
 ## Future Telegram bot integration
 
