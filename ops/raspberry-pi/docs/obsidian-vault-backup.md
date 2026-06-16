@@ -82,6 +82,7 @@ Obsidian-friendly client settings:
 - Auth: repo-scoped SSH deploy key at `~/.ssh/obsidian_vault_backup`
 - Schedule: cron at 03:30 Europe/Berlin
 - Every cron run sends a Manon Telegram ping via n8n **Obsidian Backup Notify** → **Send Message via Manon** (`zCzJmgdkSZwCKWo3`), whether or not a commit was pushed
+- Before git commit: restart OneDrive container and wait for cloud sync to finish, then `git fetch` + `git reset --mixed origin/main` (GitHub history only; vault files come from OneDrive)
 
 ## Telegram notification
 
@@ -122,6 +123,8 @@ docker logs onedrive --tail 100
 # Manual backup
 /home/ben/obsidian/scripts/obsidian-nightly-backup.sh
 tail -50 /home/ben/obsidian/logs/obsidian-nightly-backup.log
+
+# Manual backup runs OneDrive sync (container restart + wait) then aligns with origin/main before commit
 
 # Vault spot-check
 find /home/ben/obsidian/vault -name '*.md' | head

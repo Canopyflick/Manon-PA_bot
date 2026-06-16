@@ -9,6 +9,9 @@ LOCK_FILE="/tmp/obsidian-nightly-backup.lock"
 DELETION_ABSOLUTE_THRESHOLD="${DELETION_ABSOLUTE_THRESHOLD:-100}"
 DELETION_PERCENT_THRESHOLD="${DELETION_PERCENT_THRESHOLD:-20}"
 REPO_URL="${OBSIDIAN_BACKUP_REPO_URL:-https://github.com/Canopyflick/obsidian-vault-backup}"
+ONEDRIVE_CONTAINER="${ONEDRIVE_CONTAINER:-onedrive}"
+ONEDRIVE_START_WAIT_SEC="${ONEDRIVE_START_WAIT_SEC:-60}"
+ONEDRIVE_SYNC_TIMEOUT_SEC="${ONEDRIVE_SYNC_TIMEOUT_SEC:-600}"
 
 mkdir -p "$LOG_DIR"
 exec >> "${LOG_DIR}/obsidian-nightly-backup.log" 2>&1
@@ -16,6 +19,7 @@ exec >> "${LOG_DIR}/obsidian-nightly-backup.log" 2>&1
 NOTIFY_TEXT=""
 EXIT_CODE=0
 ONEDRIVE_OFFLINE_AT_START=false
+ONEDRIVE_SYNC_FAILED=false
 
 log() {
   echo "[$(date --iso-8601=seconds)] $*"
@@ -28,8 +32,15 @@ git_cmd() {
 }
 
 onedrive_context() {
+  local parts=()
   if [ "$ONEDRIVE_OFFLINE_AT_START" = true ]; then
-    echo " OneDrive was offline at backup time."
+    parts+=("OneDrive was offline at backup time")
+  fi
+  if [ "$ONEDRIVE_SYNC_FAILED" = true ]; then
+    parts+=("OneDrive sync did not finish in time")
+  fi
+  if [ "${#parts[@]}" -gt 0 ]; then
+    printf ' %s.' "$(IFS='; '; echo "${parts[*]}")"
   fi
 }
 
@@ -54,6 +65,104 @@ on_exit() {
   exit "$EXIT_CODE"
 }
 trap on_exit EXIT
+
+ensure_onedrive_container() {
+  if ! command -v docker >/dev/null 2>&1; then
+    log "Docker not available; cannot sync OneDrive"
+    ONEDRIVE_SYNC_FAILED=true
+    return 1
+  fi
+
+  if ! docker ps --format '{{.Names}}' | grep -qx "$ONEDRIVE_CONTAINER"; then
+    ONEDRIVE_OFFLINE_AT_START=true
+    log "OneDrive container not running; starting"
+    if ! (cd "$OBSIDIAN_BASE_DIR" && docker compose up -d onedrive); then
+      log "Failed to start OneDrive container"
+      ONEDRIVE_SYNC_FAILED=true
+      return 1
+    fi
+  fi
+
+  local waited=0
+  while [ "$waited" -lt "$ONEDRIVE_START_WAIT_SEC" ]; do
+    if docker ps --format '{{.Names}}' | grep -qx "$ONEDRIVE_CONTAINER"; then
+      return 0
+    fi
+    sleep 2
+    waited=$((waited + 2))
+  done
+
+  log "OneDrive container did not become ready within ${ONEDRIVE_START_WAIT_SEC}s"
+  ONEDRIVE_SYNC_FAILED=true
+  return 1
+}
+
+wait_for_onedrive_sync_complete() {
+  local log_lines_before elapsed=0
+
+  log_lines_before=$(docker logs "$ONEDRIVE_CONTAINER" 2>&1 | wc -l | tr -d ' ')
+  log "Restarting OneDrive container to pull latest vault changes from cloud"
+  if ! docker restart "$ONEDRIVE_CONTAINER" >/dev/null 2>&1; then
+    log "Failed to restart OneDrive container"
+    ONEDRIVE_SYNC_FAILED=true
+    return 1
+  fi
+
+  while [ "$elapsed" -lt "$ONEDRIVE_SYNC_TIMEOUT_SEC" ]; do
+    if ! docker ps --format '{{.Names}}' | grep -qx "$ONEDRIVE_CONTAINER"; then
+      sleep 5
+      elapsed=$((elapsed + 5))
+      continue
+    fi
+
+    local log_lines_now
+    log_lines_now=$(docker logs "$ONEDRIVE_CONTAINER" 2>&1 | wc -l | tr -d ' ')
+    if [ "$log_lines_now" -gt "$log_lines_before" ]; then
+      if docker logs "$ONEDRIVE_CONTAINER" 2>&1 | tail -40 | grep -q "Sync with Microsoft OneDrive is complete"; then
+        log "OneDrive sync complete"
+        return 0
+      fi
+    fi
+
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+
+  log "Timed out waiting for OneDrive sync after ${ONEDRIVE_SYNC_TIMEOUT_SEC}s"
+  ONEDRIVE_SYNC_FAILED=true
+  return 1
+}
+
+sync_onedrive_vault() {
+  ensure_onedrive_container || return 1
+  wait_for_onedrive_sync_complete || return 1
+}
+
+ensure_vault_writable() {
+  log "Ensuring vault directories are writable for git"
+  find -L "$OBSIDIAN_VAULT_DIR" -type d ! -perm -u=w -exec chmod u+w {} + 2>/dev/null || true
+}
+
+sync_git_from_github() {
+  log "Aligning git history with GitHub before backup"
+  ensure_vault_writable
+
+  if ! git_cmd fetch origin; then
+    log "git fetch failed"
+    return 1
+  fi
+
+  git_cmd branch -M main 2>/dev/null || true
+
+  if git_cmd rev-parse --verify origin/main >/dev/null 2>&1; then
+    if ! git_cmd reset --mixed origin/main; then
+      log "git reset to origin/main failed"
+      return 1
+    fi
+  fi
+
+  return 0
+}
 
 log "Starting Obsidian nightly backup"
 
@@ -85,13 +194,6 @@ if [ -e "${OBSIDIAN_VAULT_DIR}/.git" ]; then
   exit 1
 fi
 
-if [ -z "$(find -L "$OBSIDIAN_VAULT_DIR" -name "*.md" -type f -print -quit)" ]; then
-  log "No Markdown files found in vault; refusing to back up suspicious path"
-  NOTIFY_TEXT="📓 Obsidian backup failed: no Markdown files in vault$(onedrive_context)"
-  EXIT_CODE=1
-  exit 1
-fi
-
 if ! git_cmd remote get-url origin >/dev/null 2>&1; then
   log "Git remote 'origin' is not configured"
   NOTIFY_TEXT="📓 Obsidian backup failed: git remote not configured"
@@ -99,21 +201,21 @@ if ! git_cmd remote get-url origin >/dev/null 2>&1; then
   exit 1
 fi
 
-if command -v docker >/dev/null 2>&1; then
-  if ! docker ps --format '{{.Names}}' | grep -qx onedrive; then
-    ONEDRIVE_OFFLINE_AT_START=true
-    log "Warning: onedrive docker container is not running; attempting start"
-    if (cd "$OBSIDIAN_BASE_DIR" && docker compose up -d onedrive); then
-      log "onedrive container start requested (vault may still be stale until sync completes)"
-    else
-      log "Warning: failed to start onedrive container"
-    fi
-  fi
-elif command -v systemctl >/dev/null 2>&1; then
-  if ! systemctl --user is-active --quiet onedrive 2>/dev/null; then
-    ONEDRIVE_OFFLINE_AT_START=true
-    log "Warning: onedrive user service is not active"
-  fi
+if ! sync_onedrive_vault; then
+  log "Warning: continuing backup after OneDrive sync problem"
+fi
+
+if ! sync_git_from_github; then
+  NOTIFY_TEXT="📓 Obsidian backup failed: could not pull latest GitHub history"
+  EXIT_CODE=1
+  exit 1
+fi
+
+if [ -z "$(find -L "$OBSIDIAN_VAULT_DIR" -name "*.md" -type f -print -quit)" ]; then
+  log "No Markdown files found in vault; refusing to back up suspicious path"
+  NOTIFY_TEXT="📓 Obsidian backup failed: no Markdown files in vault$(onedrive_context)"
+  EXIT_CODE=1
+  exit 1
 fi
 
 git_cmd add -A
