@@ -84,7 +84,7 @@ All writes require inline **Confirm** / **Cancel**.
 
 | Workflow | Purpose |
 | --- | --- |
-| **Obi Error Notify** | Webhook → Send Message via Manon (runtime errors from Obi) |
+| **Obi Error Notify** (`lIAXPYiqqpaUZIIo`) | Webhook → Send Message via Manon (runtime errors from Obi) |
 
 Webhook URL (Pi local): `http://127.0.0.1:5678/webhook/obi-error-notify`
 
