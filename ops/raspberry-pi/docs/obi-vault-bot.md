@@ -16,7 +16,32 @@ Telegram long polling
   -> Canopyflick/obsidian-vault-backup
 ```
 
-Obi uses the same vault lock file as the nightly backup (`/tmp/obsidian-nightly-backup.lock`).
+Obi uses the same vault lock file as the nightly backup (`/home/ben/obi/state/vault.lock`, bind-mounted as `/app/state/vault.lock` in the container).
+
+### Vault lock contract
+
+| Caller | Lock holder | Scope |
+| --- | --- | --- |
+| `obsidian-sync-onedrive.sh` (standalone) | Bash `flock` on `vault.lock` | OneDrive sync only |
+| `obsidian-nightly-backup.sh` | Bash `flock -n` at start | sync → git align → commit → push |
+| Obi read (`/daily`, `/search`, messages) | Sync script subprocess | OneDrive sync only |
+| Obi write (Confirm) | Python `fcntl.flock` in container | sync (`--no-lock`) → append → git commit/push |
+
+### Sync script exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success |
+| `2` | Generic script error |
+| `10` | OneDrive container start/restart failure |
+| `124` | OneDrive sync wait timeout |
+| `75` | Lock busy (`EX_TEMPFAIL`) |
+
+Stderr includes machine-readable tags, e.g. `OBI_SYNC_ERROR: LOCK_BUSY`. Obi maps these to user-facing Telegram messages.
+
+### Startup preflight
+
+On container start, Obi validates vault/state paths, lock file, sync script (exists, executable, LF line endings), git dir, SSH key, and `APPROVED_USER_IDS`. On failure it logs the checklist, POSTs to the Manon error webhook, and exits without polling.
 
 ## Paths
 
@@ -94,7 +119,7 @@ Webhook URL (Pi local): `http://127.0.0.1:5678/webhook/obi-error-notify`
 # Vault sync only
 /home/ben/obsidian/scripts/obsidian-sync-onedrive.sh
 
-# Obi logs
+# Obi logs (expect "Preflight OK" on healthy start)
 docker logs obi --tail 100
 
 # Vault status

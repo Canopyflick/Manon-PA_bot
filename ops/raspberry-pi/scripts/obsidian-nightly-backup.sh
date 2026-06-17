@@ -93,9 +93,11 @@ sync_git_from_github() {
 
 log "Starting Obsidian nightly backup"
 
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  log "Another backup is already running; exiting"
+# Critical section (hold vault.lock until script exit):
+#   lock -> OneDrive sync -> git align -> commit -> push
+OBSIDIAN_LOCK_FILE="$LOCK_FILE"
+if ! acquire_vault_lock_nowait; then
+  log "Another vault operation is already running; exiting"
   NOTIFY_TEXT="📓 Obsidian backup skipped: another run already in progress"
   exit 0
 fi
