@@ -56,6 +56,7 @@ Initial vault bootstrap used Windows OneDrive copy; ongoing sync uses the OneDri
 ## Manon
 
 - Deploy directory: `/home/ben/manon_deployer`
+- Image: `ghcr.io/canopyflick/manon-pa-bot:latest` (GitHub Actions on push to `main`; Pi `update_container.sh` cron at minute 22)
 - Compose file: `/home/ben/manon_deployer/docker-compose.yml`
 - Env file: `/home/ben/manon_deployer/.env`
 - Containers:
@@ -84,7 +85,7 @@ Important tables:
 
 - Deploy directory: `/home/ben/obi_deployer`
 - App source: `/home/ben/Obi-PA_bot`
-- Image: `ghcr.io/canopyflick/obi-pa-bot:latest` (GitHub Actions on push to `master`; Pi `update_container.sh` hourly cron)
+- Image: `ghcr.io/canopyflick/obi-pa-bot:latest` (GitHub Actions on push to `master`; Pi `update_container.sh` cron at minute 11)
 - Container: `obi`
 - State: `/home/ben/obi/state` (pending write confirmations)
 - Bot: `@Obi_obsidianPA_bot` (Telegram long polling)

@@ -1,35 +1,35 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-function show_logs() {
-  cd ~/manon_deployer
-  docker logger manon -f
+DEPLOY_DIR="${MANON_DEPLOY_DIR:-$HOME/manon_deployer}"
+
+show_logs() {
+  docker logs -f --tail 100 manon
 }
 
-function update() {
-  cd ~/manon_deployer
-  ./update_container.sh
+update() {
+  cd "$DEPLOY_DIR"
+  ./update_container.sh "${@:2}"
 }
 
-function cleanup() {
-  # Remove dangling images
+cleanup() {
   docker image prune -f
-  # Remove old logger that are older than 7 days
-  find ~/manon_deployer/logger -type f -name "*.log*" -mtime +7 -delete
+  find "$DEPLOY_DIR/logs" -type f -name "*.log*" -mtime +7 -delete 2>/dev/null || true
 }
 
-function backup_db() {
-  cd ~/manon_deployer
-  docker exec manon_db pg_dump -U manon manon_db > ~/backups/manon_db_$(date +%Y%m%d).dump
+backup_db() {
+  docker exec manon_db pg_dump -U manon manon_db > "$HOME/backups/manon_db_$(date +%Y%m%d).dump"
   echo "Database backed up to ~/backups/manon_db_$(date +%Y%m%d).dump"
 }
 
-case "$1" in
-  logger) show_logs ;;
-  update) update ;;
+case "${1:-}" in
+  logs) show_logs ;;
+  update) update "$@" ;;
   cleanup) cleanup ;;
   backup) backup_db ;;
-  *) echo "Usage: $0 {logs|update|cleanup|backup}" ;;
+  *)
+    echo "Usage: $0 {logs|update|cleanup|backup}"
+    echo "  update supports: ./update_container.sh [--dry-run] [--build-fallback]"
+    exit 1
+    ;;
 esac
-EOF
-
-chmod +x ~/manage_manon.sh

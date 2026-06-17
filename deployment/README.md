@@ -58,17 +58,22 @@ The `manage_manon.sh` script provides several commands to help manage the bot:
 
 ## Automatic Updates
 
-You can set up a cron job to automatically check for updates:
+Pi uses shared `/home/ben/scripts/ghcr-update-container.sh` (login → pull → digest compare → `compose up -d --no-build` only if changed).
 
 ```bash
 crontab -e
 ```
 
-Add this line to check for updates every hour:
+Add this line to check for updates every hour (minute 22):
 
 ```
-0 * * * * cd /home/your_username/manon_deployer && ./update_container.sh >> update_container.log 2>&1
+22 * * * * cd /home/ben/manon_deployer && ./update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
 ```
+
+`update_container.sh` flags:
+
+- `--dry-run` — pull and log whether redeploy would happen; no restart
+- `--build-fallback` — manual recovery: `git pull` + `docker compose build` if GHCR is unavailable
 
 ## Weekly restart (Tuesday & Friday 03:00)
 
