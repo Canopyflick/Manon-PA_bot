@@ -86,7 +86,7 @@ cp /home/ben/Obi-PA_bot/deployment/update_container.sh /home/ben/obi_deployer/
 cp /home/ben/Obi-PA_bot/.env.example /home/ben/obi_deployer/.env
 # edit .env with secrets
 chmod +x /home/ben/obi_deployer/update_container.sh
-cd /home/ben/obi_deployer && ./update_container.sh
+cd /home/ben/obi_deployer && bash update_container.sh
 ```
 
 Ensure `obsidian-sync-onedrive.sh` is deployed to `/home/ben/obsidian/scripts/` (from this ops repo).

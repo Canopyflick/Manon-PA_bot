@@ -42,7 +42,7 @@ nano .env  # Edit with your actual API keys and settings
 To start the bot for the first time:
 
 ```bash
-./update_container.sh
+bash update_container.sh
 ```
 
 This will pull the latest Docker image and start the containers.
@@ -67,7 +67,7 @@ crontab -e
 Add this line to check for updates every hour (minute 22):
 
 ```
-22 * * * * cd /home/ben/manon_deployer && ./update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
+22 * * * * cd /home/ben/manon_deployer && bash update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
 ```
 
 `update_container.sh` flags:
@@ -136,5 +136,5 @@ docker exec -i manon_db psql -U manon manon_db < ~/backups/your_backup_file.dump
 If you need to completely reinstall on a new system:
 
 1. Set up the deployment directory as described in "Initial Setup"
-2. Run the update script to start containers: `./update_container.sh`
+2. Run the update script to start containers: `bash update_container.sh`
 3. Restore the database if needed (see "Database Management")

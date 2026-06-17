@@ -9,7 +9,7 @@ show_logs() {
 
 update() {
   cd "$DEPLOY_DIR"
-  ./update_container.sh "${@:2}"
+  bash ./update_container.sh "${@:2}"
 }
 
 cleanup() {

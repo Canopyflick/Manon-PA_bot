@@ -153,11 +153,11 @@ Full pattern: `docs/bot-ghcr-deploy.md`. Both bots auto-update hourly via cron (
 
 ```powershell
 # Trigger update now
-ssh ben@raspberrypi "cd ~/manon_deployer && ./update_container.sh"
-ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh"
+ssh ben@raspberrypi "cd ~/manon_deployer && bash update_container.sh"
+ssh ben@raspberrypi "cd ~/obi_deployer && bash update_container.sh"
 
 # Preview without restart
-ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --dry-run"
+ssh ben@raspberrypi "cd ~/obi_deployer && bash update_container.sh --dry-run"
 
 # Tail update logs
 ssh ben@raspberrypi "tail -30 ~/manon_deployer/update_container.log"
@@ -167,7 +167,7 @@ ssh ben@raspberrypi "tail -30 ~/obi_deployer/update_container.log"
 If GHCR is down, manual recovery only (not cron):
 
 ```powershell
-ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --build-fallback"
+ssh ben@raspberrypi "cd ~/obi_deployer && bash update_container.sh --build-fallback"
 ```
 
 ## Build Bot Locally On The Pi (GHCR fallback)
@@ -175,8 +175,8 @@ ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --build-fallback
 Use only when GHCR pull fails and you need `--build-fallback` or a manual build:
 
 ```powershell
-ssh ben@raspberrypi "cd ~/manon_deployer && ./update_container.sh --build-fallback"
-ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --build-fallback"
+ssh ben@raspberrypi "cd ~/manon_deployer && bash update_container.sh --build-fallback"
+ssh ben@raspberrypi "cd ~/obi_deployer && bash update_container.sh --build-fallback"
 ```
 
 Or build Manon image directly:

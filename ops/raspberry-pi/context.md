@@ -225,8 +225,8 @@ User crontab on the Pi:
 05 3 * * * /home/ben/manon_healthcheck.sh >> /home/ben/healthchecks/cron.log 2>&1
 0 4 * * * /home/ben/manon_deployer/weekly_restart.sh >> /home/ben/manon_deployer/weekly_restart.log 2>&1
 30 3 * * * /home/ben/obsidian/scripts/obsidian-nightly-backup.sh
-22 * * * * cd /home/ben/manon_deployer && ./update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
-11 * * * * cd /home/ben/obi_deployer && ./update_container.sh >> /home/ben/obi_deployer/update_container.log 2>&1
+22 * * * * cd /home/ben/manon_deployer && bash update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
+11 * * * * cd /home/ben/obi_deployer && bash update_container.sh >> /home/ben/obi_deployer/update_container.log 2>&1
 ```
 
 GHCR bot updates: see `docs/bot-ghcr-deploy.md`.

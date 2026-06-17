@@ -69,10 +69,10 @@ Cron logs `redeploy=no reason=vault-lock` and exits 0 (defer until the next hour
 
 ```bash
 # Preview without restart
-cd /home/ben/obi_deployer && ./update_container.sh --dry-run
+cd /home/ben/obi_deployer && bash update_container.sh --dry-run
 
 # Manual recovery when GHCR is down
-cd /home/ben/obi_deployer && ./update_container.sh --build-fallback
+cd /home/ben/obi_deployer && bash update_container.sh --build-fallback
 ```
 
 ## GHCR authentication on the Pi
@@ -111,8 +111,8 @@ Both push `linux/arm64` to `ghcr.io/canopyflick/<bot>-pa-bot:latest` on push to 
 05 3 * * * /home/ben/manon_healthcheck.sh >> /home/ben/healthchecks/cron.log 2>&1
 0 4 * * * /home/ben/manon_deployer/weekly_restart.sh >> /home/ben/manon_deployer/weekly_restart.log 2>&1
 30 3 * * * /home/ben/obsidian/scripts/obsidian-nightly-backup.sh
-22 * * * * cd /home/ben/manon_deployer && ./update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
-11 * * * * cd /home/ben/obi_deployer && ./update_container.sh >> /home/ben/obi_deployer/update_container.log 2>&1
+22 * * * * cd /home/ben/manon_deployer && bash update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
+11 * * * * cd /home/ben/obi_deployer && bash update_container.sh >> /home/ben/obi_deployer/update_container.log 2>&1
 ```
 
 `weekly_restart.sh` and `manon_healthcheck.sh` are separate from GHCR updates (restart/recovery, not image pull).
@@ -121,8 +121,8 @@ Both push `linux/arm64` to `ghcr.io/canopyflick/<bot>-pa-bot:latest` on push to 
 
 ```bash
 # Trigger update now
-cd /home/ben/manon_deployer && ./update_container.sh
-cd /home/ben/obi_deployer && ./update_container.sh
+cd /home/ben/manon_deployer && bash update_container.sh
+cd /home/ben/obi_deployer && bash update_container.sh
 
 # Tail update logs
 tail -30 /home/ben/manon_deployer/update_container.log
@@ -135,8 +135,8 @@ docker inspect -f '{{.Name}} {{.Image}} {{.State.StartedAt}}' manon obi
 From Windows:
 
 ```powershell
-ssh ben@raspberrypi "cd ~/manon_deployer && ./update_container.sh"
-ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --dry-run"
+ssh ben@raspberrypi "cd ~/manon_deployer && bash update_container.sh"
+ssh ben@raspberrypi "cd ~/obi_deployer && bash update_container.sh --dry-run"
 ```
 
 ## Deploy script changes to the Pi
@@ -154,6 +154,15 @@ ssh ben@raspberrypi "chmod +x /home/ben/scripts/*.sh /home/ben/manon_deployer/up
 ```
 
 Or `git pull` in `/home/ben/Obi-PA_bot` on the Pi (requires `gh auth` with `repo` scope) and copy wrappers from there.
+
+### Shell scripts must use LF line endings
+
+Pi runs Linux bash. Scripts copied from Windows with CRLF (`\r\n`) fail with errors like `env: 'bash\r': No such file or directory`.
+
+- All `*.sh` in git use `*.sh text eol=lf` in `.gitattributes` (see `ops/raspberry-pi/.gitattributes`, `deployment/.gitattributes`, Obi `deployment/.gitattributes`).
+- Wrappers call the shared helper with `exec bash /home/ben/scripts/ghcr-update-container.sh` (not bare `./…`) so a bad shebang on the wrapper is less likely to break cron.
+- Cron invokes `bash update_container.sh`, not `./update_container.sh`.
+- If a script already has CRLF on the Pi: `sed -i 's/\r$//' /path/to/script.sh`
 
 ## First-time bot deploy
 

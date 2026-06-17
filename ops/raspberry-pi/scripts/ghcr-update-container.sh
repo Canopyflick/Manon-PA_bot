@@ -9,6 +9,12 @@
 #   --build-fallback  on GHCR failure: git pull + compose build (manual recovery)
 set -euo pipefail
 
+if grep -q $'\r' "$0" 2>/dev/null; then
+  echo "ERROR: $0 has Windows CRLF line endings." >&2
+  echo "Fix on Pi: sed -i 's/\\r$//' $0" >&2
+  exit 1
+fi
+
 BUILD_FALLBACK=false
 DRY_RUN=false
 while [[ $# -gt 0 ]]; do

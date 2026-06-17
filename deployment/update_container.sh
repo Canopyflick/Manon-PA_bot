@@ -8,4 +8,5 @@ export COMPOSE_DIR=/home/ben/manon_deployer
 export REPO_DIR=/home/ben/Manon-PA_bot
 export GIT_BRANCH=main
 
-exec /home/ben/scripts/ghcr-update-container.sh "$@"
+# Invoke shared helper via bash explicitly (avoids shebang failure if this file has CRLF).
+exec bash /home/ben/scripts/ghcr-update-container.sh "$@"
