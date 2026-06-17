@@ -8,7 +8,7 @@ OBSIDIAN_BASE_DIR="${OBSIDIAN_BASE_DIR:-/home/ben/obsidian}"
 ONEDRIVE_CONTAINER="${ONEDRIVE_CONTAINER:-onedrive}"
 ONEDRIVE_START_WAIT_SEC="${ONEDRIVE_START_WAIT_SEC:-60}"
 ONEDRIVE_SYNC_TIMEOUT_SEC="${ONEDRIVE_SYNC_TIMEOUT_SEC:-900}"
-OBSIDIAN_LOCK_FILE="${OBSIDIAN_LOCK_FILE:-/tmp/obsidian-nightly-backup.lock}"
+OBSIDIAN_LOCK_FILE="${OBSIDIAN_LOCK_FILE:-/home/ben/obi/state/vault.lock}"
 
 # State exported for callers that source this script
 ONEDRIVE_OFFLINE_AT_START=false
@@ -107,7 +107,7 @@ _obsidian_sync_main() {
   exec 9>"$OBSIDIAN_LOCK_FILE"
   if ! flock -w "$wait_lock_sec" 9; then
     _obsidian_sync_log "Could not acquire vault lock within ${wait_lock_sec}s"
-    exit 2
+    exit 3
   fi
 
   if sync_onedrive_vault; then
