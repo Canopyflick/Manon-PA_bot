@@ -68,7 +68,7 @@ Optional:
 
 - `OBI_ERROR_WEBHOOK_URL` — default `http://127.0.0.1:5678/webhook/obi-error-notify`
 - `OBI_OPENROUTER_MODEL` — default `@preset/manon-fast`
-- `AUDIO_OPENAI_API_KEY` or `OPENAI_API_KEY` — voice memo transcription (`gpt-4o-mini-transcribe`, same as Manon)
+- `OPENAI_OBI_API_KEY` — voice memo transcription (`gpt-4o-mini-transcribe`, same as Manon)
 
 ## Deploy / update
 
