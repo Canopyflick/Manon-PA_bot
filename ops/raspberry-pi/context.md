@@ -84,6 +84,7 @@ Important tables:
 
 - Deploy directory: `/home/ben/obi_deployer`
 - App source: `/home/ben/Obi-PA_bot`
+- Image: `ghcr.io/canopyflick/obi-pa-bot:latest` (GitHub Actions on push to `master`; Pi `update_container.sh` hourly cron)
 - Container: `obi`
 - State: `/home/ben/obi/state` (pending write confirmations)
 - Bot: `@Obi_obsidianPA_bot` (Telegram long polling)

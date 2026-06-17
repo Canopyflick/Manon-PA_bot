@@ -71,13 +71,30 @@ Optional:
 
 ## Deploy / update
 
+### Automatic (recommended)
+
+Push to `master` triggers GitHub Actions → GHCR image `ghcr.io/canopyflick/obi-pa-bot:latest`.
+
+On the Pi, `update_container.sh` (hourly cron) pulls the new image and redeploys. If GHCR pull fails (403), it falls back to `git pull` in `/home/ben/Obi-PA_bot` + local build.
+
+```bash
+cd /home/ben/obi_deployer && ./update_container.sh
+tail -20 /home/ben/obi_deployer/update_container.log
+```
+
+Cron line (install once):
+
+```bash
+0 * * * * cd /home/ben/obi_deployer && ./update_container.sh >> update_container.log 2>&1
+```
+
+### Manual
+
 ```bash
 ssh ben@raspberrypi
 
 cd /home/ben/Obi-PA_bot && git pull
-cd /home/ben/obi_deployer
-docker compose build
-docker compose up -d
+cd /home/ben/obi_deployer && ./update_container.sh
 docker logs -f obi --tail 50
 ```
 
