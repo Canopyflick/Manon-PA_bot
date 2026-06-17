@@ -161,10 +161,12 @@ If the source directory does not exist, clone it first.
 ## Check GHCR Pull
 
 ```powershell
+ssh ben@raspberrypi "/home/ben/ghcr-docker-login.sh"
 ssh ben@raspberrypi "docker pull ghcr.io/canopyflick/manon-pa-bot:latest"
+ssh ben@raspberrypi "docker pull ghcr.io/canopyflick/obi-pa-bot:latest"
 ```
 
-If this returns `403 Forbidden`, fix package permissions/PAT scopes before relying on `update_container.sh`.
+Pi `gh` must include `read:packages` (`gh auth refresh -h github.com -s read:packages`). If login fails, re-run device auth and `ghcr-docker-login.sh`.
 
 ## Check Public n8n
 

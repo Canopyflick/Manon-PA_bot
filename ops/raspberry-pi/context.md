@@ -258,18 +258,21 @@ Fix applied:
 
 Observed problem:
 
-- pulling `ghcr.io/canopyflick/manon-pa-bot:latest` returned `403 Forbidden`
+- pulling `ghcr.io/canopyflick/manon-pa-bot:latest` returned `403 Forbidden` (Pi `gh` token lacked `read:packages`)
 
-Workaround used:
+Fix (2026-06):
+
+- `gh auth refresh -h github.com -s read:packages` on Pi
+- `/home/ben/ghcr-docker-login.sh` — Docker login via `gh auth token`
+- Manon and Obi `update_container.sh` call login before pull
+
+Images: `ghcr.io/canopyflick/manon-pa-bot:latest`, `ghcr.io/canopyflick/obi-pa-bot:latest`
+
+Previous workaround:
 
 - cloned `https://github.com/Canopyflick/Manon-PA_bot`
 - built locally on the Pi
 - tagged the local image as `ghcr.io/canopyflick/manon-pa-bot:latest`
-
-Long-term fix:
-
-- fix GitHub Container Registry package visibility/permissions or PAT scopes
-- then restore update automation using `/home/ben/manon_deployer/update_container.sh`
 
 ### Timezone Drift
 

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
+cd "$(dirname "$0")"
+
+GHCR_LOGIN="${GHCR_LOGIN_SCRIPT:-/home/ben/ghcr-docker-login.sh}"
+if [[ -x "$GHCR_LOGIN" ]]; then
+  "$GHCR_LOGIN"
+fi
 
 # Pull the latest image first
 docker pull ghcr.io/canopyflick/manon-pa-bot:latest
