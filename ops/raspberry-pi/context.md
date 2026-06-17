@@ -57,6 +57,8 @@ Initial vault bootstrap used Windows OneDrive copy; ongoing sync uses the OneDri
 
 - Deploy directory: `/home/ben/manon_deployer`
 - Image: `ghcr.io/canopyflick/manon-pa-bot:latest` (GitHub Actions on push to `main`; Pi `update_container.sh` cron at minute 22)
+- Update scripts: `/home/ben/manon_deployer/update_container.sh` → `/home/ben/scripts/ghcr-update-container.sh`
+- Full deploy runbook: `docs/bot-ghcr-deploy.md`
 - Compose file: `/home/ben/manon_deployer/docker-compose.yml`
 - Env file: `/home/ben/manon_deployer/.env`
 - Containers:
@@ -86,10 +88,12 @@ Important tables:
 - Deploy directory: `/home/ben/obi_deployer`
 - App source: `/home/ben/Obi-PA_bot`
 - Image: `ghcr.io/canopyflick/obi-pa-bot:latest` (GitHub Actions on push to `master`; Pi `update_container.sh` cron at minute 11)
+- Update scripts: `/home/ben/obi_deployer/update_container.sh` → `/home/ben/scripts/ghcr-update-container.sh` (skips redeploy when `vault.lock` held)
 - Container: `obi`
 - State: `/home/ben/obi/state` (pending write confirmations)
 - Bot: `@Obi_obsidianPA_bot` (Telegram long polling)
-- Full runbook: `docs/obi-vault-bot.md`
+- Vault/lock/preflight runbook: `docs/obi-vault-bot.md`
+- GHCR deploy runbook: `docs/bot-ghcr-deploy.md`
 
 ## n8n
 
@@ -219,9 +223,13 @@ User crontab on the Pi:
 ```cron
 17 3 * * * /home/ben/backup_services.sh >> /home/ben/backups/backup.log 2>&1
 05 3 * * * /home/ben/manon_healthcheck.sh >> /home/ben/healthchecks/cron.log 2>&1
-30 3 * * * /home/ben/obsidian/scripts/obsidian-nightly-backup.sh
 0 4 * * * /home/ben/manon_deployer/weekly_restart.sh >> /home/ben/manon_deployer/weekly_restart.log 2>&1
+30 3 * * * /home/ben/obsidian/scripts/obsidian-nightly-backup.sh
+22 * * * * cd /home/ben/manon_deployer && ./update_container.sh >> /home/ben/manon_deployer/update_container.log 2>&1
+11 * * * * cd /home/ben/obi_deployer && ./update_container.sh >> /home/ben/obi_deployer/update_container.log 2>&1
 ```
+
+GHCR bot updates: see `docs/bot-ghcr-deploy.md`.
 
 ## Health And Recovery Scripts
 
@@ -257,23 +265,20 @@ Fix applied:
 
 ### GHCR Pull 403
 
-Observed problem:
+Observed problem (historical):
 
 - pulling `ghcr.io/canopyflick/manon-pa-bot:latest` returned `403 Forbidden` (Pi `gh` token lacked `read:packages`)
 
-Fix (2026-06):
+Fix (2026-06, current):
 
 - `gh auth refresh -h github.com -s read:packages` on Pi
-- `/home/ben/ghcr-docker-login.sh` — Docker login via `gh auth token`
-- Manon and Obi `update_container.sh` call login before pull
+- `/home/ben/scripts/ghcr-docker-login.sh` — Docker login via `gh auth token`
+- Shared `/home/ben/scripts/ghcr-update-container.sh` — digest compare, `compose up -d --no-build` only when changed
+- Manon cron minute 22; Obi cron minute 11
 
-Images: `ghcr.io/canopyflick/manon-pa-bot:latest`, `ghcr.io/canopyflick/obi-pa-bot:latest`
+Full runbook: `docs/bot-ghcr-deploy.md`
 
-Previous workaround:
-
-- cloned `https://github.com/Canopyflick/Manon-PA_bot`
-- built locally on the Pi
-- tagged the local image as `ghcr.io/canopyflick/manon-pa-bot:latest`
+Manual recovery if GHCR is unavailable: `./update_container.sh --build-fallback` (not used by cron).
 
 ### Timezone Drift
 

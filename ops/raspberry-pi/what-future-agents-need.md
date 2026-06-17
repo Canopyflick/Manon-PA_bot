@@ -9,9 +9,7 @@ This is the short list of things that would make future Raspberry Pi help faster
    - Manon/n8n still use local `/home/ben/backups` only.
    - Record restore test dates in `private-notes.md`.
 
-2. GHCR package access fixed.
-   - Current workaround is a local image build on the Pi.
-   - Future agents need either working `docker pull ghcr.io/canopyflick/manon-pa-bot:latest` or clear instructions for the local build path.
+2. ~~GHCR package access fixed.~~ Done (2026-06): Pi `gh` has `read:packages`; `/home/ben/scripts/ghcr-docker-login.sh` + `ghcr-update-container.sh`; cron at :22 (Manon) and :11 (Obi). See `docs/bot-ghcr-deploy.md`.
 
 3. Private notes file.
    - Copy `private-notes.example.md` to `private-notes.md`.

@@ -15,8 +15,9 @@ It is intentionally secret-free. Keep live tokens, passwords, private keys, Clou
 
 ## Services
 
-- `manon`: Telegram bot container, image tag `ghcr.io/canopyflick/manon-pa-bot:latest`
+- `manon`: Telegram bot container, image `ghcr.io/canopyflick/manon-pa-bot:latest` (auto-updated via cron, see `docs/bot-ghcr-deploy.md`)
 - `manon_db`: Postgres 17 container for Manon
+- `obi`: Obsidian vault Telegram bot, image `ghcr.io/canopyflick/obi-pa-bot:latest` (auto-updated via cron)
 - `n8n-n8n-1`: n8n container, exposed through Cloudflare Tunnel
 - `cloudflared`: systemd service for `n8n.bentenberge.com`
 - `cron`: local scheduled backups and health checks
@@ -25,7 +26,9 @@ It is intentionally secret-free. Keep live tokens, passwords, private keys, Clou
 ## Useful Entry Points
 
 - `context.md`: high-level architecture, known gotchas, and recovery notes.
+- `docs/bot-ghcr-deploy.md`: Manon & Obi GHCR build/pull/redeploy pattern (cron, scripts, auth).
 - `docs/obsidian-vault-backup.md`: Obsidian vault sync and GitHub backup runbook.
+- `docs/obi-vault-bot.md`: Obi vault bot paths, lock contract, and runtime behavior.
 - `obsidian-vault/`: Windows-side vault tooling (Diary analysis, git snapshots). See `obsidian-vault/README.md`.
 - `runbooks.md`: commands for diagnosis, restart, backups, restore, and updates.
 - `scripts/quick-check.ps1`: Windows-side SSH health check.
@@ -73,5 +76,4 @@ ssh -o StrictHostKeyChecking=accept-new ben@raspberrypi hostname
 ## Current Limitations
 
 - Obsidian vault GitHub backup is configured; live OneDrive sync on the Pi requires completing one-time device auth (`docs/obsidian-vault-backup.md`).
-- GHCR pulls previously returned `403 Forbidden`; Manon was rebuilt locally from `Canopyflick/Manon-PA_bot` and tagged as `ghcr.io/canopyflick/manon-pa-bot:latest`. Fixing GHCR package permissions would make `update_container.sh` useful again.
 - n8n was rebuilt fresh after SD-card data loss. Old workflows/credentials were not recoverable unless an external n8n volume backup appears. Post-rebuild workflows and credentials are documented in `context.md`.

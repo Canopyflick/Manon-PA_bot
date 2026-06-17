@@ -147,13 +147,43 @@ ssh ben@raspberrypi "cd ~/n8n && docker compose up -d"
 
 The n8n `N8N_ENCRYPTION_KEY` in compose must match the key used when the backup was created.
 
-## Build Manon Locally On The Pi
+## Update Manon Or Obi From GHCR
 
-Use this if GHCR pulls still fail:
+Full pattern: `docs/bot-ghcr-deploy.md`. Both bots auto-update hourly via cron (Manon :22, Obi :11).
+
+```powershell
+# Trigger update now
+ssh ben@raspberrypi "cd ~/manon_deployer && ./update_container.sh"
+ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh"
+
+# Preview without restart
+ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --dry-run"
+
+# Tail update logs
+ssh ben@raspberrypi "tail -30 ~/manon_deployer/update_container.log"
+ssh ben@raspberrypi "tail -30 ~/obi_deployer/update_container.log"
+```
+
+If GHCR is down, manual recovery only (not cron):
+
+```powershell
+ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --build-fallback"
+```
+
+## Build Bot Locally On The Pi (GHCR fallback)
+
+Use only when GHCR pull fails and you need `--build-fallback` or a manual build:
+
+```powershell
+ssh ben@raspberrypi "cd ~/manon_deployer && ./update_container.sh --build-fallback"
+ssh ben@raspberrypi "cd ~/obi_deployer && ./update_container.sh --build-fallback"
+```
+
+Or build Manon image directly:
 
 ```powershell
 ssh ben@raspberrypi "cd ~/Manon-PA_bot && git pull origin main && docker build -t ghcr.io/canopyflick/manon-pa-bot:latest ."
-ssh ben@raspberrypi "cd ~/manon_deployer && docker compose up -d --remove-orphans"
+ssh ben@raspberrypi "cd ~/manon_deployer && docker compose up -d --no-build manon"
 ```
 
 If the source directory does not exist, clone it first.
@@ -161,12 +191,12 @@ If the source directory does not exist, clone it first.
 ## Check GHCR Pull
 
 ```powershell
-ssh ben@raspberrypi "/home/ben/ghcr-docker-login.sh"
+ssh ben@raspberrypi "/home/ben/scripts/ghcr-docker-login.sh"
 ssh ben@raspberrypi "docker pull ghcr.io/canopyflick/manon-pa-bot:latest"
 ssh ben@raspberrypi "docker pull ghcr.io/canopyflick/obi-pa-bot:latest"
 ```
 
-Pi `gh` must include `read:packages` (`gh auth refresh -h github.com -s read:packages`). If login fails, re-run device auth and `ghcr-docker-login.sh`.
+Pi `gh` must include `read:packages` (`gh auth refresh -h github.com -s read:packages`). See `docs/bot-ghcr-deploy.md`.
 
 ## Check Public n8n
 

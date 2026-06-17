@@ -20,6 +20,7 @@ Do not commit `private-notes.md`.
 - OpenRouter API key:
 - Cloudflare tunnel credentials:
 - GHCR/GitHub token:
+- Pi `gh auth` scopes (must include `read:packages` for `docker pull` from ghcr.io)
 - n8n encryption key (on Pi compose — do not rotate casually):
 - n8n API key (Cursor local `.env` — `ops/raspberry-pi/.env`):
 
@@ -37,7 +38,8 @@ Use this section for future Pi projects beyond Manon/n8n.
 
 | Project | Path | Containers/Services | Public URL | Backup Notes |
 | --- | --- | --- | --- | --- |
-| Manon | `/home/ben/manon_deployer` | `manon`, `manon_db` | Telegram polling | SQL dump |
+| Manon | `/home/ben/manon_deployer` | `manon`, `manon_db` | Telegram polling; GHCR cron :22 | SQL dump |
+| Obi | `/home/ben/obi_deployer` | `obi` | Telegram polling; GHCR cron :11 | state dir only |
 | n8n | `/home/ben/n8n` | `n8n-n8n-1` | `n8n.bentenberge.com` | Docker volume tar |
 | Obsidian vault | `/home/ben/obsidian` | `onedrive` Docker | — | GitHub `obsidian-vault-backup` nightly |
 | Nathan (n8n bot) | n8n workflow | Telegram Trigger | Telegram @Nathan_PA_bot | — |
