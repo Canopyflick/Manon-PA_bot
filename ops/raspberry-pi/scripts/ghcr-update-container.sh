@@ -28,7 +28,7 @@ done
 : "${CONTAINER_NAME:?CONTAINER_NAME required}"
 
 COMPOSE_DIR="${COMPOSE_DIR:-$(pwd)}"
-GHCR_LOGIN_SCRIPT="${GHCR_LOGIN_SCRIPT:-/home/ben/ghcr-docker-login.sh}"
+GHCR_LOGIN_SCRIPT="${GHCR_LOGIN_SCRIPT:-/home/ben/scripts/ghcr-docker-login.sh}"
 
 log() {
   echo "[$(date --iso-8601=seconds)] $*"
