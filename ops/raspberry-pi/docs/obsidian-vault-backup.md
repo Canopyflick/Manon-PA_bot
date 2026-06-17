@@ -160,7 +160,7 @@ cd /home/ben/obsidian && docker compose up -d
 
 | Symptom | Likely cause | Action |
 | --- | --- | --- |
-| Vault stale on Pi | OneDrive container down or auth expired | `docker ps -f name=onedrive`; `cd ~/obsidian && docker compose up -d`; re-run device auth if needed |
+| `*-safeBackup-*` duplicates in vault | Pi OneDrive client conflict preservation (Obsidian atomic saves) | `skip_file` includes `*-safeBackup-*` in `docker/obsidian/onedrive-config`; redeploy config and restart container; delete stale copies manually |
 | Nightly log says "No changes to commit" but you edited notes | OneDrive not syncing to Pi (container was down) | Start OneDrive; wait for sync; run backup manually — cron was running, vault was just frozen |
 | Backup skipped with deletion error | Incomplete sync or real mass delete | Inspect OneDrive logs and vault before overriding guard |
 | Push failed | Deploy key or GitHub access issue | Test `GIT_SSH_COMMAND='ssh -i ~/.ssh/obsidian_vault_backup' git push` |
