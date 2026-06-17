@@ -14,9 +14,9 @@ Vault lives on OneDrive, **outside** this repo. Daily notes: `Diary/`. Skill: `.
 
 Before **any** vault read that informs deletes/edits, or **any** file mutation (create, edit, delete, rename):
 
-1. **Windows (Cursor):** Confirm OneDrive has finished syncing the vault folder — tray icon shows up to date, no pending uploads/downloads on `Obsidian/hej`. If edits may have come from phone or Pi recently, wait for sync to settle before acting.
-2. **Pi / SSH:** Run `/home/ben/obsidian/scripts/obsidian-sync-onedrive.sh` (or `--wait-lock`) and confirm sync completed.
-3. **Git mirror (before commit/push only):** `git pull --rebase` on the separate `--git-dir` so Windows and Pi nightly backup are not fighting on GitHub. This does **not** replace step 1.
+1. **Windows:** `wait-onedrive-vault.ps1` (or rely on `vault-git-snapshot.ps1`, which calls it automatically).
+2. **Pi:** `ssh ben@raspberrypi ~/obsidian/scripts/obsidian-sync-onedrive.sh`
+3. **Git:** `vault-git-snapshot.ps1` runs `git fetch` + `git rebase` onto `origin/main` before commit/push. Do not use raw `git` for vault backups unless you mirror that flow.
 
 Never delete, bulk-edit, or snapshot-push vault files on a stale local tree.
 
@@ -35,8 +35,10 @@ Pi sync/backup runbook: `ops/raspberry-pi/docs/obsidian-vault-backup.md`.
 
 | Script | Use for |
 | --- | --- |
+| `wait-onedrive-vault.ps1` | **Run first** — OneDrive preflight before any vault edit (also called by snapshot) |
 | `vault-git-bootstrap.ps1` | One-time Windows git mirror setup |
-| `vault-git-snapshot.ps1` | Commit before/after vault edits (`-Push` optional) |
+| `vault-git-snapshot.ps1` | Commit before/after vault edits (`-Push`); auto OneDrive wait + `git pull --rebase` |
+| `analyze-safebackup-duplicates.py` | Compare `safeBackup` copies vs canonical notes |
 | `analyze-diary-headers.py` | Read-only Diary header/scaffold scan |
 | `fix-diary-nav.py` | Fix wrong dates on existing nav lines only (never adds lines) |
 

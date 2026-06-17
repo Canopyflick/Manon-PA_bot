@@ -72,7 +72,7 @@ Wikilink text must be `YYYY-MM-DD, ddd` where `ddd` matches the date's weekday (
 
 ## How agents should work
 
-0. **Sync:** OneDrive idle on vault (Windows) or `obsidian-sync-onedrive.sh` (Pi). If pushing git, pull/rebase vault mirror first.
+0. **Sync:** `wait-onedrive-vault.ps1` (Windows) or `obsidian-sync-onedrive.sh` (Pi). Use `vault-git-snapshot.ps1` for git (includes OneDrive wait + rebase).
 1. **Read first:** `analyze-diary-headers.py --nav-only --since YYYY-MM-DD --summary-only`
 2. **Dry-run fixes:** `fix-diary-nav.py --since …` (default is dry-run)
 3. **Git snapshot before any write:** `vault-git-snapshot.ps1 -Message "pre: …"`

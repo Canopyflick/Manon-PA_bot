@@ -28,15 +28,27 @@ gh auth status   # should show Canopyflick, protocol https
 
 SSH alternative: add your public key to GitHub and set `GIT_REMOTE=git@github.com:Canopyflick/obsidian-vault-backup.git` in `config.env`.
 
+## Safe edit workflow (mandatory)
+
+**OneDrive is the source of truth.** Before any vault mutation from Cursor:
+
+```powershell
+.\ops\raspberry-pi\obsidian-vault\scripts\wait-onedrive-vault.ps1
+```
+
+`vault-git-snapshot.ps1` runs this automatically. It also `git fetch` + `git rebase` onto `origin/main` before commit/push so Windows edits do not fight the Pi nightly backup.
+
 ## Git snapshots (before/after vault edits)
 
 ```powershell
-# Before any mutation
+# Before any mutation (OneDrive wait + git rebase included)
 .\ops\raspberry-pi\obsidian-vault\scripts\vault-git-snapshot.ps1 -Message "pre: diary header fixes"
 
-# After changes (optional -Push for immediate remote backup)
+# After changes
 .\ops\raspberry-pi\obsidian-vault\scripts\vault-git-snapshot.ps1 -Message "post: diary header fixes" -Push
 ```
+
+Use `-SkipOneDriveSync` or `-SkipPull` only for emergencies.
 
 Pi nightly cron still runs at 03:30 Europe/Berlin; local snapshots are for immediate rollback when editing from Cursor.
 

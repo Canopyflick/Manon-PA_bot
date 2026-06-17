@@ -6,6 +6,10 @@
   Commit message (required).
 .PARAMETER Push
   Push to origin after commit.
+.PARAMETER SkipOneDriveSync
+  Skip wait-onedrive-vault.ps1 (not recommended).
+.PARAMETER SkipPull
+  Skip fetch/rebase before commit and push (not recommended).
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -13,80 +17,62 @@ param(
 
     [switch]$Push,
 
+    [switch]$SkipOneDriveSync,
+
+    [switch]$SkipPull,
+
     [string]$ConfigPath
 )
 
 $ErrorActionPreference = "Stop"
 $ScriptRoot = $PSScriptRoot
+. (Join-Path $ScriptRoot "vault-git-common.ps1")
 
-function Get-ObsidianVaultConfig {
-    param([string]$Path)
+$paths = Get-ObsidianVaultPaths -ConfigPath $ConfigPath -ScriptRoot $ScriptRoot
+$vaultPath = $paths.VaultPath
+$gitDir = $paths.GitDir
 
-    if (-not $Path) {
-        $Path = Join-Path (Split-Path -Parent $ScriptRoot) "config.env"
-    }
-
-    if (-not (Test-Path $Path)) {
-        throw "Config not found: $Path`nCopy config.example.env to config.env and run vault-git-bootstrap.ps1 first."
-    }
-
-    $config = @{}
-    Get-Content $Path | ForEach-Object {
-        $line = $_.Trim()
-        if ($line -eq "" -or $line.StartsWith("#")) { return }
-        $parts = $line -split "=", 2
-        if ($parts.Count -eq 2) {
-            $key = $parts[0].Trim()
-            $value = $parts[1].Trim()
-            $value = [Environment]::ExpandEnvironmentVariables($value)
-            $config[$key] = $value
-        }
-    }
-    return $config
+if (-not $SkipOneDriveSync) {
+    & (Join-Path $ScriptRoot "wait-onedrive-vault.ps1") -ConfigPath $ConfigPath
 }
 
-function Invoke-Git {
-    param(
-        [string]$GitDir,
-        [string]$WorkTree,
-        [string[]]$GitArgs
-    )
-    $allArgs = @("--git-dir=$GitDir", "--work-tree=$WorkTree") + $GitArgs
-    & git @allArgs
-    return $LASTEXITCODE
+if (-not $SkipPull) {
+    Sync-VaultGitRemote -GitDir $gitDir -WorkTree $vaultPath
 }
 
-$config = Get-ObsidianVaultConfig -Path $ConfigPath
-$vaultPath = [System.IO.Path]::GetFullPath($config["VAULT_PATH"])
-$gitDir = [System.IO.Path]::GetFullPath($config["GIT_DIR"])
-
-if (-not (Test-Path $gitDir)) {
-    throw "Git dir not found: $gitDir`nRun vault-git-bootstrap.ps1 first."
-}
-
-if (Test-Path (Join-Path $vaultPath ".git")) {
-    throw "Refusing snapshot: .git found inside vault folder"
-}
-
-$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("add", "-A")
+$exitCode = Invoke-VaultGit -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("add", "-A")
 if ($exitCode -ne 0) { throw "git add failed" }
 
-$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("diff", "--cached", "--quiet")
+$exitCode = Invoke-VaultGit -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("diff", "--cached", "--quiet")
 if ($exitCode -eq 0) {
     Write-Host "No changes to commit."
+    if ($Push) {
+        if (-not $SkipPull) {
+            Sync-VaultGitRemote -GitDir $gitDir -WorkTree $vaultPath
+        }
+        $exitCode = Invoke-VaultGit -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "main")
+        if ($exitCode -ne 0) {
+            $exitCode = Invoke-VaultGit -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "HEAD")
+            if ($exitCode -ne 0) { throw "git push failed" }
+        }
+        Write-Host "Pushed to origin."
+    }
     exit 0
 }
 
-$exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("commit", "-m", $Message)
+$exitCode = Invoke-VaultGit -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("commit", "-m", $Message)
 if ($exitCode -ne 0) { throw "git commit failed" }
 
 $hash = & git --git-dir=$gitDir --work-tree=$vaultPath rev-parse --short HEAD
 Write-Host "Committed: $hash - $Message"
 
 if ($Push) {
-    $exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "main")
+    if (-not $SkipPull) {
+        Sync-VaultGitRemote -GitDir $gitDir -WorkTree $vaultPath
+    }
+    $exitCode = Invoke-VaultGit -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "main")
     if ($exitCode -ne 0) {
-        $exitCode = Invoke-Git -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "HEAD")
+        $exitCode = Invoke-VaultGit -GitDir $gitDir -WorkTree $vaultPath -GitArgs @("push", "origin", "HEAD")
         if ($exitCode -ne 0) { throw "git push failed" }
     }
     Write-Host "Pushed to origin."

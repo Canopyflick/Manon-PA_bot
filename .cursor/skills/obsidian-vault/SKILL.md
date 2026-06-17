@@ -16,21 +16,20 @@ Vault: OneDrive `Obsidian/hej`. Daily notes: `Diary/`. Runbook in `ops/raspberry
 
 Before **any** vault mutation or destructive operation:
 
-1. **Windows:** Ensure OneDrive sync is idle on the vault folder (no pending sync from phone/Pi/web). The vault path is already under OneDrive — do not assume the local folder is current if other devices edited recently.
+1. **Windows:** `.\ops\raspberry-pi\obsidian-vault\scripts\wait-onedrive-vault.ps1` — or use `vault-git-snapshot.ps1`, which runs this automatically.
 2. **Pi:** `ssh ben@raspberrypi ~/obsidian/scripts/obsidian-sync-onedrive.sh`
-3. **Git (before push):** Pull/rebase the Windows `--git-dir` mirror first (`vault-git-pull.ps1` or manual `git pull --rebase`). Skipping this caused push conflicts when Pi nightly backup and Windows both committed the same files differently.
+3. **Git:** Use `vault-git-snapshot.ps1` only (not raw `git commit`/`push`). It rebases onto `origin/main` before commit and again before push.
 
 ## Git safety (mandatory)
 
 Before **any** vault mutation:
 
-0. OneDrive sync settled (see above)
-1. `git pull --rebase` on vault mirror (if you will push later)
-2. `.\ops\raspberry-pi\obsidian-vault\scripts\vault-git-snapshot.ps1 -Message "pre: <what>"`
+0. OneDrive preflight (`wait-onedrive-vault.ps1` — included in snapshot)
+1. `.\ops\raspberry-pi\obsidian-vault\scripts\vault-git-snapshot.ps1 -Message "pre: <what>"`
 
 After changes:
 
-3. `.\ops\raspberry-pi\obsidian-vault\scripts\vault-git-snapshot.ps1 -Message "post: <what>" -Push`
+2. `.\ops\raspberry-pi\obsidian-vault\scripts\vault-git-snapshot.ps1 -Message "post: <what>" -Push`
 
 One-time setup: copy `config.example.env` → `config.env`, then run `vault-git-bootstrap.ps1`.
 
