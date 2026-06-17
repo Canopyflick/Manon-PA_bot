@@ -104,9 +104,9 @@ Known body patterns to watch:
 - Tag-in-heading: `## #workoutlog`
 - H1 mid-document after deeper headings: `# rest van diary entry`
 
-## Telegram bot drift
+## Telegram `/diary` command
 
-`features/obsidian/diary_header.py` still emits `Wellbeing`, `Work`, and `Finished` in the Telegram `/diary` header. That output does not match the current Obsidian Daily Note template. Documented here for awareness; not changed by obsidian-vault tooling in phase 1.
+Manon's `/diary` (and `/header`) command generates paste-ready scaffold text only — it does not read or write the vault. Output is built in `features/obsidian/diary_header.py` and should match this document's canonical scaffold (frontmatter, interval nav, Hotseat marker, separator, checkbox). Nav dates use the same offsets as `analyze-diary-headers.py` (−1/+1 day, −7/+7 week, etc.).
 
 ## Related paths
 

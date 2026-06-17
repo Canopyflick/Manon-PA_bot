@@ -676,12 +676,12 @@ diary_header_template = ChatPromptTemplate([
        - **Month:** The start and end of the previous and next month (30 days before/after the base date).
        - **Quarter:** The start and end of the previous and next quarter (90 days before/after the base date).
        - **Year:** The start and end of the previous and next year (365 days before/after the base date).
-    3. Format the output in this structure:
-        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> (day)
-        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> (week)
-        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> (month)
-        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> (quarter)
-        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> (year)
+    3. Format the output in this structure (bare interval labels, no parentheses):
+        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> day
+        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> week
+        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> month
+        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> quarter
+        << [[YYYY-MM-DD, ddd]] | [[YYYY-MM-DD, ddd]] >> year
 
     You will receive user input under the `User Request` field, which specifies the base date for the calculations. Generate the response accordingly.
 
@@ -690,11 +690,11 @@ diary_header_template = ChatPromptTemplate([
     "2024-01-12, Fri"
 
     Example Output:
-    << [[2024-01-11, Thu]] | [[2024-01-13, Sat]] >> (day)
-    << [[2024-01-05, Fri]] | [[2024-01-19, Fri]] >> (week)
-    << [[2023-12-13, Wed]] | [[2024-02-11, Sun]] >> (month)
-    << [[2023-10-14, Sat]] | [[2024-04-11, Thu]] >> (quarter)
-    << [[2023-01-12, Thu]] | [[2025-01-11, Sat]] >> (year)
+    << [[2024-01-11, Thu]] | [[2024-01-13, Sat]] >> day
+    << [[2024-01-05, Fri]] | [[2024-01-19, Fri]] >> week
+    << [[2023-12-13, Wed]] | [[2024-02-11, Sun]] >> month
+    << [[2023-10-14, Sat]] | [[2024-04-11, Thu]] >> quarter
+    << [[2023-01-12, Thu]] | [[2025-01-11, Sat]] >> year
 
     (reminder: it is currently: {weekday}, {now}) 
     """),
