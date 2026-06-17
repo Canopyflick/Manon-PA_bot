@@ -169,25 +169,15 @@ cd /home/ben/obsidian && docker compose up -d
 
 ## Future Telegram bot integration
 
-The nightly backup already sends a one-line Manon Telegram message after each successful push (see **Telegram notification** above). The items below describe a future read-only vault bot, not the backup notifier.
+Obi (`@Obi_PA_bot`) is the vault Telegram agent. See **`docs/obi-vault-bot.md`** for deploy, paths, and test plan.
 
-| Setting | Value |
-| --- | --- |
-| `OBSIDIAN_VAULT_DIR` | `/home/ben/obsidian/vault` |
-| `OBSIDIAN_BACKUP_STATUS_LOG` | `/home/ben/obsidian/logs/obsidian-nightly-backup.log` |
-| `OBSIDIAN_READ_ONLY_MODE` | `true` (initial version) |
-| Future index dir | `/home/ben/obsidian/index` |
+Design notes (still apply):
 
-Design assumptions:
-
-- Bot reads the local vault folder directly.
-- Bot does not call OneDrive or Obsidian desktop APIs.
-- Sync freshness is eventual: Android -> OneSync -> OneDrive -> Pi (minutes, not seconds).
-- GitHub is backup/version history, not primary sync.
-- Initial bot version is read-only.
-- Later writes should target safe files only (`Inbox.md`, capture note, daily notes).
-- Bot index/state should live outside the vault.
-- Manon's existing `/diary` command generates text only and does not access this vault path.
+- Bot reads the local vault folder directly; no OneDrive or Obsidian desktop APIs
+- OneDrive is source of truth; sync via `obsidian-sync-onedrive.sh` before operations
+- GitHub is backup/version history
+- Bot index/state lives outside the vault (`/home/ben/obi/state`)
+- Manon's `/diary` command does not access this vault path
 
 ## Deploy from repo
 
@@ -196,6 +186,7 @@ Copy scripts and systemd unit from this repo to the Pi:
 ```bash
 mkdir -p ~/obsidian/scripts
 install -m 755 obsidian-nightly-backup.sh ~/obsidian/scripts/
+install -m 755 obsidian-sync-onedrive.sh ~/obsidian/scripts/
 install -m 755 obsidian-backup-notify.sh ~/obsidian/scripts/
 install -m 755 obsidian-sync-status.sh ~/obsidian/scripts/
 install -m 755 obsidian-onedrive-auth.sh ~/obsidian/scripts/

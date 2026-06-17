@@ -26,9 +26,16 @@ Obsidian vault (OneDrive Obsidian/hej)
   -> /home/ben/obsidian/vault
   -> nightly git push
   -> Canopyflick/obsidian-vault-backup (private)
+
+Telegram long polling
+  -> obi container
+  -> obsidian-sync-onedrive.sh
+  -> vault read/write + git push on confirmed writes
 ```
 
 Manon does not use a public webhook. It uses Telegram `run_polling()`.
+
+Obi (`@Obi_PA_bot`) also uses `run_polling()`. See `docs/obi-vault-bot.md`.
 
 ## Obsidian vault
 
@@ -73,6 +80,15 @@ Important tables:
 
 `/wassup` reads open-ended goals from `manon_goals` with `status = 'prepared'`.
 
+## Obi
+
+- Deploy directory: `/home/ben/obi_deployer`
+- App source: `/home/ben/Obi-PA_bot`
+- Container: `obi`
+- State: `/home/ben/obi/state` (pending write confirmations)
+- Bot: `@Obi_PA_bot` (Telegram long polling)
+- Full runbook: `docs/obi-vault-bot.md`
+
 ## n8n
 
 - Deploy directory: `/home/ben/n8n`
@@ -94,6 +110,7 @@ Local secrets for Cursor agents live in `ops/raspberry-pi/.env` (gitignored via 
 | `N8N_API_KEY` | REST API at `https://n8n.bentenberge.com/api/v1` |
 | `NATHAN_TELEGRAM_BOT_API_KEY` | Telegram bot token for Nathan (@Nathan_PA_bot) credential creation |
 | `MANON_TELEGRAM_BOT_API_KEY` | Telegram bot token for Manon (@Manon_PA_bot) — outbound sub-workflow |
+| `OBI_TELEGRAM_BOT_API_KEY` | Telegram bot token for Obi (@Obi_PA_bot) — REST credential creation |
 | `TELEGRAM_USER_ID_BEN` | Default chat ID for Manon test sends |
 
 ### n8n MCP (`user-n8n-mcp`)
@@ -151,6 +168,7 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | **Nathan Error Notifier** (`F8jhQSnsX59ZTYkQ`) | Error Trigger → format alert → Send Message via Manon. Assigned as error workflow on Nathan Calendar Bot |
 | Test Send Message via Manon (`EU17ZwFO5PSBxd9s`) | Manual test harness for the Manon sub-workflow |
 | **Obsidian Backup Notify** (`mKVcGheBxim9Yoo1`) | Webhook → Send Message via Manon; called by Pi after nightly vault push |
+| **Obi Error Notify** (`lIAXPYiqqpaUZIIo`) | Webhook → Send Message via Manon; called by Obi container on runtime errors |
 | Test Nathan Error Notifier (`Q7wF4ELCNWoJHLR2`) | Manual Stop-and-Error harness (fires error workflow only in production) |
 
 **Send Message via Manon** input contract (all fields optional except `text`):
