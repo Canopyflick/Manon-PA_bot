@@ -5,8 +5,9 @@ Concise conventions and agent rules learned from vault analysis (June 2026). Det
 ## What this is
 
 - **Vault:** OneDrive `Obsidian/hej` (~3,600 daily notes in `Diary/`)
+- **Source of truth:** OneDrive (phone, Windows, web). **Always confirm sync is current before agents edit or delete vault files.**
 - **Live sync:** OneDrive → phone, Pi. Edits from Cursor propagate immediately.
-- **Git backup:** separate `--git-dir` on Windows (`%USERPROFILE%\.obsidian-vault-backup\vault.git`); Pi has its own mirror. Never put `.git` inside the vault folder.
+- **Git backup:** separate `--git-dir` on Windows (`%USERPROFILE%\.obsidian-vault-backup\vault.git`); Pi has its own mirror. Never put `.git` inside the vault folder. Pull/rebase git before push — Pi nightly backup writes to the same GitHub repo.
 
 ## Daily note identity
 
@@ -71,6 +72,7 @@ Wikilink text must be `YYYY-MM-DD, ddd` where `ddd` matches the date's weekday (
 
 ## How agents should work
 
+0. **Sync:** OneDrive idle on vault (Windows) or `obsidian-sync-onedrive.sh` (Pi). If pushing git, pull/rebase vault mirror first.
 1. **Read first:** `analyze-diary-headers.py --nav-only --since YYYY-MM-DD --summary-only`
 2. **Dry-run fixes:** `fix-diary-nav.py --since …` (default is dry-run)
 3. **Git snapshot before any write:** `vault-git-snapshot.ps1 -Message "pre: …"`

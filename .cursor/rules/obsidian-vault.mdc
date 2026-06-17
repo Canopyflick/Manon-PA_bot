@@ -1,12 +1,24 @@
 ---
 description: Obsidian vault management for PA_bot (Diary daily notes, Windows git mirror)
 globs: ops/raspberry-pi/obsidian-vault/**
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Obsidian Vault (ops/raspberry-pi/obsidian-vault)
 
 Vault lives on OneDrive, **outside** this repo. Daily notes: `Diary/`. Skill: `.cursor/skills/obsidian-vault/SKILL.md`.
+
+## OneDrive first (mandatory)
+
+**OneDrive is the source of truth** for vault content. Git (`obsidian-vault-backup`) is version history only.
+
+Before **any** vault read that informs deletes/edits, or **any** file mutation (create, edit, delete, rename):
+
+1. **Windows (Cursor):** Confirm OneDrive has finished syncing the vault folder — tray icon shows up to date, no pending uploads/downloads on `Obsidian/hej`. If edits may have come from phone or Pi recently, wait for sync to settle before acting.
+2. **Pi / SSH:** Run `/home/ben/obsidian/scripts/obsidian-sync-onedrive.sh` (or `--wait-lock`) and confirm sync completed.
+3. **Git mirror (before commit/push only):** `git pull --rebase` on the separate `--git-dir` so Windows and Pi nightly backup are not fighting on GitHub. This does **not** replace step 1.
+
+Never delete, bulk-edit, or snapshot-push vault files on a stale local tree.
 
 ## Paths
 
@@ -31,6 +43,8 @@ Pi sync/backup runbook: `ops/raspberry-pi/docs/obsidian-vault-backup.md`.
 ## Git safety
 
 Always run `vault-git-snapshot.ps1` **before and after** any vault file mutation from Cursor. Never add `.git` inside the OneDrive vault folder.
+
+Before **push**: `git --git-dir=… --work-tree=… pull --rebase origin main` (or use snapshot only after pull). Pi nightly backup also pushes to the same repo — rebasing first avoids modify/delete conflicts on files Pi still had (e.g. `safeBackup` copies).
 
 ## Agent conventions
 
