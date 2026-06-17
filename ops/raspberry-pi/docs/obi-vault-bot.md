@@ -1,6 +1,6 @@
 # Obi — Obsidian Vault Telegram Bot
 
-Obi (`@Obi_PA_bot`) is a Python Telegram bot that reads and updates the Pi's OneDrive-synced Obsidian vault mirror.
+Obi (`@Obi_obsidianPA_bot`) is a Python Telegram bot that reads and updates the Pi's OneDrive-synced Obsidian vault mirror.
 
 Source repo: `https://github.com/Canopyflick/Obi-PA_bot`
 
@@ -34,7 +34,7 @@ Obi uses the same vault lock file as the nightly backup (`/tmp/obsidian-nightly-
 
 Copy from `Obi-PA_bot/.env.example`. Required:
 
-- `TELEGRAM_API_KEY` — @Obi_PA_bot token
+- `TELEGRAM_API_KEY` — @Obi_obsidianPA_bot token
 - `APPROVED_USER_IDS` — comma-separated Telegram user IDs
 - `BEN_ID` — Ben's Telegram user ID
 - `OPENROUTER_API_KEY` — agent + search summarization

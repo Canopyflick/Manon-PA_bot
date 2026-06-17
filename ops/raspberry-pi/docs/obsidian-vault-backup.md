@@ -169,7 +169,7 @@ cd /home/ben/obsidian && docker compose up -d
 
 ## Future Telegram bot integration
 
-Obi (`@Obi_PA_bot`) is the vault Telegram agent. See **`docs/obi-vault-bot.md`** for deploy, paths, and test plan.
+Obi (`@Obi_obsidianPA_bot`) is the vault Telegram agent. See **`docs/obi-vault-bot.md`** for deploy, paths, and test plan.
 
 Design notes (still apply):
 

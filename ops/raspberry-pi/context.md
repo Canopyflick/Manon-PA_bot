@@ -35,7 +35,7 @@ Telegram long polling
 
 Manon does not use a public webhook. It uses Telegram `run_polling()`.
 
-Obi (`@Obi_PA_bot`) also uses `run_polling()`. See `docs/obi-vault-bot.md`.
+Obi (`@Obi_obsidianPA_bot`) also uses `run_polling()`. See `docs/obi-vault-bot.md`.
 
 ## Obsidian vault
 
@@ -86,7 +86,7 @@ Important tables:
 - App source: `/home/ben/Obi-PA_bot`
 - Container: `obi`
 - State: `/home/ben/obi/state` (pending write confirmations)
-- Bot: `@Obi_PA_bot` (Telegram long polling)
+- Bot: `@Obi_obsidianPA_bot` (Telegram long polling)
 - Full runbook: `docs/obi-vault-bot.md`
 
 ## n8n
@@ -110,7 +110,7 @@ Local secrets for Cursor agents live in `ops/raspberry-pi/.env` (gitignored via 
 | `N8N_API_KEY` | REST API at `https://n8n.bentenberge.com/api/v1` |
 | `NATHAN_TELEGRAM_BOT_API_KEY` | Telegram bot token for Nathan (@Nathan_PA_bot) credential creation |
 | `MANON_TELEGRAM_BOT_API_KEY` | Telegram bot token for Manon (@Manon_PA_bot) — outbound sub-workflow |
-| `OBI_TELEGRAM_BOT_API_KEY` | Telegram bot token for Obi (@Obi_PA_bot) — REST credential creation |
+| `OBI_TELEGRAM_BOT_API_KEY` | Telegram bot token for Obi (@Obi_obsidianPA_bot) — REST credential creation |
 | `TELEGRAM_USER_ID_BEN` | Default chat ID for Manon test sends |
 
 ### n8n MCP (`user-n8n-mcp`)
