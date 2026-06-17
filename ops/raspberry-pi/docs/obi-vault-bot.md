@@ -62,7 +62,7 @@ Copy from `Obi-PA_bot/.env.example`. Required:
 - `TELEGRAM_API_KEY` — @Obi_obsidianPA_bot token
 - `APPROVED_USER_IDS` — comma-separated Telegram user IDs
 - `BEN_ID` — Ben's Telegram user ID
-- `OPENROUTER_API_KEY` — agent + search summarization
+- `OPENROUTER_OBI_API_KEY` — agent + search summarization (Obi-specific; do not use Manon's `OPENROUTER_API_KEY`)
 
 Optional:
 
