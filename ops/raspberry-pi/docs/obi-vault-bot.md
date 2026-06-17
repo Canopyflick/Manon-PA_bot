@@ -68,50 +68,25 @@ Optional:
 
 - `OBI_ERROR_WEBHOOK_URL` — default `http://127.0.0.1:5678/webhook/obi-error-notify`
 - `OBI_OPENROUTER_MODEL` — default `@preset/manon-fast`
+- `AUDIO_OPENAI_API_KEY` or `OPENAI_API_KEY` — voice memo transcription (`gpt-4o-mini-transcribe`, same as Manon)
 
 ## Deploy / update
 
-### Automatic (recommended)
+See **`docs/bot-ghcr-deploy.md`** for the full GHCR pull/redeploy pattern (shared scripts, cron, auth, flags).
 
-Push to `master` triggers GitHub Actions → GHCR image `ghcr.io/canopyflick/obi-pa-bot:latest`.
-
-On the Pi, shared `ghcr-update-container.sh` (via `update_container.sh`) logs in to GHCR, pulls `:latest`, compares image digest to the running container, and redeploys with `docker compose up -d --no-build` only when changed. If `vault.lock` is held, the update is skipped.
-
-```bash
-cd /home/ben/obi_deployer && ./update_container.sh
-tail -20 /home/ben/obi_deployer/update_container.log
-```
-
-Cron (minute 11 each hour):
-
-```bash
-11 * * * * cd /home/ben/obi_deployer && ./update_container.sh >> /home/ben/obi_deployer/update_container.log 2>&1
-```
-
-Manual GHCR recovery fallback (not used by cron):
-
-```bash
-./update_container.sh --build-fallback
-```
-
-### Manual
-
-```bash
-ssh ben@raspberrypi
-
-cd /home/ben/obi_deployer && ./update_container.sh
-docker logs -f obi --tail 50
-```
+Summary: push to `master` → GitHub Actions → GHCR; Pi cron at minute **11** runs `update_container.sh`, which redeploys only when the image digest changes. If `vault.lock` is held, the update is deferred.
 
 First-time setup:
 
 ```bash
 mkdir -p /home/ben/obi_deployer /home/ben/obi/state
 git clone https://github.com/Canopyflick/Obi-PA_bot.git /home/ben/Obi-PA_bot
-cp /home/ben/Obi-PA_bot/docker-compose.yml /home/ben/obi_deployer/
+cp /home/ben/Obi-PA_bot/deployment/docker-compose.yml /home/ben/obi_deployer/
+cp /home/ben/Obi-PA_bot/deployment/update_container.sh /home/ben/obi_deployer/
 cp /home/ben/Obi-PA_bot/.env.example /home/ben/obi_deployer/.env
 # edit .env with secrets
-cd /home/ben/obi_deployer && docker compose build && docker compose up -d
+chmod +x /home/ben/obi_deployer/update_container.sh
+cd /home/ben/obi_deployer && ./update_container.sh
 ```
 
 Ensure `obsidian-sync-onedrive.sh` is deployed to `/home/ben/obsidian/scripts/` (from this ops repo).
@@ -124,6 +99,7 @@ Ensure `obsidian-sync-onedrive.sh` is deployed to `/home/ben/obsidian/scripts/` 
 | `/daily` | Sync + read today's daily note |
 | `/search <query>` | Keyword search + LLM summary |
 | Natural language | Agent with tools (read, search, propose append) |
+| Voice memo | Transcribed and handled like natural language (`[Voice Msg]` prefix) |
 
 All writes require inline **Confirm** / **Cancel**.
 
@@ -153,7 +129,8 @@ From Telegram:
 1. `/daily` — should match today's Obsidian diary after OneDrive sync
 2. `/search workout` — summarized hits with note paths
 3. "Add to my diary: test from Obi" — preview → Confirm → check Android Obsidian + GitHub commit
-4. Ask to delete a line — should refuse without `CONFIRM DELETE`
+4. Send a voice memo — should transcribe and respond (e.g. diary append proposal)
+5. Ask to delete a line — should refuse without `CONFIRM DELETE`
 
 ## Safety rules (v0)
 
