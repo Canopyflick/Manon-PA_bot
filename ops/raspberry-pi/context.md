@@ -160,7 +160,7 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | Nathan | `telegramApi` | Telegram bot @Nathan_PA_bot |
 | Manon | `telegramApi` | Telegram bot @Manon_PA_bot — outbound only |
 | OpenRouter Persoonlijk | `openRouterApi` | LLM routing |
-| Google Calendar | OAuth | User must connect in n8n UI — not automatable via MCP/API |
+| Google Calendar | OAuth | Browser consent required for new refresh tokens. n8n auto-refreshes access tokens. **Testing-mode GCP apps expire refresh tokens after 7 days** — publish app to Production (see `docs/google-calendar-oauth.md`). Re-auth: n8n UI or `scripts/google-oauth-auth.ps1` |
 
 ### Workflows (created in recent sessions)
 

@@ -92,6 +92,18 @@ ssh ben@raspberrypi "cd ~/n8n && docker compose up -d"
 ssh ben@raspberrypi "docker restart n8n-n8n-1"
 ```
 
+## Google Calendar OAuth (Nathan)
+
+When Nathan fails with `invalid_grant` / refresh token expired, the Google OAuth app is likely still in **Testing** (7-day token lifetime). Permanent fix: publish the GCP app to **In production** — see `docs/google-calendar-oauth.md`.
+
+Re-auth now (script updates n8n credential + saves refresh token to `.env`):
+
+```powershell
+.\ops\raspberry-pi\scripts\google-oauth-auth.ps1
+```
+
+Or reconnect in n8n UI: **Credentials** → **Google Calendar - n8n & Gemini Ben persoonlijk** → **Connect**.
+
 ## Run Health Check
 
 ```powershell

@@ -28,7 +28,7 @@ Pattern: MCP builds workflow → API creates credentials from `.env` → MCP ass
 ## Credentials
 
 - **Token-based** (Telegram, OpenRouter): REST API `POST /api/v1/credentials`
-- **OAuth** (Google Calendar): user must connect in n8n UI — not automatable
+- **OAuth** (Google Calendar): browser consent required for new refresh tokens; n8n auto-refreshes access tokens. Publish GCP app to Production to avoid 7-day Testing expiry. Re-auth: `ops/raspberry-pi/scripts/google-oauth-auth.ps1` or n8n UI — see `docs/google-calendar-oauth.md`
 
 Existing creds: Nathan (`telegramApi`), OpenRouter Persoonlijk (`openRouterApi`), Google Calendar (OAuth, UI).
 
