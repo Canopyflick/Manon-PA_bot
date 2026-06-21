@@ -12,20 +12,51 @@ invalid_grant … refresh token is invalid, expired, revoked …
 
 This is almost always the Testing-mode 7-day limit, not an n8n bug.
 
+## Publish vs verification (you probably don't need verification)
+
+Google conflates two things in the UI. For **personal Nathan use** (only you, `@gmail.com`), you need **Publish**, not **verification**.
+
+| | **Publish app** | **Prepare for verification** |
+| --- | --- | --- |
+| Purpose | Move Testing → **In production**; stops 7-day refresh token expiry | Formal Google review for public apps |
+| Required for Nathan? | **Yes** | **No** (personal-use exception) |
+| What you get | Unverified production app; scary consent screen; long-lived tokens | Verified app; no warning screen; for apps open to anyone |
+
+When you click **Publish app**, Google shows a popup listing verification requirements (privacy policy, demo video, domain verification, etc.). That is informational — **click Confirm anyway**. You are not committing to submit for verification.
+
+**"Prepare for verification" greyed out** is normal and usually means one of:
+
+1. **App still in Testing** — verification prep only unlocks *after* you publish (Google's own docs: publish first, then prepare).
+2. **Verification not required** — check **Verification Center**; it may say verification isn't needed for your use case.
+3. **Scopes not declared** — in the new UI: **Google Auth Platform** → **Data access** → **Add or remove scopes**. Add Calendar scopes there even if n8n already uses them. One forum user had a greyed-out button until scopes were added to Data access.
+4. **You don't need the button** — Google's [personal use exception](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification#exceptions-to-verification-requirements) explicitly covers apps used only by you (or a few people you know). You accept the unverified-app screen yourself.
+
+Calendar scopes (`…/auth/calendar`, `…/auth/calendar.events`) are **sensitive**, not **restricted** — so even *if* you verified later, there's no annual security assessment (that's for restricted scopes like Gmail full access).
+
+### Recommended publish steps (personal app)
+
+1. **Google Auth Platform** (or **APIs & Services → OAuth consent screen**) → confirm **User type: External**.
+2. **Data access** → **Add or remove scopes** → include at least:
+   - `https://www.googleapis.com/auth/calendar`
+   - `https://www.googleapis.com/auth/calendar.events`
+   Remove unrelated scopes if this project also serves Gemini/other tools — or create a **dedicated GCP project for n8n only** (several n8n users report publish works more easily with a clean Calendar-only project).
+3. **Branding** → fill app name, support email, developer contact. For publish, Google may require **App home page** and **Privacy policy** URLs on a domain you control (e.g. a simple page on `bentenberge.com` stating "personal automation, data stays in n8n on my Pi, not shared").
+4. **Audience** → **Publish app** → read the verification warning popup → **Confirm**.
+5. Status should show **In production** and **Verification status: Unverified** (or "Needs verification") — that's fine for solo use.
+6. **Re-auth once** in n8n (or `google-oauth-auth.ps1`) *after* publishing. Old Testing-mode refresh tokens don't become long-lived retroactively.
+7. On the Google consent screen: **Advanced** → **Go to [your app name] (unsafe)** → grant access.
+
+### If Publish itself is blocked
+
+Fill missing required fields on the consent screen / branding page (often privacy policy + homepage). You do **not** need to complete verification to publish — only to remove the unverified warning for arbitrary Google users.
+
 ## Permanent fix (do once)
+After publishing to **In production** (unverified is OK):
 
-In [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **OAuth consent screen**:
+1. Confirm the OAuth client matches n8n (Client ID in credential settings).
+2. Re-auth once so the new refresh token is issued under production policy.
 
-1. Confirm the app uses the same OAuth client as n8n (Client ID in credential settings).
-2. Add your Google account under **Test users** if still in Testing (only needed while Testing).
-3. Click **Publish app** → set **Publishing status** to **In production**.
-
-For a personal `@gmail.com` calendar app (single user, Ben only):
-
-- Calendar scopes are "sensitive" — Google may show an "unverified app" screen. You can still authorize your own account.
-- After publishing, refresh tokens no longer expire on a 7-day timer (they remain valid until revoked, password change with Gmail scopes, 6 months unused, etc.).
-
-Keep the OAuth client redirect URI that n8n uses:
+OAuth client redirect URIs:
 
 ```text
 https://n8n.bentenberge.com/rest/oauth2-credential/callback
@@ -59,7 +90,13 @@ The script opens a browser, listens on `http://127.0.0.1:8765/`, exchanges the c
 
 Google requires browser consent to issue a **new** refresh token. No script or n8n workflow can silently re-authorize a consumer Gmail account without you clicking through Google once.
 
-After the app is **In production**, you should not need to do this weekly. Optional: Nathan Error Notifier already alerts on calendar failures; a scheduled "list events" health workflow can ping Manon before you notice in Telegram.
+After the app is **In production**, you should not need to do this weekly.
+
+## Alternative: service account (no OAuth expiry at all)
+
+If publish/verify remains painful, n8n supports a **Google Service Account** credential for Calendar. Create a service account, download JSON, share your Google Calendar with the service account email (`…@….iam.gserviceaccount.com`) with "Make changes to events", and point Nathan's calendar nodes at that credential instead of OAuth. No refresh tokens, no consent screen. Trade-off: sharing calendar with a bot account; credential type change in the workflow.
+
+Optional: Nathan Error Notifier already alerts on calendar failures; a scheduled "list events" health workflow can ping Manon before you notice in Telegram.
 
 ## Credential IDs
 
