@@ -53,6 +53,38 @@ Calendar scopes to declare under **Data access**:
 
 Fill missing required fields on the consent screen / branding page (often privacy policy + homepage). You do **not** need to complete verification to publish — only to remove the unverified warning for arbitrary Google users.
 
+## Branding verification (if Google rejects the homepage)
+
+Common rejections and fixes:
+
+### 1. “Website is not registered to you”
+
+Verify domain ownership — GCP does not accept the homepage until Search Console shows you own `bentenberge.com`:
+
+1. Open [Google Search Console](https://search.google.com/search-console) signed in as the **same Google account** that is Owner/Editor on the GCP project.
+2. **Add property** → **Domain** → enter `bentenberge.com`.
+3. Copy the `google-site-verification=…` **TXT** record Google gives you.
+4. In **Cloudflare** → `bentenberge.com` → **DNS** → add TXT record (name `@`, paste value). Wait a few minutes.
+5. Back in Search Console → **Verify**.
+6. In **Google Auth Platform → Branding**, use **Verify domain** if offered (or re-submit verification after Search Console shows verified).
+
+### 2. “App name does not match home page”
+
+The OAuth **App name** must appear prominently on `https://bentenberge.com/` — not a different label like “N8N Ben” when the site says “AI Engineer”.
+
+**Fix (recommended):** In GCP **Branding → App name**, set **`Ben ten Berge`** to match the website header and hero. Redeploy the `website` repo if needed, then re-submit verification.
+
+Do **not** use internal codenames (Nathan, n8n) as the public OAuth app name unless that exact string is on the homepage.
+
+### Checklist before re-submitting
+
+- [ ] Search Console: `bentenberge.com` verified
+- [ ] OAuth app name = **Ben ten Berge** (matches homepage)
+- [ ] Homepage URL: `https://bentenberge.com` (no redirect to another domain)
+- [ ] Homepage links to `https://bentenberge.com/privacy`
+- [ ] Homepage briefly explains apps/automation and Google Calendar use (see `website` Home page)
+- [ ] Reply to Google’s verification email only after all items are done
+
 ## Permanent fix (do once)
 After publishing to **In production** (unverified is OK):
 
