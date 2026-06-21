@@ -35,16 +35,19 @@ Calendar scopes (`…/auth/calendar`, `…/auth/calendar.events`) are **sensitiv
 
 ### Recommended publish steps (personal app)
 
-1. **Google Auth Platform** (or **APIs & Services → OAuth consent screen**) → confirm **User type: External**.
-2. **Data access** → **Add or remove scopes** → include at least:
-   - `https://www.googleapis.com/auth/calendar`
-   - `https://www.googleapis.com/auth/calendar.events`
-   Remove unrelated scopes if this project also serves Gemini/other tools — or create a **dedicated GCP project for n8n only** (several n8n users report publish works more easily with a clean Calendar-only project).
-3. **Branding** → fill app name, support email, developer contact. For publish, Google may require **App home page** and **Privacy policy** URLs on a domain you control (e.g. a simple page on `bentenberge.com` stating "personal automation, data stays in n8n on my Pi, not shared").
-4. **Audience** → **Publish app** → read the verification warning popup → **Confirm**.
-5. Status should show **In production** and **Verification status: Unverified** (or "Needs verification") — that's fine for solo use.
-6. **Re-auth once** in n8n (or `google-oauth-auth.ps1`) *after* publishing. Old Testing-mode refresh tokens don't become long-lived retroactively.
-7. On the Google consent screen: **Advanced** → **Go to [your app name] (unsafe)** → grant access.
+1. **Host privacy policy** on `bentenberge.com` (see `website` repo — `/privacy` route). Google requires:
+   - **Application home page:** `https://bentenberge.com`
+   - **Privacy policy link:** `https://bentenberge.com/privacy`
+   - Footer on the homepage must link to the same privacy URL.
+2. **Google Auth Platform** → **Branding** → **Authorized domains** → add `bentenberge.com` (covers `n8n.bentenberge.com` redirect URIs).
+3. **Verify domain ownership** in [Google Search Console](https://search.google.com/search-console) for `bentenberge.com` if Google prompts (DNS TXT record via Cloudflare is typical).
+4. **User type: External** → **Data access** → add Calendar scopes → **Publish app** → **Confirm** (verification optional for solo use).
+5. Re-auth Nathan in n8n after publishing.
+
+Calendar scopes to declare under **Data access**:
+
+- `https://www.googleapis.com/auth/calendar`
+- `https://www.googleapis.com/auth/calendar.events`
 
 ### If Publish itself is blocked
 
