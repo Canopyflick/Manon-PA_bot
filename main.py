@@ -110,13 +110,20 @@ def register_handlers(application):
     from telegram_helpers.delete_message import delete_message
     application.add_handler(CallbackQueryHandler(delete_message, pattern=r"delete_message"))
     
-    from features.goals.goals import handle_proposal_change_click, accept_goal_proposal, reject_goal_proposal, report_goal_progress
+    from features.goals.goals import (
+        handle_proposal_change_click,
+        accept_goal_proposal,
+        reject_goal_proposal,
+        revert_optimistic_goal,
+        report_goal_progress,
+    )
     application.add_handler(CallbackQueryHandler(
         handle_proposal_change_click,
         pattern=r"^(goal_value_up|goal_value_down|penalty_up|penalty_down)_(\d+)$"
         ))
     application.add_handler(CallbackQueryHandler(accept_goal_proposal, pattern=r"^accept_(\d+)$"))
     application.add_handler(CallbackQueryHandler(reject_goal_proposal, pattern=r"^reject_(\d+)$"))
+    application.add_handler(CallbackQueryHandler(revert_optimistic_goal, pattern=r"^revert_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^(finished|failed)_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^postpone_(\d+)_(today|tomorrow)$"))
 

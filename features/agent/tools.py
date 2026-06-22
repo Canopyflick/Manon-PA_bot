@@ -232,7 +232,8 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         "- Use AT TIME ZONE 'Europe/Berlin' for date operations if needed\n"
         "- LIMIT results to keep output concise (max 20 rows recommended)\n"
         "- goal_category and deadlines are PostgreSQL arrays\n"
-        "- Status flow: limbo → prepared → pending → archived_done/failed/canceled"
+        "- Status flow: limbo → pending (optimistic set) → archived_done/failed/canceled; "
+        "open-ended: limbo → prepared"
     )
 
     @tool(description=custom_sql_description)
