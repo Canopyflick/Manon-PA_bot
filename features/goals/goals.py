@@ -74,19 +74,19 @@ async def format_datetime_list(datetime_input):
 
 async def send_goal_proposal(update, context, goal_id, adjust=False):
     try:
+        message_text, keyboard = await draft_goal_proposal_message(
+            update, context, goal_id, adjust=adjust, optimistic=not adjust
+        )
+
         if adjust:
             await complete_limbo_goal(update, context, goal_id, initial_update=False)
-            message_text, keyboard = await draft_goal_proposal_message(
-                update, context, goal_id, adjust=True, optimistic=False
-            )
         else:
-            await complete_limbo_goal(update, context, goal_id, initial_update=True)
             goal_data = context.user_data.get("goals", {}).get(goal_id, {})
             if goal_data.get("timeframe") == "open-ended":
+                await complete_limbo_goal(update, context, goal_id, initial_update=True)
                 return
-            message_text, keyboard = await draft_goal_proposal_message(
-                update, context, goal_id, adjust=False, optimistic=True
-            )
+
+            await complete_limbo_goal(update, context, goal_id, initial_update=True)
             user_id = update.effective_user.id
             chat_id = update.effective_chat.id
             activated, error_msg = await activate_goal(goal_id, user_id, chat_id)
