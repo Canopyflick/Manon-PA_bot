@@ -1023,7 +1023,11 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
             # Format the results
             if not rows:
                 logger.info(f"No rows retrieved in fetch_upcoming_goals()")
-                return "You have no deadlines between now and tomorrow morning ☃️", 0, 0, 0
+                if timeframe == "tomorrow":
+                    empty_message = "You have no deadlines tomorrow ☃️"
+                else:
+                    empty_message = "You have no deadlines between now and tomorrow morning ☃️"
+                return empty_message, 0, 0, 0
 
         upcoming_goals = []
         total_goal_value = 0
@@ -1040,13 +1044,17 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
                 deadline = f"{deadline_dt.strftime('%H:%M')} today"
             else:
                 deadline = f"{deadline_dt.strftime('%a %H:%M')}"
-            goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
-            penalty = f"{row['penalty']:.1f}" if row["penalty"] is not None else "N/A"
+            goal_value_num = row["goal_value"]
+            penalty_num = row["penalty"]
+            goal_value = f"{goal_value_num:.1f}" if goal_value_num is not None else "N/A"
+            penalty = f"{penalty_num:.1f}" if penalty_num is not None else "N/A"
             reminder = "⏰" if row["reminder_scheduled"] else ""
             final_iteration = " (❗Last in series❗)" if row["final_iteration"] == "yes" else ""
             
-            total_goal_value += float(goal_value)
-            total_penalty += float(penalty) 
+            if goal_value_num is not None:
+                total_goal_value += float(goal_value_num)
+            if penalty_num is not None:
+                total_penalty += float(penalty_num)
 
             # Create a formatted string for each goal
             upcoming_goals.append(
@@ -1058,7 +1066,7 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
         return "\n\n".join(upcoming_goals), round(total_goal_value, 1), round(total_penalty, 1), goals_count
     except Exception as e:
         logger.error(f"Error fetching goals for chat_id {chat_id}, user_id {user_id}: {e}")
-        return "An error occurred while fetching your goals. Please try again later."
+        return "An error occurred while fetching your goals. Please try again later.", 0, 0, 0
     
 
 async def record_reminder(update, context, output):

@@ -25,6 +25,8 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
         
         if timeframe == "24hs":
             announcement = "Your next 24 hours ..."
+        elif timeframe == "tomorrow":
+            announcement = "Your goals for tomorrow are:"
        
         goals_today, total_goal_value, total_penalty, goals_count = await fetch_upcoming_goals(chat_id, user_id, timeframe)
         
