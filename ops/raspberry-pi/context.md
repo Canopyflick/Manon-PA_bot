@@ -168,7 +168,7 @@ Invoke-RestMethod -Uri "https://n8n.bentenberge.com/api/v1/credentials" -Method 
 | --- | --- |
 | MCP Connection Test | Manual trigger — verifies MCP connectivity |
 | Nathan Telegram Test | Manual trigger — sends a Telegram test message |
-| **_Nathan Calendar Bot** (`2XYWboSbyl78wzIC`) | Telegram Trigger → voice/text branch → AI Agent + Google Calendar tools → Telegram reply. Voice notes transcribed via OpenRouter `openai/whisper-large-v3-turbo`. **Error workflow:** Nathan Error Notifier |
+| **_Nathan Calendar Bot** (`2XYWboSbyl78wzIC`) | Telegram Trigger → Switch (voice / photo / text) → AI Agent + Google Calendar tools → Telegram reply. Voice: OpenRouter `openai/whisper-large-v3-turbo`. Photos & image documents: OpenRouter `qwen/qwen3-vl-8b-instruct` OCR pass (posters, email screenshots, invitations) → Calendar Agent. **Error workflow:** Nathan Error Notifier |
 | **Send Message via Nathan** (`C9wBLIsEiZje0tEk`) | Sub-workflow — call via **Execute Sub-workflow** to send Telegram messages from @Nathan_PA_bot |
 | **Mathijs Last Friday Discord Invite** (`p6oTzjcOJbNjjlV7`) | Schedule: last Friday of month 17:00 Europe/Berlin → Send Message via Nathan to chat `-1003758814644`. **Error workflow:** Nathan Error Notifier |
 | **Nathan Error Notifier** (`F8jhQSnsX59ZTYkQ`) | Error Trigger → format alert → Send Message via Manon. Assigned as error workflow on Nathan Calendar Bot |
