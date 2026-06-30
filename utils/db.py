@@ -2,12 +2,11 @@
 import socket
 
 from utils.environment_vars import ENV_VARS
-from utils.helpers import BERLIN_TZ
+from utils.helpers import BERLIN_TZ, parse_reminder_times
 from features.goals.helpers import add_user_context_to_goals
 from logger.logger import logger
 from utils.session_avatar import PA
 import logging, asyncpg, re, pytz
-from dateutil.parser import parse
 from datetime import time, datetime, timedelta
 
 # Legacy check from Heroku times, leaving it here to remember that ssl settings matter for that
@@ -1070,22 +1069,24 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
     
 
 async def record_reminder(update, context, output):
-    """Record a reminder in the manon_reminders table"""
+    """Record one or more reminders in the manon_reminders table."""
     try:
-        # Get user information
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-        
-        # Parse the reminder time
+
         try:
-            reminder_time = parse(output.time)
-            # Ensure the time is timezone-aware
-            if reminder_time.tzinfo is None:
-                reminder_time = reminder_time.replace(tzinfo=BERLIN_TZ)
-        except ValueError as e:
+            reminder_times = parse_reminder_times(output.times)
+        except (ValueError, TypeError) as e:
             await update.message.reply_text("Invalid time format provided.")
             logger.error(f"Time parsing error: {e}")
-            return
+            return None
+
+        if not reminder_times:
+            await update.message.reply_text("No valid reminder times provided.")
+            return None
+
+        created: list[tuple[int, datetime]] = []
+        now = datetime.now(tz=BERLIN_TZ)
 
         async with Database.acquire() as conn:
             query = """
@@ -1094,19 +1095,45 @@ async def record_reminder(update, context, output):
                 VALUES ($1, $2, $3, $4, $5)
                 RETURNING reminder_id
             """
-            
-            result = await conn.fetchrow(
-                query,
-                user_id,
-                chat_id,
-                output.reminder_text,
-                output.reminder_category,
-                reminder_time.isoformat()
-            )
-            
-            reminder_id = result['reminder_id']
 
-            # Format the confirmation message
+            for reminder_time in reminder_times:
+                result = await conn.fetchrow(
+                    query,
+                    user_id,
+                    chat_id,
+                    output.reminder_text,
+                    output.reminder_category,
+                    reminder_time.isoformat(),
+                )
+                reminder_id = result["reminder_id"]
+                created.append((reminder_id, reminder_time))
+
+                if reminder_time <= now + timedelta(days=1):
+                    reminder_data = {
+                        "reminder_id": reminder_id,
+                        "user_id": user_id,
+                        "chat_id": chat_id,
+                        "reminder_text": output.reminder_text,
+                        "time": reminder_time,
+                    }
+                    from utils.scheduler import scheduler
+                    from features.reminders.reminders import send_reminder
+
+                    formatted_time = reminder_time.strftime("%A, %B %d, %Y at %H:%M")
+                    scheduler.add_job(
+                        send_reminder,
+                        "date",
+                        run_date=reminder_time,
+                        args=[context.bot, reminder_data],
+                        id=f"regularreminder_{reminder_id}",
+                        replace_existing=True,
+                    )
+                    logger.info(
+                        f"Scheduled immediate reminder #{reminder_id} for {formatted_time}"
+                    )
+
+        if len(created) == 1:
+            reminder_id, reminder_time = created[0]
             formatted_time = reminder_time.strftime("%A, %B %d, %Y at %H:%M")
             confirmation_message = (
                 f"✅ Reminder #{reminder_id} set successfully!\n\n"
@@ -1114,44 +1141,27 @@ async def record_reminder(update, context, output):
                 f"🗓 Time: {formatted_time}\n"
                 f"📋 Category: {output.reminder_category}"
             )
-
-            # Send confirmation message
-            await update.message.reply_text(
-                confirmation_message,
-                parse_mode='HTML'
+        else:
+            time_lines = "\n".join(
+                f"  • #{rid}: {rt.strftime('%A, %B %d, %Y at %H:%M')}"
+                for rid, rt in created
             )
-            
-            # Schedule the reminder immediately if it's within the next 24 hours
-            now = datetime.now(tz=BERLIN_TZ)
-            if reminder_time <= now + timedelta(days=1):
-                reminder_data = {
-                    'reminder_id': reminder_id,
-                    'user_id': user_id,
-                    'chat_id': chat_id,
-                    'reminder_text': output.reminder_text,
-                    'time': reminder_time
-                }
-                # Local import to avoid circular import on boot
-                from utils.scheduler import scheduler
-                from features.reminders.reminders import send_reminder
+            confirmation_message = (
+                f"✅ {len(created)} reminders set successfully!\n\n"
+                f"📝 Text: {output.reminder_text}\n"
+                f"📋 Category: {output.reminder_category}\n\n"
+                f"🗓 Times:\n{time_lines}"
+            )
 
-                scheduler.add_job(
-                    send_reminder,
-                    'date',
-                    run_date=reminder_time,
-                    args=[context.bot, reminder_data],
-                    id=f"regularreminder_{reminder_id}",
-                    replace_existing=True
-                )
-                logger.info(f"Scheduled immediate reminder #{reminder_id} for {formatted_time}")
-
-            return reminder_id
+        await update.message.reply_text(confirmation_message, parse_mode="HTML")
+        return [rid for rid, _ in created]
 
     except Exception as e:
         error_message = f"Failed to set reminder: {str(e)}"
         await update.message.reply_text(error_message)
         logger.error(f"Error in record_reminder: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
         return None
     

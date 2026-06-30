@@ -13,7 +13,9 @@ A 'Goals' message might also discuss wanting to declare finished, declare failed
 update the deadline of or otherwise edit a goal.
 
 ## Reminders
-Only messages that solely explicitly ask you to remind the user or talk about not forgetting should be classified as reminders. If a message could be a goal but also discusses reminders, pick Goal.
+Only messages that solely and explicitly ask you to remind the user or talk about not forgetting something time-sensitive should be classified as reminders.
+Recurring intentions to do something on a schedule (e.g. "every month on the 15th check this website") are Goals, not Reminders — even without the word "goal".
+If a message could be a goal but also discusses reminders, pick Goal.
 
 ## Other
 Everything else: questions about the bot, questions about the user's data, general knowledge,

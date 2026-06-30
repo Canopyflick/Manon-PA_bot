@@ -147,9 +147,28 @@ class DiaryHeader(BaseModel):
 
 
 class Reminder(BaseModel):
+    schedule_reminder: bool = Field(
+        description=(
+            "True only when advance notice before the event genuinely helps "
+            "(appointments, deadlines, prep needed). False for routine on-the-day tasks."
+        )
+    )
+    decline_reason: str = Field(
+        default="",
+        description=(
+            "When schedule_reminder is false, briefly explain why and whether "
+            "tracking it as a goal may fit better."
+        ),
+    )
     reminder_text: str
     reminder_category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]
-    time: str
+    times: List[str] = Field(
+        default_factory=list,
+        description=(
+            "When schedule_reminder is true: one ISO 8601 timestamp per occurrence. "
+            "For recurring requests, include up to 12 upcoming dates. Empty when not scheduling."
+        ),
+    )
     
     
 class Response(BaseModel):

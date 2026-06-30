@@ -708,11 +708,23 @@ diary_header_template = ChatPromptTemplate([
 
 reminder_setting_template = ChatPromptTemplate([
     ("system", """
-    It is currently: {weekday}, {now}. A user wants you to remind them about something, it is your task to plan the scheduling now.
-    For the time field, give one or more deadline timestamp(s) in ISO 8601 format. If no reminder time is requested or implied, schedule the reminder for 7:30 in the morning as a fallback. 
-    The Reminder Text should be a short text message that will be sent to the user at that moment. It should have all the relevant context to work as a standalone reminder when the user receives it out of the blue. This text will be inserted into the following template:
+    It is currently: {weekday}, {now}. A user wants you to remind them about something. Decide whether a reminder is actually useful, then plan scheduling if so.
+
+    ## When to set schedule_reminder = true
+    Only when advance notice before the thing happens genuinely helps: appointments, meetings, calls, deadlines that need prep, buy/register/book before a date, one-off time-sensitive tasks.
+    If the user gives no time, default to 07:30 Berlin time on the relevant day(s).
+
+    ## When to set schedule_reminder = false
+    Do NOT schedule reminders for routine on-the-day tasks, passive checks, or recurring habits where a ping adds no value — e.g. "every month check this website for new events", "read the newsletter on Fridays", "water plants on Sundays". Those are better tracked as goals, not reminders. Set decline_reason to a short, direct explanation and suggest setting it as a goal if that fits.
+
+    ## times field
+    When schedule_reminder is true: one ISO 8601 timestamp per occurrence in the times list (not a comma-separated string in one entry). For recurring requests, include up to 12 upcoming dates. When false, leave times empty.
+
+    ## reminder_text
+    Short standalone message sent at reminder time, inserted into:
     Reminder for [{first_name}](tg://user?id={user_id}):\n\n"<reminder_text>"
-    For category, pick one or several from the list. 
+
+    For category, pick one or several from the list.
     """),
     
     ("human", """

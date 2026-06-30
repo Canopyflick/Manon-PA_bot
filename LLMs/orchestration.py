@@ -12,7 +12,6 @@ from utils.session_avatar import PA
 from features.goals.goals import send_goal_proposal, handle_goal_completion
 from features.goals.helpers import add_user_context_to_goals
 import logging, asyncio
-from dateutil.parser import parse
 from utils.db import (
     fetch_goal_data,
     fetch_long_term_goals,
@@ -606,25 +605,23 @@ async def reminder_setting(update, context):
     try:
         input_vars = await get_input_variables(update, context)
         output = await run_chain("reminder_setting", input_vars)
-        
-        parsed_output = Reminder.model_validate(output)
-        
-        # Parse the time string into a datetime object
-        reminder_time = parse(parsed_output.time)
-        if reminder_time.tzinfo is None:
-                reminder_time = reminder_time.replace(tzinfo=BERLIN_TZ)
 
-        now = datetime.now(tz=BERLIN_TZ)
-        if reminder_time.date() == now.date():
-            logger.warning(f"reminder requested on the same day")
-        
+        parsed_output = Reminder.model_validate(output)
+
         if shared_state["transparant_mode"]:
             debug_message = await update.message.reply_text(f"Reminder setting result: \n{output}")
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
-        
-        await record_reminder(update, context, output)
-    
+
+        if not parsed_output.schedule_reminder or not parsed_output.times:
+            decline = parsed_output.decline_reason.strip() or (
+                "This doesn't need an advance reminder — try setting it as a goal instead."
+            )
+            await update.message.reply_text(f"No reminder set.\n\n{decline}")
+            return
+
+        await record_reminder(update, context, parsed_output)
+
     except Exception as e:
         await update.message.reply_text(f"Error in reminder_setting():\n {e}")
         logger.error(f"\n\n🚨 Error in reminder_setting(): {e}\n\n")
