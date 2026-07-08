@@ -15,6 +15,33 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler(timezone=BERLIN_TZ)
 
+GOAL_WARNING_HOUR, GOAL_WARNING_MINUTE = 17, 17
+GOAL_ARCHIVAL_HOUR, GOAL_ARCHIVAL_MINUTE = 11, 11
+
+
+def _minutes_from_warning_to_archival() -> int:
+    """Minutes from daily warning (17:17) until next-morning archival (11:11)."""
+    warning_mins = GOAL_WARNING_HOUR * 60 + GOAL_WARNING_MINUTE
+    archival_mins = GOAL_ARCHIVAL_HOUR * 60 + GOAL_ARCHIVAL_MINUTE
+    return (24 * 60 - warning_mins) + archival_mins
+
+
+def _older_followup_sql_interval() -> str:
+    """PostgreSQL interval: 24h overdue at warning + grace until archival."""
+    grace_mins = _minutes_from_warning_to_archival()
+    hours, minutes = divmod(grace_mins, 60)
+    return f"1 day {hours} hours {minutes} minutes"
+
+
+def next_archival_time(now=None):
+    now = now or datetime.now(tz=BERLIN_TZ)
+    archival = now.replace(
+        hour=GOAL_ARCHIVAL_HOUR, minute=GOAL_ARCHIVAL_MINUTE, second=0, microsecond=0
+    )
+    if archival <= now:
+        archival += timedelta(days=1)
+    return archival
+
 
 async def send_goals_today(update, context, chat_id, user_id, timeframe):
     try:
@@ -111,9 +138,9 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 time_condition = """
                 AND DEADLINE <= NOW() - INTERVAL '1 day'
                 """
-            elif timeframe == "older_followup":      # For the next morning automatic archival: scheduled_goal_archival @09:09
-                time_condition = """
-                AND DEADLINE <= NOW() - INTERVAL '1 day 15 hours 52 minutes'
+            elif timeframe == "older_followup":      # Daily automatic archival @11:11 (after 17:17 warning grace)
+                time_condition = f"""
+                AND DEADLINE <= NOW() - INTERVAL '{_older_followup_sql_interval()}'
                 """
             else:
                 raise ValueError(f"Invalid timeframe: {timeframe}")
@@ -229,9 +256,7 @@ async def fail_goals_warning(bot, chat_id=None):
             random_emoji = "🍆"
 
         now = datetime.now(tz=BERLIN_TZ)
-        ultimatum_time = now + timedelta(minutes=952)   # is 09:09 the next morning if first warning time is 17:17
-        if chat_id:
-            ultimatum_time = now + timedelta(minutes=10)
+        ultimatum_time = next_archival_time(now) if not chat_id else now + timedelta(minutes=10)
 
         day_reference = "tomorrow" if ultimatum_time.date() > now.date() else "today"
         logger.info(f'ultimatum time for automatic goal_archival set for {ultimatum_time}')
@@ -260,7 +285,7 @@ async def fail_goals_warning(bot, chat_id=None):
                     f"Report on {'it' if goals_count == 1 else 'them'} by {formatted_ultimatum_time} {day_reference} if you want to avoid automatic archiving and penalization 🍆 🌚"
                 )     
                 if delete_all_expired_goals:
-                    greeting.replace("older ", "")
+                    greeting = greeting.replace("older ", "")
                 # 4. send messages
                 if random.random() < 0.0273972603:  # once per year if triggered every 10 days
                     greeting += "\n_Oh yeah, and also: mindfulness could be a great option right now. \n\nSame goes for right now, by the way"
@@ -279,26 +304,21 @@ async def fail_goals_warning(bot, chat_id=None):
                             reply_markup=goal["buttons"],
                             parse_mode="Markdown" 
                         )
-                        
-                        # Extract goal_id from the callback_data of the first button
-                        try:
-                            first_button = goal["buttons"].inline_keyboard[0][0]  # First row, first button
-                            callback_data = first_button.callback_data
-                            goal_id = int(callback_data.split('_')[-1])  # Assuming goal_id is after the last '_'
-                        except (AttributeError, IndexError, ValueError) as e:
-                            logger.error(f"Failed to extract 'goal_id' from goal: {goal}, error: {e}")
-                            continue
-                        
-                        # Extract hour and minute for the CronTrigger, then schedule archiving/penalizing job
-                        ultimatum_hour = ultimatum_time.hour
-                        ultimatum_minute = ultimatum_time.minute
-                        scheduler.add_job(
-                            scheduled_goal_archival, 
-                            DateTrigger(run_date=ultimatum_time),
-                            args=[bot, goal_id, ultimatum_time, delete_all_expired_goals],
-                            misfire_grace_time=3600,
-                            coalesce=True
-                        )
+
+                        if delete_all_expired_goals:
+                            try:
+                                first_button = goal["buttons"].inline_keyboard[0][0]
+                                goal_id = int(first_button.callback_data.split('_')[-1])
+                            except (AttributeError, IndexError, ValueError) as e:
+                                logger.error(f"Failed to extract 'goal_id' from goal: {goal}, error: {e}")
+                                continue
+                            scheduler.add_job(
+                                scheduled_goal_archival,
+                                DateTrigger(run_date=ultimatum_time),
+                                args=[bot, goal_id, ultimatum_time, delete_all_expired_goals],
+                                misfire_grace_time=3600,
+                                coalesce=True
+                            )
                     if not chat_id:
                         logger.info(f"Daily older overdue goals warning message sent successfully in chat {user_chat_id} for {first_name}({user_id}).")
                     elif chat_id:
@@ -308,6 +328,31 @@ async def fail_goals_warning(bot, chat_id=None):
             
     except Exception as e:
         logger.error(f"Error sending overdue goals warning message: {e}")
+
+
+async def archive_stale_overdue_goals(bot):
+    """Archive pending goals past the warning grace period. Survives container restarts."""
+    interval = _older_followup_sql_interval()
+    try:
+        async with Database.acquire() as conn:
+            rows = await conn.fetch(
+                f"""
+                SELECT goal_id FROM manon_goals
+                WHERE status = 'pending'
+                AND deadline <= NOW() - INTERVAL '{interval}'
+                ORDER BY goal_id ASC
+                """
+            )
+        if not rows:
+            logger.info("No stale overdue goals to archive")
+            return
+        logger.info(f"Archiving {len(rows)} stale overdue goal(s)")
+        now = datetime.now(tz=BERLIN_TZ)
+        for row in rows:
+            await scheduled_goal_archival(bot, row["goal_id"], now, delete_all_expired_goals=False)
+            await asyncio.sleep(0.5)
+    except Exception as e:
+        logger.error(f"Error in archive_stale_overdue_goals(): {e}")
 
 
 async def scheduled_goal_archival(bot, goal_id, ultimatum_time, delete_all_expired_goals):

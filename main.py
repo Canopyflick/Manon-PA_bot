@@ -15,6 +15,9 @@ from utils.scheduler import (
     scheduler,
     CronTrigger,
     fail_goals_warning,
+    archive_stale_overdue_goals,
+    GOAL_ARCHIVAL_HOUR,
+    GOAL_ARCHIVAL_MINUTE,
 )
 # from features.goals.morning_message import send_morning_message
 from features.reminders.reminders import check_upcoming_reminders
@@ -42,6 +45,7 @@ async def initialize_environment(app):
         await setup_database()
         await reset_things_on_startup()
         await check_upcoming_reminders(app.bot)     # for any reminders that were scheduled for today at midnight, and were lost upon reboot
+        await archive_stale_overdue_goals(app.bot)  # catch goals that missed the daily 11:11 archival job
         logger.info("Environment initialized successfully")
     except Exception as e:
         logger.error(f"Error initializing environment: {e}")
@@ -158,10 +162,18 @@ async def setup(application):
             coalesce=True
         )
         
-        # Check and warn for >22hs overdue goals (6hs later schedule_goal_deletion)
+        # Warn for goals overdue >24h; automatic archival runs separately at 11:11
         scheduler.add_job(
             fail_goals_warning, 
             CronTrigger(hour=17, minute=17),
+            args=[application.bot],
+            misfire_grace_time=7200,
+            coalesce=True
+        )
+
+        scheduler.add_job(
+            archive_stale_overdue_goals,
+            CronTrigger(hour=GOAL_ARCHIVAL_HOUR, minute=GOAL_ARCHIVAL_MINUTE),
             args=[application.bot],
             misfire_grace_time=7200,
             coalesce=True
