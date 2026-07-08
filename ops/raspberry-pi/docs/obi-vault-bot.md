@@ -25,7 +25,14 @@ Obi uses the same vault lock file as the nightly backup (`/home/ben/obi/state/va
 | `obsidian-sync-onedrive.sh` (standalone) | Bash `flock` on `vault.lock` | OneDrive sync only |
 | `obsidian-nightly-backup.sh` | Bash `flock -n` at start | sync → git align → commit → push |
 | Obi read (`/daily`, `/search`, messages) | Sync script subprocess | OneDrive sync only |
-| Obi write (Confirm) | Python `fcntl.flock` in container | sync (`--no-lock`) → append → git commit/push |
+| Obi write (Confirm) | Python `fcntl.flock` in container | sync pull (`--no-lock`, `confirm_pre`) → append/create → chown+touch → git commit/push |
+
+**Upload (Pi → cloud → phone):** not a second `sync_vault()` call. The `onedrive`
+container's inotify monitor uploads after Obi writes (`VAULT_FILE_UID` chown +
+touch in `vault._finalize_vault_write`). `obsidian-sync-onedrive.sh` only **pulls**
+from cloud (restarts onedrive when already running). Post-confirm `sync_vault()`
+was tried (Obi commit `12053d6`) and reverted (`124d4e4`) — see Obi `sync.py` /
+`handlers.py` comments. Repair: `deployment/repair_vault_note.sh`.
 
 ### Sync script exit codes
 
