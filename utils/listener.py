@@ -13,6 +13,10 @@ from utils.audio_utils import transcribe_voice_message
 logger = logging.getLogger(__name__)
 
 
+def _is_private_chat(update) -> bool:
+    return update.effective_chat.type == "private"
+
+
 async def analyze_any_message(update, context):
     """
     Entry point for processing all incoming chat messages.
@@ -40,7 +44,7 @@ async def analyze_any_message(update, context):
         # Determine the type of message (returns categorization tuple of bools)
         bot_response_wanted, regular_message, bot_reply_message, bot_mention_message = await check_reply_or_mention(update, context)
 
-        # Bot shuts up in case user sends '@' (TODO: skip in private chats)
+        # Bot shuts up in case user sends '@' (skipped in private chats — Element/Matrix bridge)
         bot_response_wanted = await suppress_bot_response(update, context, regular_message, bot_response_wanted)
 
         # Final decision to respond
@@ -48,6 +52,12 @@ async def analyze_any_message(update, context):
             if regular_message or bot_reply_message or bot_mention_message:
                 logger.info("Message received that wants a bot reponse\n")
                 await start_initial_classification(update, context)  # < < <
+        else:
+            logger.info(
+                "Message suppressed (chat=%s, text=%r)",
+                update.effective_chat.id,
+                (get_user_message(update, context) or "")[:120],
+            )
 
     except Exception as e:
         logger.error(f"\n\n🚨 Error in analyze_any_message(): {e}\n\n")
@@ -75,19 +85,28 @@ async def check_reply_or_mention(update, context):
     bot_mention_message = False
     message_text = get_user_message(update, context) or ""
 
-    # Check if the message is a reply, to bot or someone else
-    if update.message.reply_to_message:
+    # In groups, stay quiet when the user is replying to someone else.
+    # In private chats (incl. Matrix-bridged Manon DM), thread replies are normal.
+    if update.message.reply_to_message and not _is_private_chat(update):
         if update.message.reply_to_message.from_user.is_bot:
             logger.info("Message received: Bot Reply")
             regular_message = False
             bot_reply_message = True
         else:
+            logger.info("Message suppressed: reply to non-bot in group chat")
             reply = await update.message.reply_text(
                 f"OOKAY I'll shut up for this one {PA}\n_(unless you still tagged me)_",
                 parse_mode="Markdown"
             )
             await delete_message(update, context, reply.id, 3)
             bot_response_wanted = False
+    elif update.message.reply_to_message:
+        if update.message.reply_to_message.from_user.is_bot:
+            logger.info("Message received: Bot Reply (private chat)")
+            regular_message = False
+            bot_reply_message = True
+        else:
+            logger.info("Private chat reply to non-bot — still responding")
 
     # check if there's a non-bot mention
     bot_response_wanted = await process_entities(update, context, bot_response_wanted)
@@ -107,6 +126,9 @@ async def process_entities(update, context, bot_response_wanted):
     Process message entities to check for non-bot user mentions.
     Returns updated bot_response_wanted flag.
     """
+    if _is_private_chat(update):
+        return bot_response_wanted
+
     if update.message.entities:
         for entity in update.message.entities:
             if entity.type == MessageEntity.MENTION:
@@ -124,10 +146,14 @@ async def process_entities(update, context, bot_response_wanted):
 
 async def suppress_bot_response(update, context, regular_message, bot_response_wanted):
     """
-    Ignore messages that include '@'
+    Ignore messages that include '@' in group chats.
     """
+    if _is_private_chat(update):
+        return bot_response_wanted
+
     message_text = get_user_message(update, context) or ""
     if regular_message and '@' in message_text and bot_response_wanted:
+        logger.info("Message suppressed: '@' in group message")
         reply = await update.message.reply_text(f"OOKAY I'll shut up for this one {PA}")
         await delete_message(update, context, reply.id, 2)
         bot_response_wanted = False
