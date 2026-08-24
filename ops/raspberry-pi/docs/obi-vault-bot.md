@@ -69,13 +69,13 @@ Copy from `Obi-PA_bot/.env.example`. Required:
 - `TELEGRAM_API_KEY` — @Obi_obsidianPA_bot token
 - `APPROVED_USER_IDS` — comma-separated Telegram user IDs
 - `BEN_ID` — Ben's Telegram user ID
-- `OPENROUTER_OBI_API_KEY` — agent + search summarization (Obi-specific; do not use Manon's `OPENROUTER_API_KEY`)
+- `OPENROUTER_OBI_API_KEY` — agent, search summarization, and voice transcription (Obi-specific; do not use Manon's `OPENROUTER_API_KEY`)
 
 Optional:
 
 - `OBI_ERROR_WEBHOOK_URL` — default `http://127.0.0.1:5678/webhook/obi-error-notify`
 - `OBI_OPENROUTER_MODEL` — default `@preset/manon-fast`
-- `OPENAI_OBI_API_KEY` — voice memo transcription (`gpt-4o-mini-transcribe`, same as Manon)
+- Voice memos use `@preset/assistant-voice-transcription` via `OPENROUTER_OBI_API_KEY` (same as Manon / Nathan)
 
 ## Deploy / update
 

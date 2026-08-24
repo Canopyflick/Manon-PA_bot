@@ -10,8 +10,9 @@ Two production paths exist today:
 
 | Stack | Model ID | Endpoint | Code |
 | --- | --- | --- | --- |
-| Manon / Obi | `gpt-4o-mini-transcribe` | OpenAI `POST /v1/audio/transcriptions` | `utils/audio_utils.py` / Obi `obi/core/audio.py` |
-| Nathan Calendar Bot (n8n) | `openai/whisper-large-v3-turbo` | OpenRouter `POST /api/v1/audio/transcriptions` | `ops/raspberry-pi/context.md` |
+| Manon / Obi / Nathan | `@preset/assistant-voice-transcription` | OpenRouter `POST /api/v1/audio/transcriptions` | `utils/audio_utils.py` / Obi `obi/core/audio.py` / Nathan n8n |
+
+The preset is the production slug; Voxtral (or whatever is configured on OpenRouter) sits behind it.
 
 Constraints for any recommendation: multilingual (Dutch must be first-class or at least in the training set), callable via a public API, **OpenRouter-only** for production voice (no vendor-direct STT). Self-host is a cost reference only.
 
@@ -296,7 +297,7 @@ Official docs and pricing (retrieved 24 August 2026 unless dated in the document
 
 Repo facts (current wiring, not vendor claims):
 
-- `utils/audio_utils.py` — Manon `TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"`
-- Obi `obi/core/audio.py` — same OpenAI `gpt-4o-mini-transcribe` path
-- `ops/raspberry-pi/context.md` — Nathan OpenRouter `openai/whisper-large-v3-turbo`
+- `utils/audio_utils.py` — Manon `TRANSCRIPTION_MODEL = "@preset/assistant-voice-transcription"`
+- Obi `obi/core/audio.py` — same OpenRouter preset
+- `ops/raspberry-pi/context.md` — Nathan OpenRouter `@preset/assistant-voice-transcription`
 - `ops/raspberry-pi/docs/obi-vault-bot.md` — Obi uses the same mini-transcribe path as Manon
