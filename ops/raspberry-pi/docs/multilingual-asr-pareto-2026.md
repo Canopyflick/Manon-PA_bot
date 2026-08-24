@@ -10,10 +10,12 @@ Two production paths exist today:
 
 | Stack | Model ID | Endpoint | Code |
 | --- | --- | --- | --- |
-| Manon / Obi | `scribe_v2` | `https://api.elevenlabs.io/v1/speech-to-text` | `utils/audio_utils.py` / Obi `obi/core/audio.py` |
-| Nathan Calendar Bot (n8n) | `scribe_v2` | `https://api.elevenlabs.io/v1/speech-to-text` | `ops/raspberry-pi/context.md` |
+| Manon / Obi | `gpt-4o-mini-transcribe` | OpenAI `POST /v1/audio/transcriptions` | `utils/audio_utils.py` / Obi `obi/core/audio.py` |
+| Nathan Calendar Bot (n8n) | `openai/whisper-large-v3-turbo` | OpenRouter `POST /api/v1/audio/transcriptions` | `ops/raspberry-pi/context.md` |
 
-Constraints for any recommendation: multilingual (Dutch must be first-class or at least in the training set), callable via a public API, OpenRouter compatibility is a plus for Nathan. Self-host is a cost reference only.
+Constraints for any recommendation: multilingual (Dutch must be first-class or at least in the training set), callable via a public API, **OpenRouter-only** for production voice (no vendor-direct STT). Self-host is a cost reference only.
+
+Live OpenRouter STT catalog (`GET /api/v1/models?output_modalities=transcription`, 2026-08-24): Voxtral is available (`mistralai/voxtral-mini-transcribe`, `mistralai/voxtral-mini-3b-2507`, `mistralai/voxtral-small-24b-2507-stt`). AssemblyAI and ElevenLabs Scribe are not.
 
 ## How to read the numbers (WER caveats, English-heavy benches)
 
@@ -202,7 +204,7 @@ WER 4.8 |  Whisper large-v3 ($0.09–$0.11)   Parakeet v3 (self-host)
 
 **Frontier points**
 
-1. **Cheapest acceptable (hosted).** OpenRouter `openai/whisper-large-v3-turbo` via DeepInfra at **$0.0108/hour**. Same weights as Groq turbo. Dutch is in the Whisper 99-language set. This was Nathan’s previous model. Acceptable if Dutch/mixed transcripts were already good enough. Not acceptable if word-level Dutch or code-switch is the pain — there is no multilingual WER for turbo, and English WER is worse than large-v3 (7.83 vs 7.44).
+1. **Cheapest acceptable (hosted).** OpenRouter `openai/whisper-large-v3-turbo` via DeepInfra at **$0.0108/hour**. Same weights as Groq turbo. Dutch is in the Whisper 99-language set. This is Nathan today. Acceptable if Dutch/mixed transcripts were already good enough. Not acceptable if word-level Dutch or code-switch is the pain — there is no multilingual WER for turbo, and English WER is worse than large-v3 (7.83 vs 7.44).
 
 2. **Best cheap.** Two honest candidates:
    - **Together or Groq Whisper large-v3** at $0.09–$0.111/hour: only public multilingual WER in the cheap band (4.81). Same API shape Nathan already uses if routed through OpenRouter (`openai/whisper-large-v3`).
@@ -294,7 +296,7 @@ Official docs and pricing (retrieved 24 August 2026 unless dated in the document
 
 Repo facts (current wiring, not vendor claims):
 
-- `utils/audio_utils.py` — Manon `TRANSCRIPTION_MODEL = "scribe_v2"`
-- Obi `obi/core/audio.py` — same ElevenLabs `scribe_v2` path
-- `ops/raspberry-pi/context.md` — Nathan ElevenLabs `scribe_v2` (no OpenRouter slug)
+- `utils/audio_utils.py` — Manon `TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"`
+- Obi `obi/core/audio.py` — same OpenAI `gpt-4o-mini-transcribe` path
+- `ops/raspberry-pi/context.md` — Nathan OpenRouter `openai/whisper-large-v3-turbo`
 - `ops/raspberry-pi/docs/obi-vault-bot.md` — Obi uses the same mini-transcribe path as Manon
