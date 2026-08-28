@@ -10,9 +10,9 @@ Two production paths exist today:
 
 | Stack | Model ID | Endpoint | Code |
 | --- | --- | --- | --- |
-| Manon / Obi / Nathan | `@preset/assistant-voice-transcription` | OpenRouter `POST /api/v1/audio/transcriptions` | `utils/audio_utils.py` / Obi `obi/core/audio.py` / Nathan n8n |
+| Manon / Obi / Nathan | `mistralai/voxtral-small-24b-2507-stt` | OpenRouter `POST /api/v1/audio/transcriptions` | `utils/audio_utils.py` / Obi `obi/core/audio.py` / Nathan n8n |
 
-The preset is the production slug; Voxtral (or whatever is configured on OpenRouter) sits behind it.
+OpenRouter `@preset/…` slugs are chat-only and are rejected on this STT endpoint.
 
 Constraints for any recommendation: multilingual (Dutch must be first-class or at least in the training set), callable via a public API, **OpenRouter-only** for production voice (no vendor-direct STT). Self-host is a cost reference only.
 
@@ -297,7 +297,7 @@ Official docs and pricing (retrieved 24 August 2026 unless dated in the document
 
 Repo facts (current wiring, not vendor claims):
 
-- `utils/audio_utils.py` — Manon `TRANSCRIPTION_MODEL = "@preset/assistant-voice-transcription"`
-- Obi `obi/core/audio.py` — same OpenRouter preset
-- `ops/raspberry-pi/context.md` — Nathan OpenRouter `@preset/assistant-voice-transcription`
+- `utils/audio_utils.py` — Manon `TRANSCRIPTION_MODEL = "mistralai/voxtral-small-24b-2507-stt"`
+- Obi `obi/core/audio.py` — same OpenRouter Voxtral slug
+- `ops/raspberry-pi/context.md` — Nathan OpenRouter `mistralai/voxtral-small-24b-2507-stt`
 - `ops/raspberry-pi/docs/obi-vault-bot.md` — Obi uses the same mini-transcribe path as Manon

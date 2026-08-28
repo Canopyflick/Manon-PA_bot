@@ -75,7 +75,7 @@ Optional:
 
 - `OBI_ERROR_WEBHOOK_URL` — default `http://127.0.0.1:5678/webhook/obi-error-notify`
 - `OBI_OPENROUTER_MODEL` — default `@preset/manon-fast`
-- Voice memos use `@preset/assistant-voice-transcription` via `OPENROUTER_OBI_API_KEY` (same as Manon / Nathan)
+- Voice memos use OpenRouter `mistralai/voxtral-small-24b-2507-stt` via `OPENROUTER_OBI_API_KEY` (same as Manon / Nathan). `@preset/…` slugs do not work on the STT endpoint.
 
 ## Deploy / update
 
