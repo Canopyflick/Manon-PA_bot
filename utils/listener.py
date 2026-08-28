@@ -4,6 +4,7 @@ from telegram_helpers.get_user_message import get_user_message
 from telegram_helpers.security import send_unauthorized_access_notification, is_ben_in_chat
 from utils.session_avatar import PA
 from LLMs.orchestration import start_initial_classification
+import html
 import logging, tempfile, os
 from telegram import MessageEntity
 from utils.string_resources import SHY_MESSAGE
@@ -181,7 +182,11 @@ async def analyze_voice_message(update, context):
 
     except Exception as e:
         logger.error(f"Transcription error: {e}")
-        await update.message.reply_text(f"Kon je spraakbericht niet omzetten naar tekst {PA}")
+        detail = html.escape(str(e)[:700])
+        await update.message.reply_text(
+            f"Kon je spraakbericht niet omzetten naar tekst {PA}\n\n<code>{detail}</code>",
+            parse_mode="HTML",
+        )
 
     finally:
         os.remove(audio_path)
