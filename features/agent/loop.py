@@ -146,7 +146,7 @@ async def run_agent_loop(
         logger.warning(
             f"⚠️ Agent loop produced empty response. "
             f"raw content type={type(response.content).__name__ if response else 'NoResponse'}, "
-            f"raw content={response.content!r if response else 'N/A'}"
+            f"raw content={repr(response.content) if response else 'N/A'}"
         )
         final_text = f"I wasn't able to come up with a response {PA}"
 
