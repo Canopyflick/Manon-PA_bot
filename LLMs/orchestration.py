@@ -21,6 +21,7 @@ from utils.db import (
     record_reminder,
 )
 from LLMs.config import chains, shared_state
+from LLMs.structured_parse import coerce_structured_payload, unpack_structured_result
 from LLMs.structured_output_schemas import (
     DummyClass,
     InitialClassification,
@@ -156,23 +157,64 @@ async def run_chain(chain_name, input_variables: dict):
         else:
             logger.info(f"🔍 run_chain('{chain_name}'): could not inspect LLM (chain type: {type(chain['chain']).__name__})")
 
-        # Generate the prompt using the chain's template
-        prompt_value = chain["template"].format_prompt(**input_variables)
+        messages = chain["template"].format_prompt(**input_variables).to_messages()
+        schema = chain.get("schema")
+        last_error = None
+        last_partial = None
 
-        # Invoke the LLM with the formatted prompt
-        result = await chain["chain"].ainvoke(prompt_value.to_messages())
-        
-        # Log and return the result
-        logger.info(f"Chain '{chain_name}' executed successfully: {result}")
-        return result
+        runnables = [("primary", chain["chain"])]
+        if chain.get("fallback_chain") is not None:
+            runnables.append(("fallback", chain["fallback_chain"]))
+
+        for label, runnable in runnables:
+            attempts = 2 if label == "primary" else 1
+            for attempt in range(1, attempts + 1):
+                try:
+                    result = await runnable.ainvoke(messages)
+                except Exception as e:
+                    last_error = e
+                    logger.warning(
+                        f"run_chain('{chain_name}') {label} attempt {attempt} raised: {e}"
+                    )
+                    continue
+
+                if schema is None:
+                    logger.info(f"Chain '{chain_name}' executed successfully: {result}")
+                    return result
+
+                parsed, error, partial = unpack_structured_result(result)
+                if parsed is not None:
+                    logger.info(f"Chain '{chain_name}' executed successfully: {parsed}")
+                    return parsed
+
+                last_error = error
+                last_partial = partial or last_partial
+                logger.warning(
+                    f"run_chain('{chain_name}') {label} attempt {attempt} parse failed: {error}"
+                )
+
+            if schema is not None and last_partial:
+                coerced, filled = coerce_structured_payload(schema, last_partial)
+                if coerced is not None:
+                    logger.warning(
+                        f"run_chain('{chain_name}') accepted partial {label} output "
+                        f"after filling {filled} with defaults"
+                    )
+                    return coerced
+
+        raise RuntimeError(f"Failed to execute chain: {last_error}")
 
     except KeyError as e:
         logger.error(f"Chain is missing a required key: {e}")
-        raise ValueError(f"Invalid chain structure: missing {e}")
+        raise ValueError(f"Invalid chain structure: missing {e}") from e
+
+    except RuntimeError as e:
+        logger.error(f"Error running chain: {e}")
+        raise
 
     except Exception as e:
         logger.error(f"Error running chain: {e}")
-        raise RuntimeError(f"Failed to execute chain: {e}")
+        raise RuntimeError(f"Failed to execute chain: {e}") from e
 
 
 

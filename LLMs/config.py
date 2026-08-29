@@ -74,18 +74,22 @@ llms = {
 }
 
 # OpenRouter: model-switching without code changes (configure preset at openrouter.ai)
+# require_parameters skips providers that silently drop response_format / tool params.
+_OPENROUTER_PROVIDER = {"provider": {"require_parameters": True}}
 if ENV_VARS.OPENROUTER_API_KEY:
     llms["openrouter_fast"] = ChatOpenAI(
         model_name="@preset/manon-fast",
         base_url="https://openrouter.ai/api/v1",
         api_key=ENV_VARS.OPENROUTER_API_KEY,
         temperature=1,
+        extra_body=_OPENROUTER_PROVIDER,
     )
     llms["openrouter_smart"] = ChatOpenAI(
         model_name="@preset/manon-smart",
         base_url="https://openrouter.ai/api/v1",
         api_key=ENV_VARS.OPENROUTER_API_KEY,
         temperature=1,
+        extra_body=_OPENROUTER_PROVIDER,
     )
     logger.info(f"✅ OpenRouter LLMs created: {[k for k in llms if k.startswith('openrouter_')]}")
 else:
@@ -224,6 +228,7 @@ chain_configs = {
         "template": compact_one_time_template,
         "schema": CompactSchedule,
         "llm": llms.get("openrouter_fast", llms["mini"]),
+        "fallback_llm": llms["mini"] if "openrouter_fast" in llms else None,
     },
     "compact_schedule_smart": {
         "template": compact_one_time_template,
@@ -234,6 +239,7 @@ chain_configs = {
         "template": compact_recurring_template,
         "schema": CompactPlanning,
         "llm": llms.get("openrouter_fast", llms["mini"]),
+        "fallback_llm": llms["mini"] if "openrouter_fast" in llms else None,
     },
     "compact_planning_smart": {
         "template": compact_recurring_template,
@@ -253,16 +259,34 @@ _gq_llm = chain_configs["grandpa_quote"]["llm"]
 logger.info(f"🔍 grandpa_quote LLM resolved to: model={_gq_llm.model_name}, base_url={getattr(_gq_llm, 'openai_api_base', 'default')}")
 
 
+def _llm_base_url(llm) -> str:
+    return str(getattr(llm, "openai_api_base", None) or getattr(llm, "base_url", None) or "")
+
+
+def _bind_structured_output(llm, schema):
+    """Bind schema; OpenRouter gets json_schema so response_format is actually sent."""
+    kwargs = {"include_raw": True}
+    if "openrouter.ai" in _llm_base_url(llm):
+        kwargs["method"] = "json_schema"
+    return llm.with_structured_output(schema, **kwargs)
+
+
 # Function to create chains
 def create_chain(config):
+    schema = config.get("schema")
+    llm = config["llm"]
     chain = {
         "template": config["template"],
+        "schema": schema,
     }
 
-    if "schema" in config and config["schema"] is not None:
-        chain["chain"] = config["llm"].with_structured_output(config["schema"])
+    if schema is not None:
+        chain["chain"] = _bind_structured_output(llm, schema)
+        fallback_llm = config.get("fallback_llm")
+        if fallback_llm is not None and fallback_llm is not llm:
+            chain["fallback_chain"] = _bind_structured_output(fallback_llm, schema)
     else:
-        chain["chain"] = config["llm"].ainvoke
+        chain["chain"] = llm.ainvoke
 
     return chain
 
