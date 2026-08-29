@@ -13,7 +13,7 @@ COPY . /app
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Generate version information for production
-RUN python3 scripts/generate_version.py
+# Snapshot Git info, then drop .git so /version uses version.json (not live Git).
+RUN python3 scripts/generate_version.py && rm -rf /app/.git
 
 CMD ["python", "main.py"]

@@ -41,9 +41,13 @@ def generate_version_info():
     if len(commit_message) > 100:
         commit_message = commit_message[:97] + "..."
     
-    # Check if working directory is dirty
-    is_dirty = subprocess.run(['git', 'diff-index', '--quiet', 'HEAD'], 
-                             capture_output=True).returncode != 0
+    # Porcelain status ignores Docker COPY mtime mismatches that fool diff-index.
+    status = subprocess.run(
+        ['git', 'status', '--porcelain'],
+        capture_output=True,
+        text=True,
+    )
+    is_dirty = bool(status.stdout.strip())
     
     # Get last tag
     last_tag = run_git_command(['git', 'describe', '--tags', '--abbrev=0'])
