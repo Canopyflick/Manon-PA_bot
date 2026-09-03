@@ -6,7 +6,7 @@ from utils.helpers import BERLIN_TZ, parse_reminder_times
 from features.goals.helpers import add_user_context_to_goals
 from logger.logger import logger
 from utils.session_avatar import PA
-import logging, asyncpg, re, pytz
+import logging, asyncpg, re, pytz, random
 from datetime import time, datetime, timedelta
 
 # Legacy check from Heroku times, leaving it here to remember that ssl settings matter for that
@@ -587,25 +587,61 @@ async def fetch_long_term_goals(chat_id, user_id):
     return "To be increasingly kind and useful to others. To set myself up for continuous learning, self-improvement, longevity and rich relationships."
 
 
+def _pick_grandpa_quote_goal(rows):
+    """Pick a random today's goal for a grandpa quote.
+
+    When more than one goal is due today, skip recurring series that occur
+    more than three times (e.g. a daily habit already set for the year).
+    Falls back to the full set if that filter would leave nothing.
+    """
+    if not rows:
+        return None
+    candidates = list(rows)
+    if len(candidates) > 1:
+        filtered = [
+            row for row in candidates
+            if not (row["recurrence_type"] == "recurring" and row["series_size"] > 3)
+        ]
+        if filtered:
+            candidates = filtered
+    return random.choice(candidates)["goal_description"]
+
+
 async def fetch_random_todays_goal(user_id, chat_id):
     """Fetch 1 random active goal with a deadline today (Berlin time).
     Returns just the goal description string, or None if no goals today."""
     try:
         async with Database.acquire() as conn:
-            row = await conn.fetchrow('''
-                SELECT goal_description
-                FROM manon_goals
-                WHERE user_id = $1 AND chat_id = $2
-                  AND status IN ('pending', 'limbo', 'prepared', 'paused')
-                  AND deadline >= (NOW() AT TIME ZONE 'Europe/Berlin')::date
-                  AND deadline < (NOW() AT TIME ZONE 'Europe/Berlin')::date + INTERVAL '1 day'
-                ORDER BY RANDOM()
-                LIMIT 1
+            rows = await conn.fetch('''
+                SELECT
+                    g.goal_description,
+                    g.recurrence_type,
+                    COALESCE(
+                        (
+                            SELECT cardinality(p.deadlines)
+                            FROM manon_goals p
+                            WHERE p.goal_id = COALESCE(g.group_id, g.goal_id)
+                              AND p.deadlines IS NOT NULL
+                        ),
+                        (
+                            SELECT COUNT(*)::int
+                            FROM manon_goals s
+                            WHERE s.user_id = g.user_id AND s.chat_id = g.chat_id
+                              AND (
+                                  s.group_id = COALESCE(g.group_id, g.goal_id)
+                                  OR s.goal_id = COALESCE(g.group_id, g.goal_id)
+                              )
+                        ),
+                        1
+                    ) AS series_size
+                FROM manon_goals g
+                WHERE g.user_id = $1 AND g.chat_id = $2
+                  AND g.status IN ('pending', 'limbo', 'prepared', 'paused')
+                  AND (g.deadline AT TIME ZONE 'Europe/Berlin')::date
+                      = (NOW() AT TIME ZONE 'Europe/Berlin')::date
             ''', user_id, chat_id)
 
-        if row:
-            return row["goal_description"]
-        return None
+        return _pick_grandpa_quote_goal(rows)
 
     except Exception as e:
         logger.error(f"Error fetching random today's goal: {e}")

@@ -161,8 +161,8 @@ async def send_personalized_morning_message(bot, chat_id, user_id, first_name=No
         await asyncio.sleep(4)
         await bot.send_message(chat_id, message_components["end_emoji"])
 
-        # 30% chance: send a grandpa quote based on a random today's goal
-        if random.random() < 0.3:
+        # ~45% chance: send a grandpa quote based on a random today's goal
+        if random.random() < 0.45:
             todays_goal = await fetch_random_todays_goal(user_id, chat_id)
             if todays_goal:
                 try:
