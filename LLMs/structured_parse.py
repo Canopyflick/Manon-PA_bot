@@ -85,6 +85,43 @@ def coerce_structured_payload(
         return None, filled
 
 
+def wrap_plain_response_text(schema: type[BaseModel], text: Any) -> BaseModel | None:
+    """Wrap a prose string as response_text when that is the schema's only field."""
+    if "response_text" not in schema.model_fields or len(schema.model_fields) != 1:
+        return None
+    if not isinstance(text, str):
+        return None
+    text = text.strip()
+    if not text or text.startswith("{"):
+        return None
+    try:
+        return schema.model_validate({"response_text": text})
+    except ValidationError:
+        return None
+
+
+def plain_text_for_response_schema(schema: type[BaseModel], error: Any) -> BaseModel | None:
+    """If the model ignored JSON and returned prose, wrap it as response_text."""
+    return wrap_plain_response_text(schema, _plain_string_from_validation_error(error))
+
+
+def _plain_string_from_validation_error(error: Any) -> str | None:
+    if error is None or not hasattr(error, "errors"):
+        return None
+    try:
+        for err in error.errors():
+            if err.get("type") != "json_invalid":
+                continue
+            value = err.get("input")
+            if isinstance(value, str):
+                text = value.strip()
+                if text and not text.startswith("{"):
+                    return text
+    except Exception:
+        return None
+    return None
+
+
 def _payload_from_validation_error(error: Any) -> dict | None:
     if error is None or not hasattr(error, "errors"):
         return None

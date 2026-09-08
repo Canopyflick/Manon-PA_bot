@@ -21,7 +21,12 @@ from utils.db import (
     record_reminder,
 )
 from LLMs.config import chains, shared_state
-from LLMs.structured_parse import coerce_structured_payload, unpack_structured_result
+from LLMs.structured_parse import (
+    coerce_structured_payload,
+    plain_text_for_response_schema,
+    unpack_structured_result,
+    wrap_plain_response_text,
+)
 from LLMs.structured_output_schemas import (
     DummyClass,
     InitialClassification,
@@ -173,6 +178,14 @@ async def run_chain(chain_name, input_variables: dict):
                     result = await runnable.ainvoke(messages)
                 except Exception as e:
                     last_error = e
+                    if schema is not None:
+                        recovered = plain_text_for_response_schema(schema, e)
+                        if recovered is not None:
+                            logger.warning(
+                                f"run_chain('{chain_name}') {label} attempt {attempt}: "
+                                "accepted plain-text as response_text"
+                            )
+                            return recovered
                     logger.warning(
                         f"run_chain('{chain_name}') {label} attempt {attempt} raised: {e}"
                     )
@@ -189,6 +202,17 @@ async def run_chain(chain_name, input_variables: dict):
 
                 last_error = error
                 last_partial = partial or last_partial
+                recovered = plain_text_for_response_schema(schema, error)
+                if recovered is None and isinstance(result, dict):
+                    recovered = wrap_plain_response_text(
+                        schema, getattr(result.get("raw"), "content", None)
+                    )
+                if recovered is not None:
+                    logger.warning(
+                        f"run_chain('{chain_name}') {label} attempt {attempt}: "
+                        "accepted plain-text as response_text"
+                    )
+                    return recovered
                 logger.warning(
                     f"run_chain('{chain_name}') {label} attempt {attempt} parse failed: {error}"
                 )
