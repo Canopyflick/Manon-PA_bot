@@ -19,6 +19,32 @@ from utils.session_avatar import PA
 
 logger = logging.getLogger(__name__)
 
+GRANDPA_QUOTE_CHANCE = 0.45
+
+
+def _pick_listed_goal_for_quote(goals):
+    """Fallback picker from goals already shown in the morning message."""
+    if not goals:
+        return None
+    described = [goal for goal in goals if goal.goal_description]
+    if not described:
+        return None
+    if len(described) > 1:
+        one_time = [goal for goal in described if goal.recurrence_type != "recurring"]
+        if one_time:
+            described = one_time
+    return random.choice(described).goal_description
+
+
+async def _send_grandpa_quote(bot, chat_id, quote):
+    """Send the grandpa quote; retry without Markdown if Telegram rejects the parse."""
+    markdown_text = f"Mijn grootvader zei altijd:\n✨_{quote}_ 🧙‍♂️✨"
+    try:
+        await bot.send_message(chat_id, markdown_text, parse_mode="Markdown")
+    except Exception as e:
+        logger.warning(f"grandpa quote Markdown send failed, retrying plain: {e}")
+        await bot.send_message(chat_id, f"Mijn grootvader zei altijd:\n✨ {quote} 🧙‍♂️✨")
+
 
 async def create_morning_message_components(user_id, chat_id, first_name):
     """
@@ -107,6 +133,7 @@ async def create_morning_message_components(user_id, chat_id, first_name):
         "start_emoji": random_emoji,
         "greeting": greeting_message,
         "overdue_goals": overdue_messages,
+        "upcoming_goals": goals if goals_count > 0 else [],
         "main_content": main_message,
         "motivational_quote": motivational_quote,
         "end_emoji": "🚀",
@@ -161,17 +188,28 @@ async def send_personalized_morning_message(bot, chat_id, user_id, first_name=No
         await asyncio.sleep(4)
         await bot.send_message(chat_id, message_components["end_emoji"])
 
-        # ~45% chance: send a grandpa quote based on a random today's goal
-        if random.random() < 0.45:
+        roll = random.random()
+        if roll < GRANDPA_QUOTE_CHANCE:
             todays_goal = await fetch_random_todays_goal(user_id, chat_id)
+            if not todays_goal:
+                todays_goal = _pick_listed_goal_for_quote(
+                    message_components.get("upcoming_goals") or []
+                )
+                if todays_goal:
+                    logger.info(f"grandpa quote: falling back to listed morning goal {todays_goal!r}")
             if todays_goal:
                 try:
                     result = await run_chain("grandpa_quote", {"active_goals": todays_goal})
-                    grandpa_quote = result.response_text
+                    grandpa_quote = getattr(result, "response_text", None) or str(result)
                     await asyncio.sleep(random.uniform(3, 6))
-                    await bot.send_message(chat_id, f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨", parse_mode="Markdown")
+                    await _send_grandpa_quote(bot, chat_id, grandpa_quote)
+                    logger.info(f"grandpa quote sent for goal {todays_goal!r}")
                 except Exception as e:
                     logger.error(f"Error sending grandpa quote in morning message: {e}")
+            else:
+                logger.info("grandpa quote rolled but no today's goal was available")
+        else:
+            logger.info(f"grandpa quote skipped (roll={roll:.2f} >= {GRANDPA_QUOTE_CHANCE})")
 
         logger.info(f"Morning message sent successfully to {first_name}({user_id}) in chat {chat_id}")
 

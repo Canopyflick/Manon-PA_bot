@@ -67,10 +67,17 @@ async def wow_command(update, context):
                 if todays_goal:
                     await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
                     result = await run_chain("grandpa_quote", {"active_goals": todays_goal})
-                    grandpa_quote = result.response_text
+                    grandpa_quote = getattr(result, "response_text", None) or str(result)
                     random_delay = random.uniform(2, 8)
                     await asyncio.sleep(random_delay)
-                    await update.message.reply_text(f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨", parse_mode="Markdown")
+                    markdown_text = f"Mijn grootvader zei altijd:\n✨_{grandpa_quote}_ 🧙‍♂️✨"
+                    try:
+                        await update.message.reply_text(markdown_text, parse_mode="Markdown")
+                    except Exception as markdown_error:
+                        logger.warning(f"/wow grandpa quote Markdown send failed, retrying plain: {markdown_error}")
+                        await update.message.reply_text(
+                            f"Mijn grootvader zei altijd:\n✨ {grandpa_quote} 🧙‍♂️✨"
+                        )
                     return
 
         # Non-approved user in private chat: flavor text

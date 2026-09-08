@@ -250,6 +250,9 @@ chain_configs = {
         "template": grandpa_quote_template,
         "schema": Response,
         "llm": llms.get("openrouter_smart", llms["smart"]),
+        # OpenRouter json_schema + require_parameters often fails for this preset;
+        # without a fallback the morning quote is silently skipped.
+        "fallback_llm": llms["smart"] if "openrouter_smart" in llms else None,
     },
 
 }

@@ -616,32 +616,50 @@ async def fetch_random_todays_goal(user_id, chat_id):
                 SELECT
                     g.goal_description,
                     g.recurrence_type,
-                    COALESCE(
-                        (
-                            SELECT cardinality(p.deadlines)
-                            FROM manon_goals p
-                            WHERE p.goal_id = COALESCE(g.group_id, g.goal_id)
-                              AND p.deadlines IS NOT NULL
-                        ),
-                        (
-                            SELECT COUNT(*)::int
-                            FROM manon_goals s
-                            WHERE s.user_id = g.user_id AND s.chat_id = g.chat_id
-                              AND (
-                                  s.group_id = COALESCE(g.group_id, g.goal_id)
-                                  OR s.goal_id = COALESCE(g.group_id, g.goal_id)
-                              )
-                        ),
-                        1
-                    ) AS series_size
+                    COALESCE(g.group_id, g.goal_id) AS series_id
                 FROM manon_goals g
                 WHERE g.user_id = $1 AND g.chat_id = $2
                   AND g.status IN ('pending', 'limbo', 'prepared', 'paused')
+                  AND g.deadline IS NOT NULL
                   AND (g.deadline AT TIME ZONE 'Europe/Berlin')::date
                       = (NOW() AT TIME ZONE 'Europe/Berlin')::date
             ''', user_id, chat_id)
 
-        return _pick_grandpa_quote_goal(rows)
+        if not rows:
+            logger.info("grandpa quote: no active goals with a deadline today")
+            return None
+
+        series_sizes = {}
+        series_ids = list({row["series_id"] for row in rows if row["series_id"] is not None})
+        if series_ids:
+            try:
+                async with Database.acquire() as conn:
+                    counts = await conn.fetch('''
+                        SELECT COALESCE(group_id, goal_id) AS series_id,
+                               COUNT(*)::int AS series_size
+                        FROM manon_goals
+                        WHERE user_id = $1 AND chat_id = $2
+                          AND COALESCE(group_id, goal_id) = ANY($3::bigint[])
+                        GROUP BY 1
+                    ''', user_id, chat_id, series_ids)
+                series_sizes = {row["series_id"]: row["series_size"] for row in counts}
+            except Exception as e:
+                logger.warning(f"grandpa quote: series-size lookup failed, using unfiltered draw: {e}")
+
+        enriched = [
+            {
+                "goal_description": row["goal_description"],
+                "recurrence_type": row["recurrence_type"],
+                "series_size": series_sizes.get(row["series_id"], 1),
+            }
+            for row in rows
+        ]
+        picked = _pick_grandpa_quote_goal(enriched)
+        logger.info(
+            f"grandpa quote: chose from {len(enriched)} today goal(s) "
+            f"(filtered={len(enriched) > 1}): {picked!r}"
+        )
+        return picked
 
     except Exception as e:
         logger.error(f"Error fetching random today's goal: {e}")
