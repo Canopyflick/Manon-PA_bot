@@ -1,22 +1,15 @@
 # features/evening_message/formatter.py
 from datetime import datetime, time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from utils.helpers import BERLIN_TZ
+from utils.helpers import BERLIN_TZ, POSTPONE_PENALTY_MULTIPLIER, format_when
 from utils.string_resources import GREETING_GOOD_EVENING, GREETING_WHY_HELLO_THERE
 import random
 
 
 def format_goal_with_buttons(goal):
     """Format a single goal with action buttons"""
-    today = datetime.now(BERLIN_TZ).date()
     deadline_dt = goal.deadline
-    deadline_date = deadline_dt.date()
-
-    # Format the deadline
-    if deadline_date == today:
-        deadline_str = f"{deadline_dt.strftime('%H:%M')} today"
-    else:
-        deadline_str = f"{deadline_dt.strftime('%a %H:%M')}"
+    deadline_str = format_when(deadline_dt) if deadline_dt else "no deadline"
 
     goal_value_str = f"{goal.goal_value:.1f}" if goal.goal_value is not None else "N/A"
     penalty = goal.penalty or 0
@@ -44,7 +37,7 @@ def format_goal_with_buttons(goal):
     )
 
     # Buttons
-    cost_to_postpone = round(penalty * 0.65, 1)
+    cost_to_postpone = round(penalty * POSTPONE_PENALTY_MULTIPLIER, 1)
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Done", callback_data=f"finished_{goal.goal_id}"),

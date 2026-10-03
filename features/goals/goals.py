@@ -1,5 +1,5 @@
 from features.goals.helpers import add_user_context_to_goals
-from utils.helpers import BERLIN_TZ, logger
+from utils.helpers import BERLIN_TZ, POSTPONE_PENALTY_MULTIPLIER, format_when, logger
 from utils.session_avatar import PA
 from utils.db import(
     update_goal_data, 
@@ -21,55 +21,38 @@ logger = logging.getLogger(__name__)
 async def format_datetime_list(datetime_input):
     """
     Formats datetime inputs that can be None, a string, or a list of strings.
-    
-    Args:
-        datetime_input (None, str, List[str]): Input datetime(s)
-    
-    Returns:
-        Tuple[int, List[str]]: 
-        - First element is the total count of datetime entries
-        - Second element is a list of formatted datetime strings
+
+    A single entry is returned bare ("tomorrow 22:22") so it can sit inline.
+    Several entries are returned as a "- " list, truncated when there are 5+.
     """
-    # Handle None case
     logging.critical(f"Datetime input in formatting function = {datetime_input}")
     if datetime_input is None:
         return 0, []
-    
-    # Convert single string to list
+
     if isinstance(datetime_input, str):
         datetime_input = [datetime_input]
-    
-    # Ensure it's a list of strings
+
     if not isinstance(datetime_input, list):
         return 0, []
-    
-    # If 4 or fewer entries, show all
-    if len(datetime_input) <= 4:
-        try:
-            return len(datetime_input), [
-                f"- {datetime.fromisoformat(dt).strftime('%A, %d %B %Y, %H:%M')}"
-                for dt in datetime_input
-            ]
-        except (ValueError, TypeError):
-            return len(datetime_input), [f"- {dt}" for dt in datetime_input]
-    
-    # If 5 or more entries
-    try:
-        formatted_datetimes = [
-            f"- {datetime.fromisoformat(datetime_input[0]).strftime('%A, %d %B %Y, %H:%M')}",
-            f"- {datetime.fromisoformat(datetime_input[1]).strftime('%A, %d %B %Y, %H:%M')}",
-            f"...and {len(datetime_input) - 3} more entr{'y' if len(datetime_input) - 3 == 1 else 'ies'} ...",
-            f"- {datetime.fromisoformat(datetime_input[-1]).strftime('%A, %d %B %Y, %H:%M')}"
+
+    count = len(datetime_input)
+    if count == 0:
+        return 0, []
+
+    if count <= 4:
+        labels = [format_when(dt) for dt in datetime_input]
+    else:
+        hidden = count - 3
+        labels = [
+            format_when(datetime_input[0]),
+            format_when(datetime_input[1]),
+            f"...and {hidden} more entr{'y' if hidden == 1 else 'ies'} ...",
+            format_when(datetime_input[-1]),
         ]
-    except (ValueError, TypeError):
-        formatted_datetimes = [
-            f"- {datetime_input[0]}",
-            f"- {datetime_input[1]}",
-            f"...and {len(datetime_input) - 3} more entr{'y' if len(datetime_input) - 3 == 1 else 'ies'} ...",
-            f"- {datetime_input[-1]}"
-        ]
-    
-    return len(datetime_input), formatted_datetimes
+
+    if count == 1:
+        return count, labels
+    return count, [line if line.startswith("...") else f"- {line}" for line in labels]
     
 
 async def send_goal_proposal(update, context, goal_id, adjust=False):
@@ -104,14 +87,12 @@ async def send_goal_proposal(update, context, goal_id, adjust=False):
 TEMPLATE_TEXT = """*{{ recurrence_type | capitalize }} {{ "Goal Set" if optimistic else "Goal Proposal" }}* {{ PA }}
 ✍️ {{ goal_description }}
 
-📅 {{ "Deadline" if deadline_count == 1 else deadline_count ~ " Deadlines" }}:
-{{ formatted_deadlines }}
+📅 {{ "Deadline" if deadline_count == 1 else deadline_count ~ " Deadlines" }}:{{ " " if deadline_count == 1 else "\n" }}{{ formatted_deadlines }}
 
 ⚡ Goal Value: {{ goal_value | round(1) }} {% if total_goal_value | default(None) is not none %}({{ total_goal_value | round(0) | int }} total){% endif %}
 🌚 Potential Penalty: {{ penalty | round(1) }} {% if total_penalty | default(None) is not none %}({{ total_penalty | round(0) | int }} total){% endif %}
 {% if (schedule_reminder | default(reminder_scheduled | default(False))) and reminder_count > 0 %}
-\n⏰ {{ "Reminder" if reminder_count == 1 else reminder_count ~ " Reminders" }}:
-{{ formatted_reminders }}
+\n⏰ {{ "Reminder" if reminder_count == 1 else reminder_count ~ " Reminders" }}:{{ " " if reminder_count == 1 else "\n" }}{{ formatted_reminders }}
 {% endif %}{% if optimistic %}
 _Set and active ✅ — tap ↩️ Revert if this isn't right_
 {% endif %}#_{{ ID }}_
@@ -487,54 +468,96 @@ async def report_goal_progress(update, context):
         await query.edit_message_text(f"er ging iets mis: {e}")
     
 
-async def handle_goal_completion(update, goal_id, query):
+async def _announce_goal_result(update, query, text, announce):
+    if not announce:
+        return
+    if query is not None:
+        await query.edit_message_text(text=text, reply_markup=None, parse_mode="Markdown")
+    elif update is not None and getattr(update, "message", None):
+        await update.message.reply_text(text, parse_mode="Markdown")
+
+
+async def handle_goal_completion(update, goal_id, query=None, announce=True):
     try:
+        status = await fetch_goal_data(goal_id, columns="status", single_value=True)
+        if status not in ("pending", "prepared"):
+            text = f"Goal #{goal_id} is not open ({status})."
+            await _announce_goal_result(update, query, text, announce)
+            return text
+
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         await update_goal_data(goal_id, status="archived_done", completion_time=datetime.now(tz=BERLIN_TZ))
-        goal_value = await fetch_goal_data(goal_id, columns="goal_value", single_value=True)
+        goal_value = await fetch_goal_data(goal_id, columns="goal_value", single_value=True) or 0
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
-        await update_user_data(user_id, chat_id, increment_score=goal_value, increment_finished_goals=1, increment_pending_goals=-1)
+        user_updates = {
+            "increment_score": goal_value,
+            "increment_finished_goals": 1,
+        }
+        if status == "pending":
+            user_updates["increment_pending_goals"] = -1
+        await update_user_data(user_id, chat_id, **user_updates)
         logger.info(f"✅ Goal #{goal_id} completed: archived and user score increased by {goal_value}")
-        await query.edit_message_text(
-                text=f"✅ Goal #{goal_id} completed: archived and user score increased by {round(goal_value, 1)}\n\n✍️ _{description}_",
-            reply_markup=None,
-            parse_mode="Markdown"
+        text = (
+            f"✅ Goal #{goal_id} completed: archived and user score increased by {round(goal_value, 1)}"
+            f"\n\n✍️ _{description}_"
         )
+        await _announce_goal_result(update, query, text, announce)
+        return text
     except Exception as e:
-        logger.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")   
-    
-    
-async def handle_goal_failure(update, goal_id, query, bot=None, delete_all_expired_goals=False):
+        logger.error(f"couldn't handle_goal_completion for goal {goal_id}:\n{e}'")
+        return None
+
+
+async def handle_goal_failure(update, goal_id, query=None, bot=None, delete_all_expired_goals=False, announce=True):
     try:
+        status = await fetch_goal_data(goal_id, columns="status", single_value=True)
+        if status not in ("pending", "prepared"):
+            if update == 1.5:
+                logger.info(f"Goal #{goal_id} not archived; status is {status}")
+                return None
+            text = f"Goal #{goal_id} is not open ({status})."
+            await _announce_goal_result(update, query, text, announce)
+            return text
+
         if update == 1.5:
             user_id = await fetch_goal_data(goal_id, columns="user_id", single_value=True)
             chat_id = await fetch_goal_data(goal_id, columns="chat_id", single_value=True)
         else:
             user_id = update.effective_user.id
             chat_id = update.effective_chat.id
-            
+
         await update_goal_data(goal_id, status="archived_failed", completion_time=datetime.now(tz=BERLIN_TZ))
-        penalty = await fetch_goal_data(goal_id, columns="penalty", single_value=True)
+        penalty = await fetch_goal_data(goal_id, columns="penalty", single_value=True) or 0
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
         score_decrease = penalty * -1
-        await update_user_data(user_id, chat_id, increment_score=score_decrease, increment_penalties_accrued=penalty, increment_failed_goals=1, increment_pending_goals=-1)
+        user_updates = {
+            "increment_score": score_decrease,
+            "increment_penalties_accrued": penalty,
+            "increment_failed_goals": 1,
+        }
+        if status == "pending":
+            user_updates["increment_pending_goals"] = -1
+        await update_user_data(user_id, chat_id, **user_updates)
         logger.info(f"✅ Goal #{goal_id}'s failure completed: archived and {round(score_decrease, 1)} penalty charged")
-        if update == 1.5:   # in case of scheduled archiving job 
-            await bot.send_message(
-                chat_id,
-                text=f"❌ Goal #{goal_id} was marked as failed after no progress was reported{'' if delete_all_expired_goals else ' for >39 hours'}. {round(score_decrease, 1)} penalty charged. \n\n✍️_{description}_",
-                reply_markup=None,
-                parse_mode="Markdown"
+        if update == 1.5:   # in case of scheduled archiving job
+            text = (
+                f"❌ Goal #{goal_id} was marked as failed after no progress was reported"
+                f"{'' if delete_all_expired_goals else ' for >39 hours'}. {round(score_decrease, 1)} penalty charged."
+                f" \n\n✍️_{description}_"
             )
-        else:
-            await query.edit_message_text(
-                text=f"❌ Goal #{goal_id} was marked failed: archived and {round(score_decrease, 1)} penalty charged\n\n✍️_{description}_",
-                reply_markup=None,
-                parse_mode="Markdown"
-            )
+            await bot.send_message(chat_id, text=text, reply_markup=None, parse_mode="Markdown")
+            return text
+
+        text = (
+            f"❌ Goal #{goal_id} was marked failed: archived and {round(score_decrease, 1)} penalty charged"
+            f"\n\n✍️_{description}_"
+        )
+        await _announce_goal_result(update, query, text, announce)
+        return text
     except Exception as e:
         logger.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
+        return None
     
 
 async def handle_goal_push(update, goal_id, query):
@@ -556,20 +579,22 @@ async def handle_goal_push(update, goal_id, query):
         tomorrow = overdue_deadline + timedelta(days=1)
         while tomorrow <= datetime.now(tz=BERLIN_TZ):
             tomorrow += timedelta(days=1)
-        tomorrow_formatted = tomorrow.strftime('%a, %d %B')
+        tomorrow_formatted = format_when(tomorrow)
     
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
 
         # set new deadline and increment goal
         await update_goal_data(goal_id, deadline=tomorrow, increment_attempt=True)      
     
-        # charge penalty
-        postpone_multiplier = 0.65
-        penalty = await fetch_goal_data(goal_id, columns="penalty", single_value=True) * postpone_multiplier
+        # charge penalty — same fraction the postpone button shows
+        full_penalty = await fetch_goal_data(goal_id, columns="penalty", single_value=True) or 0
+        charged = round(full_penalty * POSTPONE_PENALTY_MULTIPLIER, 1)
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-        score_change = penalty * postpone_multiplier * -1
-        await update_user_data(user_id, chat_id, increment_score=score_change, increment_penalties_accrued=penalty)
+        score_change = -charged
+        await update_user_data(
+            user_id, chat_id, increment_score=score_change, increment_penalties_accrued=charged
+        )
         
         text = f"⏭️ Postponed goal #{goal_id} to {tomorrow_formatted}. Charged a partial penalty: score {round(score_change, 1)} {PA}\n\n✍️ _{description}_"
         await query.edit_message_text(

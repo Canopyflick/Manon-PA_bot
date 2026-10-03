@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 from langchain_core.tools import tool
 from utils.db import Database
-from utils.helpers import BERLIN_TZ
+from utils.helpers import BERLIN_TZ, format_for_llm
 from features.bitcoin.monitoring import get_btc_price
 from features.weather.monitoring import get_weather_change_message, get_weather_summary
 
@@ -56,7 +56,7 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
             return "No active goals."
         lines = []
         for r in rows:
-            dl = r["deadline"].strftime("%Y-%m-%d %H:%M") if r["deadline"] else "none"
+            dl = format_for_llm(r["deadline"]) if r["deadline"] else "none"
             lines.append(
                 f"#{r['goal_id']} [{r['status']}] {r['goal_description'][:80]} "
                 f"(deadline: {dl}, {r['recurrence_type']})"
@@ -81,7 +81,7 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
             return "No overdue goals."
         lines = []
         for r in rows:
-            dl = r["deadline"].strftime("%Y-%m-%d %H:%M") if r["deadline"] else "?"
+            dl = format_for_llm(r["deadline"]) if r["deadline"] else "?"
             lines.append(
                 f"#{r['goal_id']} {r['goal_description'][:80]} "
                 f"(was due: {dl}, value: {r['goal_value']}, penalty: {r['penalty']})"
@@ -107,7 +107,7 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
             return "No goals due today."
         lines = []
         for r in rows:
-            dl = r["deadline"].strftime("%H:%M") if r["deadline"] else "?"
+            dl = format_for_llm(r["deadline"]) if r["deadline"] else "?"
             lines.append(
                 f"#{r['goal_id']} [{r['status']}] {r['goal_description'][:80]} "
                 f"(due: {dl}, value: {r['goal_value']})"
@@ -183,8 +183,11 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         parts = []
         for key in row.keys():
             val = row[key]
-            if val is not None:
-                parts.append(f"{key}: {val}")
+            if val is None:
+                continue
+            if isinstance(val, datetime):
+                val = format_for_llm(val)
+            parts.append(f"{key}: {val}")
         return "\n".join(parts)
 
     @tool

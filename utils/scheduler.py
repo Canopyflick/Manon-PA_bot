@@ -3,7 +3,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 
-from utils.helpers import BERLIN_TZ
+from utils.helpers import BERLIN_TZ, POSTPONE_PENALTY_MULTIPLIER, format_when
 from utils.session_avatar import PA
 from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -163,9 +163,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
 
         pending_goals = []
         total_goal_value = 0
-        total_penalty = 0 
-        today = datetime.now().date()
-        yesterday = (datetime.now() - timedelta(days=1)).date()
+        total_penalty = 0
         goals_count = 0
         now = datetime.now(tz=BERLIN_TZ)
 
@@ -178,7 +176,6 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
             deadline_dt = row["deadline"]
             logging.critical(f"😴 Deadline for goal_id {goal_id}: {deadline_dt}, tzinfo: {deadline_dt.tzinfo}")
 
-            deadline_date = deadline_dt.date()
             postpone_to_day = "mañana"
             # Determine if the goal should be postponed to today or tomorrow
             if deadline_dt.date() < now.date():
@@ -194,13 +191,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 postpone_to_day = "tomorrow"
 
 
-            # Format the deadline
-            if deadline_date == today:
-                deadline = f"{deadline_dt.strftime('%H:%M')} today"
-            elif deadline_date == yesterday:
-                deadline = f"{deadline_dt.strftime('%H:%M')} yesterday"
-            else:
-                deadline = f"{deadline_dt.strftime('%a, %d %B')}"
+            deadline = format_when(deadline_dt)
 
             goal_value = f"{row['goal_value']:.1f}" if row["goal_value"] is not None else "N/A"
             penalty = float(f"{row['penalty']:.1f}") if row["penalty"] is not None else 0  # Use 0.0 as a default
@@ -218,7 +209,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 f"#{goal_id}"
             )
 
-            cost_to_postpone = round(penalty * 0.65, 1)
+            cost_to_postpone = round(penalty * POSTPONE_PENALTY_MULTIPLIER, 1)
             
             # Inline keyboard buttons for each goal
             buttons = InlineKeyboardMarkup([

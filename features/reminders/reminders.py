@@ -1,6 +1,6 @@
 ﻿import os, pytz, logging, requests, asyncio, re, random, json
 from datetime import time, datetime, timezone, timedelta
-from utils.helpers import BERLIN_TZ
+from utils.helpers import BERLIN_TZ, format_when
 from utils.session_avatar import PA
 from utils.db import Database, get_first_name
 from utils.scheduler import scheduler
@@ -112,20 +112,17 @@ async def send_reminder(bot, reminder_data):
         # Extract reminder details
         goal_description = reminder_data.get('goal_description', None)
         reminder_text = reminder_data.get('reminder_text', None)
+        goal_id = reminder_data.get('goal_id')
+
+        if goal_id:
+            from utils.db import fetch_goal_data
+            status = await fetch_goal_data(goal_id, columns="status", single_value=True)
+            if status != "pending":
+                logger.info(f"Skipping reminder for goal #{goal_id}; status is {status}")
+                return
 
         if goal_description:
-            deadline = reminder_data.get('deadline')
-            # reformat deadline
-            try:
-                deadline = reminder_data.get('deadline')
-                if isinstance(deadline, str):
-                    deadline_date = datetime.strptime(deadline, "%Y-%m-%d")
-                else:  # Assuming it's already a datetime object
-                    deadline_date = deadline
-                formatted_deadline = deadline_date.strftime("%A, %B %d, %Y")
-            except (ValueError, TypeError) as e:
-                formatted_deadline = "Invalid date format"
-                logger.error(f"Date parsing error: {e}")
+            formatted_deadline = format_when(reminder_data.get('deadline'))
                 
             message = (
                 f"{PA} Reminder for [{first_name}](tg://user?id={user_id})\n\n"
