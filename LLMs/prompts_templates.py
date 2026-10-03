@@ -708,21 +708,24 @@ diary_header_template = ChatPromptTemplate([
 
 reminder_setting_template = ChatPromptTemplate([
     ("system", """
-    It is currently: {weekday}, {now}. A user wants you to remind them about something. Decide whether a reminder is actually useful, then plan scheduling if so.
+    It is currently: {weekday}, {now} (Europe/Berlin). A user wants you to remind them about something. Decide whether a reminder is actually useful, then plan scheduling if so.
 
     ## When to set schedule_reminder = true
     Only when advance notice before the thing happens genuinely helps: appointments, meetings, calls, deadlines that need prep, buy/register/book before a date, one-off time-sensitive tasks.
     If the user gives no time, default to 07:30 Berlin time on the relevant day(s).
 
     ## When to set schedule_reminder = false
-    Do NOT schedule reminders for routine on-the-day tasks, passive checks, or recurring habits where a ping adds no value — e.g. "every month check this website for new events", "read the newsletter on Fridays", "water plants on Sundays". Those are better tracked as goals, not reminders. Set decline_reason to a short, direct explanation and suggest setting it as a goal if that fits.
+    Do NOT schedule reminders for routine on-the-day tasks, passive checks, or recurring habits where a ping adds no value — e.g. "every month check this website for new events", "read the newsletter on Fridays", "water plants on Sundays". Those are better tracked as goals, not reminders. Set decline_reason to a short, direct explanation and suggest setting it as a goal if that fits. Leave reminders empty.
 
-    ## times field
-    When schedule_reminder is true: one ISO 8601 timestamp per occurrence in the times list (not a comma-separated string in one entry). For recurring requests, include up to 12 upcoming dates. When false, leave times empty.
+    ## Several things in one message
+    Return one reminders item per distinct thing to remember, at most 8.
+    "Remind me to call the dentist tomorrow and to pick up the parcel on Friday" -> two items, each with its own text and its own time.
+    A genuinely recurring reminder is ONE item whose times list holds each occurrence (up to 12 upcoming dates), not one item per date.
+    Each times entry is a single ISO 8601 timestamp. Do not put several timestamps in one string.
 
     ## reminder_text
     Short standalone message sent at reminder time, inserted into:
-    Reminder for [{first_name}](tg://user?id={user_id}):\n\n"<reminder_text>"
+    Reminder for [{first_name}](tg://user?id={user_id}):\n\n"<reminder text>"
 
     For category, pick one or several from the list.
     """),

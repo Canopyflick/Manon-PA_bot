@@ -17,7 +17,7 @@ from LLMs.structured_output_schemas import (
     GoalID,
     UpdatedGoalData,
     DiaryHeader,
-    Reminder,
+    Reminders,
     Response,
     WassupSchema,
     CompactSchedule,
@@ -204,7 +204,7 @@ chain_configs = {
     },
     "reminder_setting": {
         "template": reminder_setting_template,
-        "schema": Reminder,
+        "schema": Reminders,
         "llm": llms["mini"],
     },
     "other": {

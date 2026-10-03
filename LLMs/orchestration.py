@@ -15,7 +15,6 @@ import logging, asyncio
 from utils.db import (
     fetch_goal_data,
     fetch_long_term_goals,
-    fetch_active_goals_summary,
     create_limbo_goal,
     complete_limbo_goal,
     record_reminder,
@@ -40,9 +39,8 @@ from LLMs.structured_output_schemas import (
     Planning,
     GoalAssessment,
     GoalInstanceAssessment,
-    GoalID,
     UpdatedGoalData,
-    Reminder,
+    Reminders,
     Response,
     CompactSchedule,
     CompactPlanning,
@@ -346,36 +344,75 @@ async def handle_goal_classification(update, context, smarter=False):
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
 
-        goal_result = parsed_goal_classification.classification
+        actions = list(parsed_goal_classification.actions or [])[:8]
+        if not actions:
+            await update.message.reply_text(f"I couldn't tell what to do with that {PA}")
+            return
 
-        if goal_result == "Set":
-            goal_id = await create_limbo_goal(update, context)
-            if goal_id is None:
-                await update.message.reply_text(f"Cannot proceed with goal setting. Are you already registered? {PA}\n\n/start")
-                return
-            # Initialize a dictionary for the goal in user context
-            if "goals" not in context.user_data:
-                context.user_data["goals"] = {}
-            # Create an empty dictionary for the specific goal_id
-            context.user_data["goals"][goal_id] = {}
-            
-            await goal_setting_analysis(update, context, goal_id, smarter)                                                                        # < < < < <
-        elif goal_result == "Edit":
-            logger.info(f"User wants to edit a goal >> find_goal_id()")
-            await find_goal_id(update, context, type="edit")
-        elif goal_result == "Report_done":
-            logger.info(f"User wants to report a goal as done >> find_goal_id()")
-            await find_goal_id(update, context, type="done")
-        else: 
-            await update.message.reply_text(f"_Goal result '{goal_result}' not yet implemented_", parse_mode="Markdown")
+        set_actions = [action for action in actions if action.classification == "Set"]
+        other_actions = [action for action in actions if action.classification != "Set"]
+
+        if set_actions:
+            results = await asyncio.gather(
+                *[
+                    start_set_goal(update, context, action.request, smarter)
+                    for action in set_actions
+                ],
+                return_exceptions=True,
+            )
+            for action, result in zip(set_actions, results):
+                if isinstance(result, Exception):
+                    logger.error(f"Failed to set goal from {action.request!r}: {result}")
+                    await update.message.reply_text(
+                        f"Couldn't set this goal:\n{action.request}\n\n{result}"
+                    )
+
+        for action in other_actions:
+            await dispatch_goal_action(update, context, action)
     except Exception as e:
         await update.message.reply_text(f"Error in handle_goal_classification():\n {e}")
         logger.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")
 
 
-async def goal_setting_analysis(update, context, goal_id, smarter=False):
+async def start_set_goal(update, context, request_text, smarter=False):
+    goal_id = await create_limbo_goal(update, context)
+    if goal_id is None:
+        await update.message.reply_text(
+            f"Cannot proceed with goal setting. Are you already registered? {PA}\n\n/start"
+        )
+        return
+    if "goals" not in context.user_data:
+        context.user_data["goals"] = {}
+    context.user_data["goals"][goal_id] = {}
+    await goal_setting_analysis(update, context, goal_id, smarter, request_text=request_text)
+
+
+async def dispatch_goal_action(update, context, action):
+    kind = action.classification
+    request_text = action.request
+    if kind == "Edit":
+        logger.info("User wants to edit a goal >> find_goal_id()")
+        await find_goal_id(update, context, type="edit", request_text=request_text)
+    elif kind == "Report_done":
+        logger.info("User wants to report a goal as done >> find_goal_id()")
+        await find_goal_id(update, context, type="done", request_text=request_text)
+    elif kind == "Report_failed":
+        logger.info("User wants to report a goal as failed >> find_goal_id()")
+        await find_goal_id(update, context, type="failed", request_text=request_text)
+    elif kind == "Cancel":
+        logger.info("User wants to cancel a goal >> find_goal_id()")
+        await find_goal_id(update, context, type="cancel", request_text=request_text)
+    elif kind == "Pause":
+        await update.message.reply_text("_Pause is not implemented yet_", parse_mode="Markdown")
+    else:
+        await update.message.reply_text(
+            f"_Goal result '{kind}' not yet implemented_", parse_mode="Markdown"
+        )
+
+
+async def goal_setting_analysis(update, context, goal_id, smarter=False, request_text=None):
     try:
-        input_vars = await get_input_variables(update, context)
+        input_vars = await get_input_variables(update, context, source_text=request_text)
         goal_setting_analysis = await run_chain("goal_setting_analysis", input_vars)
         parsed_goal_analysis = SetGoalAnalysis.model_validate(goal_setting_analysis)
         
@@ -403,11 +440,13 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
             return
         
         elif COMPACT_PIPELINE:
-            await compact_goal_pipeline(update, context, goal_id, recurrence_type, smarter)
+            await compact_goal_pipeline(
+                update, context, goal_id, recurrence_type, smarter, request_text=request_text
+            )
         elif recurrence_type == 'one-time':
-            await goal_valuation(update, context, goal_id, smarter=smarter)
+            await goal_valuation(update, context, goal_id, smarter=smarter, request_text=request_text)
         elif recurrence_type == 'recurring':
-            await goal_valuation(update, context, goal_id, "recurring", smarter)
+            await goal_valuation(update, context, goal_id, "recurring", smarter, request_text=request_text)
         else:
             await update.message.reply_text(
                 f"Next step for ANDERS not yet implemented: ???"
@@ -417,9 +456,9 @@ async def goal_setting_analysis(update, context, goal_id, smarter=False):
         logger.error(f"\n\n🚨 Error in goal_setting_analysis(): {e}\n\n")
         
 
-async def goal_valuation(update, context, goal_id, recurrence_type="one-time", smarter=False):
+async def goal_valuation(update, context, goal_id, recurrence_type="one-time", smarter=False, request_text=None):
     try:
-        input_vars = await get_input_variables(update, context)
+        input_vars = await get_input_variables(update, context, source_text=request_text)
         parsed_goal_valuation = None
         if recurrence_type == 'recurring':
             goal_valuation = await run_chain("recurring_goal_valuation", input_vars)
@@ -439,16 +478,18 @@ async def goal_valuation(update, context, goal_id, recurrence_type="one-time", s
             parsed_goal_valuation=parsed_goal_valuation,
         )
 
-        await prepare_goal_proposal(update, context, goal_id, recurrence_type=recurrence_type, smarter=smarter)
+        await prepare_goal_proposal(
+            update, context, goal_id, recurrence_type=recurrence_type, smarter=smarter, request_text=request_text
+        )
         
     except Exception as e:
         await update.message.reply_text(f"Error in goal_valuation():\n {e}")
         logger.error(f"\n\n🚨 Error in goal_valuation(): {e}\n\n")
         
 
-async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smarter=False):
+async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smarter=False, request_text=None):
     try:
-        input_vars = await get_input_variables(update, context)
+        input_vars = await get_input_variables(update, context, source_text=request_text)
         parsed_planning = None
         if recurrence_type == 'recurring':
             if smarter:
@@ -483,10 +524,10 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
         logger.error(f"\n\n🚨 Error in prepare_goal_proposal(): {e}\n\n")
 
 
-async def compact_goal_pipeline(update, context, goal_id, recurrence_type, smarter=False):
+async def compact_goal_pipeline(update, context, goal_id, recurrence_type, smarter=False, request_text=None):
     """Compact pipeline: combined valuation + scheduling in one LLM call (replaces goal_valuation + prepare_goal_proposal)."""
     try:
-        input_vars = await get_input_variables(update, context)
+        input_vars = await get_input_variables(update, context, source_text=request_text)
 
         if recurrence_type == 'recurring':
             chain_name = "compact_planning_smart" if smarter else "compact_planning"
@@ -598,48 +639,120 @@ async def check_language(update, context, source_text):
         logger.error(f"\n\n🚨 Error in check_language(): {e}\n\n")
 
 
-async def find_goal_id(update, context, type=None):
-    try:
-        input_vars = await get_input_variables(update, context)
+def _which_goal_text(result) -> str:
+    note = (result.note or "").strip() or f"Which goal do you mean? {PA}"
+    ids = []
+    for goal_id in result.candidate_ids:
+        if goal_id not in ids:
+            ids.append(goal_id)
+        if len(ids) == 3:
+            break
+    if ids:
+        note += "\n" + " ".join(f"#{goal_id}" for goal_id in ids)
+    return note
 
-        # Fetch active goals from DB so the LLM can match by description/deadline
+
+async def _apply_reported_progress(update, selections, kind):
+    from features.goals.queries import goal_ids_for_scope
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    goal_ids = []
+    for selection in selections:
+        expanded = await goal_ids_for_scope(
+            user_id, chat_id, selection["goal_id"], selection["scope"]
+        )
+        for goal_id in expanded:
+            if goal_id not in goal_ids:
+                goal_ids.append(goal_id)
+
+    handler = handle_goal_completion if kind == "done" else handle_goal_failure
+    announce_each = len(goal_ids) == 1
+    texts = []
+    for goal_id in goal_ids:
+        text = await handler(update, goal_id, query=None, announce=announce_each)
+        if text:
+            texts.append(text)
+    if not announce_each and texts:
+        for chunk in split_message("\n\n".join(texts)):
+            await update.message.reply_text(chunk, parse_mode="Markdown")
+
+
+async def find_goal_id(update, context, type=None, request_text=None):
+    try:
+        from features.goals.finder import find_matching_goals
+        from features.goals.cancel import cancel_goal_selection
+
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-        active_goals = await fetch_active_goals_summary(user_id, chat_id)
-        input_vars["active_goals"] = active_goals
+        reply_text = (
+            update.message.reply_to_message.text
+            if update.message and update.message.reply_to_message
+            else None
+        )
+        request = request_text or get_user_message(update, context)
+        result = await find_matching_goals(
+            user_id,
+            chat_id,
+            intent=type,
+            request_text=request,
+            reply_text=reply_text,
+        )
 
-        output = await run_chain("find_goal_id", input_vars)
-        
-        parsed_output = GoalID.model_validate(output)
-        goal_id = parsed_output.ID
-        
         if shared_state["transparant_mode"]:
-            debug_message = await update.message.reply_text(f"Found Goal ID that should be edited: \n*#{output}*", parse_mode = "Markdown")
+            debug_message = await update.message.reply_text(
+                f"finder ({type}): selections={result.selections} "
+                f"new_goal={result.is_new_goal_instead}\n{result.note}"
+            )
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
-        
-        if goal_id == 0:
-            await update.message.reply_text(f"Couldn't find goal {PA}", parse_mode = "Markdown")
-            logger.warning(f"\n\n🚨 Goal ID not found\n\n")
+
+        if not result.selections:
+            if result.is_new_goal_instead and type == "cancel":
+                await start_set_goal(update, context, request)
+                return
+            await update.message.reply_text(_which_goal_text(result))
             return
-        else:
-            if type == "edit":
-                await prepare_goal_changes(update, context, goal_id)
-            if type == "done":
-                await handle_goal_completion(update, goal_id)
+
+        if type == "edit":
+            if len(result.selections) != 1:
+                result.candidate_ids = [item["goal_id"] for item in result.selections]
+                await update.message.reply_text(_which_goal_text(result))
+                return
+            await prepare_goal_changes(
+                update, context, result.selections[0]["goal_id"], request_text=request
+            )
+            return
+
+        if type == "cancel":
+            for selection in result.selections:
+                await cancel_goal_selection(
+                    update, context, selection["goal_id"], selection["scope"]
+                )
+            return
+
+        if type in ("done", "failed"):
+            await _apply_reported_progress(update, result.selections, type)
+            return
+
+        await update.message.reply_text(
+            f"_Goal result '{type}' not yet implemented_", parse_mode="Markdown"
+        )
     except Exception as e:
         await update.message.reply_text(f"🚨 Goal ID not found:\n {e}")
         logger.error(f"\n\n🚨 Goal ID not found): {e}\n\n")
         
 
-async def prepare_goal_changes(update, context, goal_id):
+async def prepare_goal_changes(update, context, goal_id, request_text=None):
     try:
         # retrieve all goal data the user might want to adjust
         columns = "goal_description, status, recurrence_type, timeframe, goal_value, penalty, reminder_scheduled, reminder_time, deadline, deadlines"
         # template_required_columns = "goal_description, status, recurrence_type"
         rows_dictionary = await fetch_goal_data(goal_id, columns=columns)
         
-        input_vars = await get_input_variables(update, context, goal_data=rows_dictionary)
+        input_vars = await get_input_variables(
+            update, context, source_text=request_text, goal_data=rows_dictionary
+        )
         output = await run_chain("prepare_goal_changes", input_vars)
         
         parsed_output = UpdatedGoalData.model_validate(output)
@@ -672,14 +785,16 @@ async def reminder_setting(update, context):
         input_vars = await get_input_variables(update, context)
         output = await run_chain("reminder_setting", input_vars)
 
-        parsed_output = Reminder.model_validate(output)
+        parsed_output = Reminders.model_validate(output)
+        parsed_output.reminders = list(parsed_output.reminders or [])[:8]
 
         if shared_state["transparant_mode"]:
             debug_message = await update.message.reply_text(f"Reminder setting result: \n{output}")
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
 
-        if not parsed_output.schedule_reminder or not parsed_output.times:
+        has_times = any(item.times for item in parsed_output.reminders)
+        if not parsed_output.schedule_reminder or not has_times:
             decline = parsed_output.decline_reason.strip() or (
                 "This doesn't need an advance reminder — try setting it as a goal instead."
             )

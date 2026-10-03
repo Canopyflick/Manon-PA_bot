@@ -14,8 +14,20 @@ class InitialClassification(BaseModel):
 
 
 
-class GoalClassification(BaseModel):
+class GoalAction(BaseModel):
     classification: Literal['Set', 'Report_done', 'Report_failed', 'Edit', 'Cancel', 'Pause']
+    request: str = Field(
+        description=(
+            "Self-contained restatement of this one action. Keep time references "
+            "and concrete details such as names and URLs."
+        )
+    )
+
+
+class GoalClassification(BaseModel):
+    actions: List[GoalAction] = Field(
+        description="One entry per distinct intention in the message, at most 8."
+    )
 
 # Goal setting #1
 class SetGoalAnalysis(BaseModel):
@@ -127,7 +139,7 @@ class GoalID(BaseModel):
 
 class UpdatedGoalData(BaseModel):
     goal_description: str
-    status: Literal['limbo', 'prepared', 'pending', 'paused' 'archived_done', 'archived_failed', 'archived_canceled']
+    status: Literal['limbo', 'prepared', 'pending', 'paused', 'archived_done', 'archived_failed', 'archived_canceled']
     recurrence_type: Literal['one-time', 'recurring']
     timeframe: Literal['today', 'by_date', 'open-ended']
     goal_value: float
@@ -146,7 +158,21 @@ class DiaryHeader(BaseModel):
     header: str
 
 
-class Reminder(BaseModel):
+class ReminderItem(BaseModel):
+    reminder_text: str = Field(
+        description="Short standalone message sent when this reminder fires."
+    )
+    reminder_category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]
+    times: List[str] = Field(
+        default_factory=list,
+        description=(
+            "One ISO 8601 timestamp per occurrence of this reminder. "
+            "For a recurring reminder, include up to 12 upcoming dates."
+        ),
+    )
+
+
+class Reminders(BaseModel):
     schedule_reminder: bool = Field(
         description=(
             "True only when advance notice before the event genuinely helps "
@@ -160,13 +186,12 @@ class Reminder(BaseModel):
             "tracking it as a goal may fit better."
         ),
     )
-    reminder_text: str
-    reminder_category: List[Literal['productivity', 'work', 'chores', 'relationships', 'self-development', 'money', 'impact', 'health', 'fun', 'other', 'travel']]
-    times: List[str] = Field(
+    reminders: List[ReminderItem] = Field(
         default_factory=list,
         description=(
-            "When schedule_reminder is true: one ISO 8601 timestamp per occurrence. "
-            "For recurring requests, include up to 12 upcoming dates. Empty when not scheduling."
+            "One item per distinct thing to remember, at most 8. "
+            "A genuinely recurring reminder is one item with several times, not several items. "
+            "Empty when schedule_reminder is false."
         ),
     )
     
