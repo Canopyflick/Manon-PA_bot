@@ -70,7 +70,7 @@ def register_handlers(application):
     from features.diceroll.command import dice_command
     from features.start.command import start_command
     from features.stats.command import stats_command
-    from features.stopwatch.command import tea_command
+    from features.stopwatch.command import tea_command, stop_timers_command
     from features.help.command import help_command
     from features.stopwatch.command import stopwatch_command
     from features.wassup.command import wassup_command
@@ -83,6 +83,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler(["wow", "inspiration", "filosofie", "philosophy"], wow_command))
     application.add_handler(CommandHandler("profile", profile_command))
     application.add_handler(CommandHandler(["stopwatch", "timer"], stopwatch_command))
+    application.add_handler(CommandHandler(["stop", "cancel"], stop_timers_command))
     application.add_handler(CommandHandler(["tea"], tea_command))
     application.add_handler(CommandHandler(["dice", "die"], dice_command))
     application.add_handler(CommandHandler(["today", "vandaag"], today_command))

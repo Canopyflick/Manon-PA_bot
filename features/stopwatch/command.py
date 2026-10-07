@@ -6,6 +6,44 @@ from utils.helpers import logger
 from telegram_helpers.delete_message import delete_message
 from utils.session_avatar import PA
 
+# In-memory only. A process restart drops every running timer.
+active_timers: dict[int, list[asyncio.Task]] = {}
+
+
+def _forget_timer(chat_id: int, task: asyncio.Task) -> None:
+    tasks = active_timers.get(chat_id)
+    if not tasks:
+        return
+    try:
+        tasks.remove(task)
+    except ValueError:
+        return
+    if not tasks:
+        active_timers.pop(chat_id, None)
+
+
+def cancel_chat_timers(chat_id: int) -> int:
+    """Cancel every live stopwatch in this chat. Returns how many were stopped."""
+    stopped = 0
+    for task in list(active_timers.get(chat_id, [])):
+        if task.done():
+            continue
+        task.cancel()
+        stopped += 1
+    return stopped
+
+
+async def stop_timers_command(update, context):
+    chat_id = update.effective_chat.id
+    stopped = cancel_chat_timers(chat_id)
+    if stopped == 1:
+        text = f"Stopped 1 timer {PA}"
+    elif stopped > 1:
+        text = f"Stopped {stopped} timers {PA}"
+    else:
+        text = f"No timers running {PA}"
+    await update.message.reply_text(text)
+
 
 async def stopwatch_command(update, context):
     if context.args:  # Input from a command like /stopwatch 10
@@ -163,5 +201,8 @@ async def emoji_stopwatch(update, context, **kwargs):
             reaction=final_emoji
         )
 
-    # Run the stopwatch in the background
-    asyncio.create_task(run_stopwatch(duration))
+    # Run the stopwatch in the background. CancelledError at the next await
+    # skips the alarm; the done callback drops the task from the registry.
+    task = asyncio.create_task(run_stopwatch(duration))
+    active_timers.setdefault(chat_id, []).append(task)
+    task.add_done_callback(lambda finished, cid=chat_id: _forget_timer(cid, finished))

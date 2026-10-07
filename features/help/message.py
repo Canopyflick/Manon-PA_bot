@@ -5,6 +5,7 @@ HELP_MESSAGE = (
         '*Generic* \n'
         '👋 /start - Hi!\n'
         '⏱️ <minutes>:<seconds> - Timer\n'
+        '🛑 /stop or stop - Cancel timers in this chat\n'
         '🉑 /translate - 肏你妈\n'
         '🎲 /dice - 1-6\n'
         '✍️ /smarter - 4o instead of 4o-mini\n'
@@ -18,5 +19,5 @@ HELP_MESSAGE = (
         f'| /today | /tomorrow | /24 | /overdue |\n'
         '/wassup \n\n'
         '*Trigger words*\n'
-        '| gm | gn | emoji | pomodoro | koffie | !test | usercontext | clearcontext | resolve | logger<number\\_of\\_lines> | errorlogs | transparant\\_on | transparant\\_off | seintjenatuurlijk | jobs |'
+        '| gm | gn | emoji | pomodoro | koffie | stop | cancel | !test | usercontext | clearcontext | resolve | logger<number\\_of\\_lines> | errorlogs | transparant\\_on | transparant\\_off | seintjenatuurlijk | jobs |'
     )

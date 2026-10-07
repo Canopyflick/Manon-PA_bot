@@ -9,7 +9,7 @@ from features.stats.stats_manager import StatsManager
 from telegram_helpers.delete_message import delete_message, add_delete_button
 from telegram_helpers.emoji_reactions import test_emojis_with_telegram
 from logger.logger import fetch_logs
-from features.stopwatch.command import emoji_stopwatch
+from features.stopwatch.command import emoji_stopwatch, stop_timers_command
 from utils.scheduler import fail_goals_warning, send_next_jobs
 # from features.goals.evening_message_deprecated import send_evening_message
 # from features.goals.morning_message import send_morning_message
@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 triggers = ["SeintjeNatuurlijk", "OpenAICall", "Emoji", "Stopwatch", "usercontext", "clearcontext",
             "koffie", "coffee", "!test", "pomodoro", "tea", "gm", "gn", "resolve", "dailystats",
-            "logger", "logs100", "errorlogs", "transparant_on", "transparant_off", "Jobs"]
+            "logger", "logs100", "errorlogs", "transparant_on", "transparant_off", "Jobs",
+            "stop", "cancel"]
 
 
 async def handle_triggers(update, context, trigger_text):
@@ -29,6 +30,8 @@ async def handle_triggers(update, context, trigger_text):
         await test_emojis_with_telegram(update, context)
     elif trigger_text == "Stopwatch":
         await emoji_stopwatch(update, context)
+    elif trigger_text in ("stop", "cancel"):
+        await stop_timers_command(update, context)
     elif trigger_text == 'pomodoro':
         await emoji_stopwatch(update, context, mode="pomodoro")
     elif trigger_text == "koffie" or trigger_text == "coffee":
