@@ -56,6 +56,7 @@ class StatsManager:
                                 END) as penalties_incurred
                             FROM manon_goals 
                             WHERE user_id = $2 AND chat_id = $3
+                            AND source = 'manon'
                         )
                         SELECT 
                             *,
@@ -156,6 +157,7 @@ class StatsManager:
                     FROM manon_goals 
                     WHERE user_id = $1 
                     AND chat_id = $2 
+                    AND source = 'manon'
                     AND status = 'pending'
                     AND deadline >= $3::timestamptz
                     AND deadline < $4::timestamptz
@@ -168,6 +170,7 @@ class StatsManager:
                     FROM manon_goals 
                     WHERE user_id = $1 
                     AND chat_id = $2 
+                    AND source = 'manon'
                     AND status = 'archived_done'
                     AND completion_time >= $3::timestamptz
                     AND completion_time < $4::timestamptz
@@ -180,6 +183,7 @@ class StatsManager:
                     FROM manon_goals 
                     WHERE user_id = $1 
                     AND chat_id = $2 
+                    AND source = 'manon'
                     AND status = 'archived_failed'
                     AND deadline >= $3::timestamptz
                     AND deadline < $4::timestamptz
@@ -192,6 +196,7 @@ class StatsManager:
                     FROM manon_goals 
                     WHERE user_id = $1 
                     AND chat_id = $2 
+                    AND source = 'manon'
                     AND status = 'archived_done'
                     AND completion_time >= $3::timestamptz
                     AND completion_time < $4::timestamptz
@@ -204,6 +209,7 @@ class StatsManager:
                     FROM manon_goals 
                     WHERE user_id = $1 
                     AND chat_id = $2 
+                    AND source = 'manon'
                     AND set_time >= $3::timestamptz
                     AND set_time < $4::timestamptz
                     AND status NOT IN ('limbo', 'archived_canceled')
@@ -252,6 +258,7 @@ class StatsManager:
                     FROM manon_goals 
                     WHERE user_id = $1 
                     AND chat_id = $2
+                    AND source = 'manon'
                 """
                 stats = await conn.fetchrow(stats_query, user_id, chat_id)
 

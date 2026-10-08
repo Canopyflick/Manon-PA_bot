@@ -3,6 +3,7 @@
 #
 # Required env: GHCR_IMAGE, COMPOSE_SERVICE, CONTAINER_NAME
 # Optional env: COMPOSE_DIR, LOCK_FILE, REPO_DIR, GIT_BRANCH, GHCR_LOGIN_SCRIPT
+#                EXTRA_COMPOSE_SERVICES (space-separated; same image, started with the primary)
 #
 # Flags:
 #   --dry-run         pull and compare only; never redeploy
@@ -81,6 +82,20 @@ redeploy_service() {
   docker compose up -d --no-build "$COMPOSE_SERVICE"
 }
 
+ensure_extra_services() {
+  local svc
+  [[ -z "${EXTRA_COMPOSE_SERVICES:-}" ]] && return 0
+  cd "$COMPOSE_DIR"
+  for svc in $EXTRA_COMPOSE_SERVICES; do
+    if [[ "$DRY_RUN" == true ]]; then
+      log "dry-run: would ensure compose service ${svc}"
+      continue
+    fi
+    docker compose up -d --no-build "$svc"
+    log "ensured service ${svc}"
+  done
+}
+
 build_fallback() {
   : "${REPO_DIR:?REPO_DIR required for --build-fallback}"
   : "${GIT_BRANCH:?GIT_BRANCH required for --build-fallback}"
@@ -90,6 +105,7 @@ build_fallback() {
   cd "$COMPOSE_DIR"
   docker compose build "$COMPOSE_SERVICE"
   docker compose up -d "$COMPOSE_SERVICE"
+  ensure_extra_services
 }
 
 ghcr_login_and_pull() {
@@ -136,12 +152,14 @@ main() {
       exit 0
     fi
     redeploy_service
+    ensure_extra_services
     log_result "$old_digest" "$new_digest" "yes" " reason=not-running"
     exit 0
   fi
 
   if [[ "$old_digest" == "$new_digest" ]]; then
     log "already up to date"
+    ensure_extra_services
     log_result "$old_digest" "$new_digest" "no"
     exit 0
   fi
@@ -158,6 +176,7 @@ main() {
   fi
 
   redeploy_service
+  ensure_extra_services
   log_result "$old_digest" "$new_digest" "yes"
 }
 

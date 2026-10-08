@@ -10,6 +10,12 @@ Telegram long polling
   -> manon_db Postgres container
   -> Docker volume manon-pa_bot_pgdata
 
+benwerktijd (https://bentijd.lovable.app)
+  -> Supabase Auth (personal project)
+  -> Cloudflare Tunnel goals.bentenberge.com
+  -> manon_api container (127.0.0.1:8787)
+  -> manon_db manon_goals (source = benwerktijd)
+
 n8n.bentenberge.com
   -> Cloudflare Tunnel
   -> localhost:5678
@@ -63,7 +69,10 @@ Initial vault bootstrap used Windows OneDrive copy; ongoing sync uses the OneDri
 - Env file: `/home/ben/manon_deployer/.env`
 - Containers:
   - `manon`
+  - `manon_api` (goals API, `python -m api`, published on the host as `127.0.0.1:8787`)
   - `manon_db`
+- Goals API: `https://goals.bentenberge.com` (Cloudflare Tunnel → `127.0.0.1:8787`). Supabase Auth access tokens, checked via `GET /auth/v1/user` because this project's JWKS is empty (HS256). Writes only sources with `goal_sources.api_writable`.
+- Auth user link: migration `002_link_auth_user.sql` sets `manon_users.auth_user_id` to the existing confirmed user on project `ydoxkioiprlnqawdweol`. Signup could not be disabled from here: the Supabase CLI login is an org Developer, not Owner. benwerktijd refuses to create users. Password sign-in works; a magic link back to `https://bentijd.lovable.app` needs that origin on the Auth redirect allow list.
 - Postgres DB:
   - database: `manon_db`
   - user: `manon`
@@ -80,6 +89,8 @@ Important tables:
 - `manon_reminders`
 - `day_snapshots`
 - `manon_stats_snapshots`
+- `goal_sources` (`manon` is not API-writable; `benwerktijd` is)
+- `goal_events` (trigger log of status, urgency, and description changes)
 
 `/wassup` reads open-ended goals from `manon_goals` with `status = 'prepared'`.
 

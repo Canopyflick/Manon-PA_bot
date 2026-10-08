@@ -39,6 +39,7 @@ async def check_upcoming_reminders(bot):
                 AND reminder_time >= $1 
                 AND reminder_time <= $2
                 AND status = 'pending'
+                AND source = 'manon'
             ORDER BY reminder_time
         """
         

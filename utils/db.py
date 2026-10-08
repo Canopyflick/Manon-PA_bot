@@ -195,10 +195,9 @@ async def setup_database():
                 )
             ''')
             desired_columns_manon_goals = {
-                'goal_id': 'SERIAL PRIMARY KEY',
                 'attempt': 'INTEGER DEFAULT 1',
-                'iteration': 'INTEGER DEFAULT NULL',
-                'final_iteration': 'TEXT DEFAULT "not applicable"' 
+                'iteration': 'INTEGER',
+                'final_iteration': "TEXT DEFAULT 'not applicable'",
             }
             await add_missing_columns(conn, 'manon_goals', desired_columns_manon_goals)
             
@@ -297,6 +296,9 @@ async def setup_database():
                 CREATE INDEX IF NOT EXISTS idx_manon_stats_snapshots_user_date 
                 ON manon_stats_snapshots (user_id, chat_id, date);
             ''')
+
+        from utils.migrations import apply_migrations
+        await apply_migrations()
 
         logger.info("Database tables initialized successfully")
 
@@ -622,6 +624,7 @@ async def fetch_random_todays_goal(user_id, chat_id):
                     COALESCE(g.group_id, g.goal_id) AS series_id
                 FROM manon_goals g
                 WHERE g.user_id = $1 AND g.chat_id = $2
+                  AND g.source = 'manon'
                   AND g.status IN ('pending', 'limbo', 'prepared', 'paused')
                   AND g.deadline IS NOT NULL
                   AND (g.deadline AT TIME ZONE 'Europe/Berlin')::date
@@ -642,6 +645,7 @@ async def fetch_random_todays_goal(user_id, chat_id):
                                COUNT(*)::int AS series_size
                         FROM manon_goals
                         WHERE user_id = $1 AND chat_id = $2
+                          AND source = 'manon'
                           AND COALESCE(group_id, goal_id) = ANY($3::bigint[])
                         GROUP BY 1
                     ''', user_id, chat_id, series_ids)
@@ -679,6 +683,7 @@ async def fetch_active_goals_summary(user_id, chat_id):
                 SELECT goal_id, goal_description, status, deadline, recurrence_type
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
+                  AND source = 'manon'
                   AND status IN ('pending', 'limbo', 'prepared', 'paused')
                 ORDER BY set_time DESC
                 LIMIT 15
@@ -689,6 +694,7 @@ async def fetch_active_goals_summary(user_id, chat_id):
                 SELECT goal_id, goal_description, status, deadline, recurrence_type
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
+                  AND source = 'manon'
                   AND status IN ('pending', 'limbo', 'prepared', 'paused')
                   AND deadline >= NOW()
                   AND deadline <= NOW() + INTERVAL '3 days'
@@ -996,7 +1002,7 @@ async def fetch_pending_goals_count_between_times(chat_id=None):
         end_time = start_time + timedelta(days=1)
 
         # Build conditions and query dynamically
-        conditions = "status = 'pending' AND set_time BETWEEN $1 AND $2"
+        conditions = "source = 'manon' AND status = 'pending' AND set_time BETWEEN $1 AND $2"
         params = [start_time, end_time]
 
         if chat_id:
@@ -1035,6 +1041,7 @@ async def fetch_upcoming_goals(chat_id, user_id, timeframe=6):     # fetches unt
                 FROM manon_goals
                 WHERE chat_id = $1 
                 AND user_id = $2
+                AND source = 'manon'
                 AND status = 'pending'
             '''        
             

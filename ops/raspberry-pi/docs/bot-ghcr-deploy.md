@@ -29,7 +29,7 @@ Cron uses non-round minutes so jobs do not all fire at `:00`.
 | --- | --- |
 | `/home/ben/scripts/ghcr-docker-login.sh` | `docker login ghcr.io` via `gh auth token` (requires `read:packages`) |
 | `/home/ben/scripts/ghcr-update-container.sh` | Shared pull, digest compare, conditional redeploy |
-| `/home/ben/manon_deployer/update_container.sh` | Thin Manon wrapper (sets env, calls shared helper) |
+| `/home/ben/manon_deployer/update_container.sh` | Thin Manon wrapper (sets env, calls shared helper). Also sets `EXTRA_COMPOSE_SERVICES=manon_api` so the goals API container tracks the same image. |
 | `/home/ben/obi_deployer/update_container.sh` | Thin Obi wrapper (sets env + `LOCK_FILE`, calls shared helper) |
 
 Canonical source for the shared scripts: `ops/raspberry-pi/scripts/` in this repo. Wrappers live in each bot repo under `deployment/update_container.sh`.

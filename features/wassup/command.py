@@ -28,7 +28,7 @@ async def wassup_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             prepared_goals = await conn.fetch("""
                 SELECT goal_id, goal_description, set_time
                 FROM manon_goals 
-                WHERE user_id = $1 AND chat_id = $2 AND status = 'prepared'
+                WHERE user_id = $1 AND chat_id = $2 AND source = 'manon' AND status = 'prepared'
                 ORDER BY set_time DESC
             """, user_id, chat_id)
             

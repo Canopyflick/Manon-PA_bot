@@ -10,6 +10,17 @@ services:
       - postgres
     restart: on-failure:5
 
+  manon_api:
+    image: ghcr.io/canopyflick/manon-pa-bot:latest
+    container_name: manon_api
+    command: ["python", "-m", "api"]
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8787:8000"
+    depends_on:
+      - postgres
+    restart: unless-stopped
 
   postgres:
     image: postgres:17

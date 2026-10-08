@@ -29,6 +29,7 @@ async def get_pending_goals_by_timeframe(user_id, chat_id, *, start_time=None, e
             SELECT * FROM manon_goals
             WHERE user_id = $1 
             AND chat_id = $2
+            AND source = 'manon'
             AND status = 'pending'
         """
 
@@ -123,6 +124,7 @@ async def fetch_goal_candidate_lists(user_id, chat_id, upcoming_limit=8, recent_
                        set_time, recurrence_type, timeframe
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
+                  AND source = 'manon'
                   AND status IN ('pending', 'paused')
                   AND deadline IS NOT NULL
                   AND deadline >= NOW()
@@ -138,6 +140,7 @@ async def fetch_goal_candidate_lists(user_id, chat_id, upcoming_limit=8, recent_
                        set_time, recurrence_type, timeframe
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
+                  AND source = 'manon'
                   AND status IN ('pending', 'prepared', 'paused')
                 ORDER BY set_time DESC NULLS LAST
                 LIMIT 80
@@ -150,6 +153,7 @@ async def fetch_goal_candidate_lists(user_id, chat_id, upcoming_limit=8, recent_
                 SELECT COALESCE(group_id, goal_id) AS series_id, COUNT(*)::int AS remaining
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
+                  AND source = 'manon'
                   AND status IN ('pending', 'paused', 'prepared')
                 GROUP BY 1
                 """,
@@ -198,6 +202,7 @@ async def search_user_goals(user_id, chat_id, text=None, goal_id=None, on_date=N
     clauses = [
         "user_id = $1",
         "chat_id = $2",
+        "source = 'manon'",
         "status IN ('pending', 'prepared', 'paused', 'limbo')",
     ]
     params = [user_id, chat_id]
@@ -250,6 +255,7 @@ async def goal_ids_for_scope(user_id, chat_id, goal_id, scope):
                 SELECT goal_id
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
+                  AND source = 'manon'
                   AND status IN ('pending', 'paused', 'prepared')
                   AND COALESCE(group_id, goal_id) = $3
                 ORDER BY deadline ASC NULLS LAST, goal_id ASC

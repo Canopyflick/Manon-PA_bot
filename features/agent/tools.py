@@ -42,24 +42,28 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
     @tool
     async def get_active_goals() -> str:
         """Get the user's active goals (pending, prepared, paused, limbo).
-        Returns goal_id, description, status, deadline, and recurrence type."""
+        Returns goal_id, source, description, status, deadline, recurrence type,
+        and urgent_on (the day an external goal was marked urgent, or none)."""
         async with Database.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT goal_id, goal_description, status, deadline, recurrence_type
+                SELECT goal_id, source, goal_description, status, deadline,
+                       recurrence_type, urgent_on
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
                   AND status IN ('pending', 'prepared', 'paused', 'limbo')
-                ORDER BY deadline ASC NULLS LAST
-                LIMIT 20
+                ORDER BY CASE WHEN source = 'manon' THEN 0 ELSE 1 END,
+                         deadline ASC NULLS LAST
+                LIMIT 40
             """, user_id, chat_id)
         if not rows:
             return "No active goals."
         lines = []
         for r in rows:
             dl = format_for_llm(r["deadline"]) if r["deadline"] else "none"
+            urgent = r["urgent_on"].isoformat() if r["urgent_on"] else "none"
             lines.append(
-                f"#{r['goal_id']} [{r['status']}] {r['goal_description'][:80]} "
-                f"(deadline: {dl}, {r['recurrence_type']})"
+                f"#{r['goal_id']} [{r['source']}/{r['status']}] {r['goal_description'][:80]} "
+                f"(deadline: {dl}, {r['recurrence_type']}, urgent_on: {urgent})"
             )
         return "\n".join(lines)
 
@@ -169,8 +173,8 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         """Get full details for a specific goal by its ID number."""
         async with Database.acquire() as conn:
             row = await conn.fetchrow("""
-                SELECT goal_id, goal_description, status, recurrence_type,
-                       timeframe, goal_value, deadline, deadlines, interval,
+                SELECT goal_id, source, external_id, urgent_on, goal_description, status,
+                       recurrence_type, timeframe, goal_value, deadline, deadlines, interval,
                        reminder_time, reminders_times, reminder_scheduled,
                        set_time, completion_time, difficulty_multiplier,
                        impact_multiplier, penalty, total_penalty, attempt,
@@ -211,8 +215,9 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         "Execute a read-only SQL query against the database. Only SELECT "
         "statements are allowed. No INSERT/UPDATE/DELETE/DROP/ALTER.\n\n"
         "Available tables and key columns:\n"
-        "- manon_goals: goal_id, user_id, chat_id, group_id, status "
-        "('limbo'|'prepared'|'pending'|'paused'|'archived_done'|"
+        "- manon_goals: goal_id, user_id, chat_id, group_id, source "
+        "('manon'|'benwerktijd'|other apps), external_id, urgent_on (date or null), "
+        "status ('limbo'|'prepared'|'pending'|'paused'|'archived_done'|"
         "'archived_failed'|'archived_canceled'), recurrence_type, "
         "timeframe, goal_value, goal_description, set_time, deadline, "
         "deadlines[], interval, reminder_time, reminders_times[], "
@@ -227,7 +232,9 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         "score, goals_set, goals_finished, goals_failed, score_gained, "
         "penalties_incurred, completion_rate, snapshot_time\n"
         "- manon_reminders: reminder_id, user_id, chat_id, reminder_text, "
-        "reminder_category[], set_time, time\n\n"
+        "reminder_category[], set_time, time\n"
+        "- goal_sources: source, label, api_writable\n"
+        "- goal_events: event_id, goal_id, event_type, actor, payload, occurred_at\n\n"
         "Tips:\n"
         "- All timestamps are in Europe/Berlin timezone\n"
         f"- The current user_id is {user_id} and chat_id is {chat_id} — "

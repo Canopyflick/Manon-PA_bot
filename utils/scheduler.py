@@ -107,6 +107,7 @@ async def fetch_overdue_goals(chat_id, user_id, timeframe="today"):
                 FROM manon_goals
                 WHERE chat_id = $1 
                 AND user_id = $2
+                AND source = 'manon'
                 AND status = 'pending'
             '''        
             time_condition = "AND deadline <= NOW()"    
@@ -329,7 +330,8 @@ async def archive_stale_overdue_goals(bot):
             rows = await conn.fetch(
                 f"""
                 SELECT goal_id FROM manon_goals
-                WHERE status = 'pending'
+                WHERE source = 'manon'
+                AND status = 'pending'
                 AND deadline <= NOW() - INTERVAL '{interval}'
                 ORDER BY goal_id ASC
                 """

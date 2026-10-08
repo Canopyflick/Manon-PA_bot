@@ -4,6 +4,7 @@ set -euo pipefail
 export GHCR_IMAGE=ghcr.io/canopyflick/manon-pa-bot:latest
 export COMPOSE_SERVICE=manon
 export CONTAINER_NAME=manon
+export EXTRA_COMPOSE_SERVICES=manon_api
 export COMPOSE_DIR=/home/ben/manon_deployer
 export REPO_DIR=/home/ben/Manon-PA_bot
 export GIT_BRANCH=main

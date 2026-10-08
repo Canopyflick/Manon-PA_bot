@@ -22,6 +22,10 @@ class EnvironmentVars:
     LANGCHAIN_PROJECT: Optional[str] = None
     AUDIO_OPENAI_API_KEY: Optional[str] = None
     OPENROUTER_API_KEY: Optional[str] = None
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None
+    GOALS_API_CORS_ORIGINS: Optional[str] = None
+    GOALS_API_PORT: int = 8000
 
 def detect_env_mode() -> str:
     mode = os.getenv("ENV_MODE", "").lower()
@@ -71,6 +75,10 @@ def load_environment_vars() -> EnvironmentVars:
         ] if os.getenv("APPROVED_USER_IDS") else [],
         BEN_ID=int(get_env_var('BEN_ID')),
         OPENROUTER_API_KEY=get_env_var('OPENROUTER_API_KEY', required=False),
+        SUPABASE_URL=get_env_var('SUPABASE_URL', required=False),
+        SUPABASE_ANON_KEY=get_env_var('SUPABASE_ANON_KEY', required=False),
+        GOALS_API_CORS_ORIGINS=get_env_var('GOALS_API_CORS_ORIGINS', required=False),
+        GOALS_API_PORT=int(os.getenv('GOALS_API_PORT', '8000') or '8000'),
     )
 
 # Global ENV_VARS object

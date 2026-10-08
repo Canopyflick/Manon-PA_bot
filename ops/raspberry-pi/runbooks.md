@@ -104,6 +104,22 @@ Re-auth now (script updates n8n credential + saves refresh token to `.env`):
 
 Or reconnect in n8n UI: **Credentials** → **Google Calendar - n8n & Gemini Ben persoonlijk** → **Connect**.
 
+## Goals API
+
+```powershell
+ssh ben@188.97.158.15 "curl -fsS http://127.0.0.1:8787/healthz; echo; docker ps -f name=manon_api --format '{{.Names}} {{.Status}}'"
+```
+
+Public check (no auth): `https://goals.bentenberge.com/healthz` should return `{"ok": true}`.
+
+Logs:
+
+```powershell
+ssh ben@188.97.158.15 "docker logs --tail 80 manon_api"
+```
+
+CORS origins live in `GOALS_API_CORS_ORIGINS` in `/home/ben/manon_deployer/.env`.
+
 ## Run Health Check
 
 ```powershell
