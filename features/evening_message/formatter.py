@@ -11,7 +11,7 @@ def format_goal_with_buttons(goal):
     deadline_dt = goal.deadline
     if deadline_dt is None:
         text = (
-            f"*{goal.goal_description or 'No description found... 👻'}*\n"
+            f"*{goal.title()}*\n"
             f"🚩 Urgent\n"
             f"#{goal.goal_id}"
         )
@@ -42,7 +42,7 @@ def format_goal_with_buttons(goal):
 
     # Message text
     text = (
-        f"*{goal.goal_description or 'No description found... 👻'}* {final_iteration_str}\n"
+        f"*{goal.title()}* {final_iteration_str}\n"
         f"📅 Deadline: {deadline_str} {reminder_str}\n"
         f"⚡ {goal_value_str} | 🌚 {penalty_str}\n"
         f"#{goal.goal_id}"

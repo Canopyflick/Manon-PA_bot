@@ -19,6 +19,7 @@ class Goal:
         final_iteration: str = "not applicable",
         recurrence_type: Optional[str] = None,
         timeframe: Optional[str] = None,
+        source: Optional[str] = None,
         **kwargs: Dict[str, Any],
     ) -> None:
         self.goal_id: int = goal_id
@@ -33,7 +34,14 @@ class Goal:
         self.final_iteration: str = final_iteration
         self.recurrence_type: Optional[str] = recurrence_type
         self.timeframe: Optional[str] = timeframe
+        self.source: Optional[str] = source
         self.extra: Dict[str, Any] = kwargs  # Stores additional fields dynamically
+
+    def title(self) -> str:
+        text = self.goal_description or "No description found... 👻"
+        if self.source == "benwerktijd":
+            return f"💼 {text}"
+        return text
 
     @classmethod
     def from_row(cls, row: asyncpg.Record) -> "Goal":
@@ -50,6 +58,7 @@ class Goal:
             final_iteration=row.get("final_iteration", "not applicable"),
             recurrence_type=row.get("recurrence_type"),
             timeframe=row.get("timeframe"),
+            source=row.get("source"),
             # Additional fields:
             deadlines=row.get("deadlines"),
             set_time=row.get("set_time"),
