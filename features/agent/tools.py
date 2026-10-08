@@ -43,11 +43,11 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
     async def get_active_goals() -> str:
         """Get the user's active goals (pending, prepared, paused, limbo).
         Returns goal_id, source, description, status, deadline, recurrence type,
-        and urgent_on (the day an external goal was marked urgent, or none)."""
+        and whether the goal is marked urgent."""
         async with Database.acquire() as conn:
             rows = await conn.fetch("""
                 SELECT goal_id, source, goal_description, status, deadline,
-                       recurrence_type, urgent_on
+                       recurrence_type, urgent
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
                   AND status IN ('pending', 'prepared', 'paused', 'limbo')
@@ -60,10 +60,10 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         lines = []
         for r in rows:
             dl = format_for_llm(r["deadline"]) if r["deadline"] else "none"
-            urgent = r["urgent_on"].isoformat() if r["urgent_on"] else "none"
+            urgent = "yes" if r["urgent"] else "no"
             lines.append(
                 f"#{r['goal_id']} [{r['source']}/{r['status']}] {r['goal_description'][:80]} "
-                f"(deadline: {dl}, {r['recurrence_type']}, urgent_on: {urgent})"
+                f"(deadline: {dl}, {r['recurrence_type']}, urgent: {urgent})"
             )
         return "\n".join(lines)
 
@@ -173,7 +173,7 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         """Get full details for a specific goal by its ID number."""
         async with Database.acquire() as conn:
             row = await conn.fetchrow("""
-                SELECT goal_id, source, external_id, urgent_on, goal_description, status,
+                SELECT goal_id, source, external_id, urgent, goal_description, status,
                        recurrence_type, timeframe, goal_value, deadline, deadlines, interval,
                        reminder_time, reminders_times, reminder_scheduled,
                        set_time, completion_time, difficulty_multiplier,
@@ -216,7 +216,7 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         "statements are allowed. No INSERT/UPDATE/DELETE/DROP/ALTER.\n\n"
         "Available tables and key columns:\n"
         "- manon_goals: goal_id, user_id, chat_id, group_id, source "
-        "('manon'|'benwerktijd'|other apps), external_id, urgent_on (date or null), "
+        "('manon'|'benwerktijd'|other apps), external_id, urgent (boolean), "
         "status ('limbo'|'prepared'|'pending'|'paused'|'archived_done'|"
         "'archived_failed'|'archived_canceled'), recurrence_type, "
         "timeframe, goal_value, goal_description, set_time, deadline, "

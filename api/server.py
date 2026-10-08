@@ -2,7 +2,7 @@
 
 import logging
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import aiohttp
 from aiohttp import web
@@ -15,7 +15,6 @@ from utils.helpers import BERLIN_TZ
 logger = logging.getLogger(__name__)
 
 EXTERNAL_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
-DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 OPEN_STATUSES = ("prepared", "pending", "paused", "limbo")
 
 
@@ -105,12 +104,11 @@ async def _writable_source(conn, source: str) -> web.Response | None:
 def _goal_payload(row) -> dict:
     done = row["status"] == "archived_done"
     completed = row["completion_time"] if done else None
-    urgent = row["urgent_on"]
     updated = row["updated_at"]
     return {
         "id": row["external_id"],
         "text": row["goal_description"] or "",
-        "urgentOn": urgent.isoformat() if urgent else None,
+        "urgent": bool(row["urgent"]),
         "done": done,
         "completedAt": completed.isoformat() if completed else None,
         "sortOrder": row["sort_order"],
@@ -128,18 +126,6 @@ def _parse_done_since(raw: str | None) -> datetime | web.Response:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
-
-
-def _parse_day(value) -> date | None | web.Response:
-    if value is None:
-        return None
-    if not isinstance(value, str) or not DAY.match(value):
-        return web.json_response({"error": "urgentOn must be YYYY-MM-DD or null"}, status=400)
-    year, month, day = (int(part) for part in value.split("-"))
-    try:
-        return date(year, month, day)
-    except ValueError:
-        return web.json_response({"error": "urgentOn is not a real date"}, status=400)
 
 
 def _parse_completed_at(value, done: bool) -> datetime | None | web.Response:
@@ -180,7 +166,7 @@ async def list_goals(request: web.Request) -> web.Response:
             return rejected
         rows = await conn.fetch(
             """
-            SELECT external_id, goal_description, urgent_on, status,
+            SELECT external_id, goal_description, urgent, status,
                    completion_time, sort_order, updated_at
             FROM manon_goals
             WHERE user_id = $1 AND chat_id = $2 AND source = $3
@@ -216,9 +202,9 @@ async def upsert_goal(request: web.Request) -> web.Response:
         return web.json_response({"error": "text is required (max 4000 characters)"}, status=400)
     if not isinstance(body.get("done"), bool):
         return web.json_response({"error": "done must be a boolean"}, status=400)
-    urgent = _parse_day(body.get("urgentOn"))
-    if isinstance(urgent, web.Response):
-        return urgent
+    if not isinstance(body.get("urgent"), bool):
+        return web.json_response({"error": "urgent must be a boolean"}, status=400)
+    urgent = body["urgent"]
     completed = _parse_completed_at(body.get("completedAt"), body["done"])
     if isinstance(completed, web.Response):
         return completed
@@ -238,7 +224,7 @@ async def upsert_goal(request: web.Request) -> web.Response:
                 """
                 INSERT INTO manon_goals (
                     user_id, chat_id, status, timeframe, recurrence_type,
-                    goal_description, source, external_id, urgent_on, sort_order,
+                    goal_description, source, external_id, urgent, sort_order,
                     completion_time, set_time
                 ) VALUES (
                     $1, $2, $3, 'open-ended', 'one-time',
@@ -249,13 +235,13 @@ async def upsert_goal(request: web.Request) -> web.Response:
                 DO UPDATE SET
                     goal_description = EXCLUDED.goal_description,
                     status = EXCLUDED.status,
-                    urgent_on = EXCLUDED.urgent_on,
+                    urgent = EXCLUDED.urgent,
                     sort_order = COALESCE(EXCLUDED.sort_order, manon_goals.sort_order),
                     completion_time = EXCLUDED.completion_time,
                     timeframe = 'open-ended'
                 WHERE manon_goals.user_id = EXCLUDED.user_id
                   AND manon_goals.chat_id = EXCLUDED.chat_id
-                RETURNING external_id, goal_description, urgent_on, status,
+                RETURNING external_id, goal_description, urgent, status,
                           completion_time, sort_order, updated_at
                 """,
                 user_id,
