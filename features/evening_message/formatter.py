@@ -12,7 +12,6 @@ def format_goal_with_buttons(goal):
     if deadline_dt is None:
         text = (
             f"*{goal.title()}*\n"
-            f"🚩 Urgent\n"
             f"#{goal.goal_id}"
         )
         buttons = InlineKeyboardMarkup([[
