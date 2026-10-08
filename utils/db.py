@@ -28,7 +28,14 @@ class Database:
         if cls._pool is not None:
             return
 
-        # Create custom timestamp codec
+        # Text codec: asyncpg requires the encoder to return a string.
+        def timestamp_encoder(value):
+            if isinstance(value, datetime):
+                if value.tzinfo is None:
+                    value = pytz.UTC.localize(value)
+                return value.isoformat()
+            return value
+
         def timestamp_converter(value):
             if value is not None:
                 # Ensure we have a datetime object
@@ -58,7 +65,7 @@ class Database:
                 command_timeout=60,
                 init=lambda conn: conn.set_type_codec(
                     'timestamptz',
-                    encoder=lambda value: value,
+                    encoder=timestamp_encoder,
                     decoder=timestamp_converter,
                     schema='pg_catalog'
                 )
