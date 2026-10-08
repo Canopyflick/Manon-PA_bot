@@ -9,7 +9,19 @@ import random
 def format_goal_with_buttons(goal):
     """Format a single goal with action buttons"""
     deadline_dt = goal.deadline
-    deadline_str = format_when(deadline_dt) if deadline_dt else "no deadline"
+    if deadline_dt is None:
+        text = (
+            f"*{goal.goal_description or 'No description found... 👻'}*\n"
+            f"🚩 Urgent\n"
+            f"#{goal.goal_id}"
+        )
+        buttons = InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Done", callback_data=f"finished_{goal.goal_id}"),
+            InlineKeyboardButton("❌ Failed", callback_data=f"failed_{goal.goal_id}"),
+        ]])
+        return {"text": text, "buttons": buttons}
+
+    deadline_str = format_when(deadline_dt)
 
     goal_value_str = f"{goal.goal_value:.1f}" if goal.goal_value is not None else "N/A"
     penalty = goal.penalty or 0

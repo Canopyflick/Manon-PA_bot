@@ -57,6 +57,27 @@ async def get_pending_goals_by_timeframe(user_id, chat_id, *, start_time=None, e
         return []
 
 
+async def fetch_urgent_open_goals(user_id, chat_id):
+    """Open goals marked urgent, from any source. These have no deadline window."""
+    try:
+        async with Database.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM manon_goals
+                WHERE user_id = $1 AND chat_id = $2
+                  AND urgent = true
+                  AND status IN ('prepared', 'pending')
+                ORDER BY sort_order NULLS LAST, goal_id ASC
+                """,
+                user_id,
+                chat_id,
+            )
+            return [Goal.from_row(row) for row in rows]
+    except Exception as e:
+        logger.error(f"Error fetching urgent goals for user_id {user_id}, chat_id {chat_id}: {e}")
+        return []
+
+
 def collapse_goal_candidates(
     upcoming_rows,
     recent_rows,

@@ -2,7 +2,7 @@
 from models.goals_report import GoalsReport
 from datetime import datetime, timedelta
 from utils.helpers import BERLIN_TZ
-from features.goals.queries import get_pending_goals_by_timeframe
+from features.goals.queries import fetch_urgent_open_goals, get_pending_goals_by_timeframe
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,12 @@ async def get_overdue_goals(user_id, chat_id, timeframe="today"):
         start_time=start_time,
         end_time=end_time
     )
+
+    # Evening only. Morning uses timeframe "early" and stays deadline-based.
+    if timeframe == "today":
+        seen = {goal.goal_id for goal in goals}
+        urgent = await fetch_urgent_open_goals(user_id, chat_id)
+        goals.extend(goal for goal in urgent if goal.goal_id not in seen)
 
     total_goal_value = sum(goal.goal_value or 0 for goal in goals)
     total_penalty = sum(goal.penalty or 0 for goal in goals)
