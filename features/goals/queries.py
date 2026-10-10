@@ -57,6 +57,28 @@ async def get_pending_goals_by_timeframe(user_id, chat_id, *, start_time=None, e
         return []
 
 
+async def fetch_open_source_goals(user_id, chat_id, source):
+    """Open goals from one app, such as benwerktijd. Urgent ones come first."""
+    try:
+        async with Database.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM manon_goals
+                WHERE user_id = $1 AND chat_id = $2
+                  AND source = $3
+                  AND status IN ('prepared', 'pending', 'paused', 'limbo')
+                ORDER BY urgent DESC, sort_order NULLS LAST, goal_id ASC
+                """,
+                user_id,
+                chat_id,
+                source,
+            )
+            return [Goal.from_row(row) for row in rows]
+    except Exception as e:
+        logger.error(f"Error fetching {source} goals for user_id {user_id}, chat_id {chat_id}: {e}")
+        return []
+
+
 async def fetch_urgent_open_goals(user_id, chat_id):
     """Open goals marked urgent, from any source. These have no deadline window."""
     try:

@@ -10,6 +10,8 @@ from telegram.ext import CallbackContext
 from LLMs.orchestration import process_other_language, check_language, run_chain
 from telegram_helpers.security import is_ben_in_chat
 from utils.db import fetch_active_goals_summary, fetch_random_todays_goal
+from features.evening_message.formatter import format_goal_with_buttons
+from features.goals.queries import fetch_open_source_goals
 from utils.scheduler import send_goals_today, fetch_overdue_goals
 
 logger = logging.getLogger(__name__)
@@ -163,34 +165,44 @@ async def twenty_four_hours_command(update, context):
     await send_goals_today(update, context, chat_id, user_id, timeframe="24hs")
     
 
+def _overdue_cards(result):
+    goals = result[0] if result else None
+    if not isinstance(goals, list):
+        return []
+    return [
+        goal for goal in goals
+        if isinstance(goal, dict) and "text" in goal and "buttons" in goal
+    ]
+
+
 async def overdue_command(update, context):
     """
-    Sends all expired goals in chat for user that requested this with /overdue, with buttons to report progress
+    Sends expired Manon goals, plus open benwerktijd goals, with buttons to report progress.
     """
     try:
         chat_id = update.message.chat_id
         user_id = update.effective_user.id
-        
-        # Fetch overdue goals
-        overdue_goals_result = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue")
-        if overdue_goals_result[0]:
-            overdue_today = overdue_goals_result[0]
-            for goal in overdue_today:
-                if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
-                    continue
-                goal_report_prompt = await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=goal["text"],
-                    reply_markup=goal["buttons"],
-                    parse_mode="Markdown"
-                )
-                asyncio.create_task(delete_message(update, context, goal_report_prompt.message_id, 1200))
-        else:
+
+        cards = _overdue_cards(await fetch_overdue_goals(chat_id, user_id, timeframe="overdue"))
+        work_goals = await fetch_open_source_goals(user_id, chat_id, "benwerktijd")
+        cards.extend(format_goal_with_buttons(goal) for goal in work_goals)
+
+        if not cards:
             await context.bot.send_message(
                 chat_id=chat_id,
                 text="0 overdue goals ✨",
                 parse_mode="Markdown"
             )
+            return
+
+        for goal in cards:
+            goal_report_prompt = await context.bot.send_message(
+                chat_id=chat_id,
+                text=goal["text"],
+                reply_markup=goal["buttons"],
+                parse_mode="Markdown"
+            )
+            asyncio.create_task(delete_message(update, context, goal_report_prompt.message_id, 1200))
             
     except Exception as e:
         logger.error(f"Error in today_command: {e}")
