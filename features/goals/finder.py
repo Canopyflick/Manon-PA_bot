@@ -274,8 +274,9 @@ async def find_matching_goals(user_id, chat_id, intent, request_text, reply_text
         )
     except Exception as e:
         logger.warning(f"Goal finder ({primary}) failed: {e}")
-        if primary == "smart":
+        fallback = "openrouter_fallback" if "openrouter_fallback" in llms else "smart"
+        if fallback == primary:
             raise
         return await _run_finder_loop(
-            "smart", user_id, chat_id, intent, full_request, explicit_text, candidates
+            fallback, user_id, chat_id, intent, full_request, explicit_text, candidates
         )

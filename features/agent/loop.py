@@ -40,46 +40,26 @@ def _extract_text(response) -> str:
     return str(content)
 
 
-async def run_agent_loop(
-    user_message: str,
-    user_id: int,
-    chat_id: int,
-    first_name: str,
-) -> str:
-    """
-    Run the agentic tool-calling loop for 'other' messages.
-    Returns the final plain-text response string.
-    """
-    now = datetime.now(BERLIN_TZ)
-    weekday = now.strftime("%A")
+def _agent_models():
+    """Preset first. On routing failure, latest GPT Sol via OpenRouter."""
+    primary = llms.get("openrouter_smart") or llms.get("openrouter_fallback") or llms["smart"]
+    fallback = llms.get("openrouter_fallback")
+    if fallback is None or fallback is primary:
+        return primary, None
+    return primary, fallback
 
-    # 1. Build tools with user context injected
-    tools = create_agent_tools(user_id, chat_id)
 
-    # 2. Bind tools to the LLM (OpenRouter smart, fallback to OpenAI)
-    llm = llms.get("openrouter_smart", llms["smart"])
+async def _run_bound_loop(llm, tools, messages, user_id: int, chat_id: int) -> str:
+    """Tool loop for one model. `messages` is copied so a retry starts clean."""
     llm_with_tools = llm.bind_tools(tools)
-
-    # 3. Build initial messages
-    system_text = AGENT_SYSTEM_PROMPT.format(
-        weekday=weekday,
-        now=now.strftime("%Y-%m-%d %H:%M:%S"),
-        PA=PA,
-        first_name=first_name,
-    )
-    messages = [
-        SystemMessage(content=system_text),
-        HumanMessage(content=user_message),
-    ]
-
-    # 4. Agent loop
     tool_map = {t.name: t for t in tools}
     tool_log = []
     response = None
+    working = list(messages)
 
     for iteration in range(MAX_ITERATIONS):
-        response: AIMessage = await llm_with_tools.ainvoke(messages)
-        messages.append(response)
+        response: AIMessage = await llm_with_tools.ainvoke(working)
+        working.append(response)
 
         logger.info(
             f"🤖 Agent iter {iteration+1}: "
@@ -120,23 +100,23 @@ async def run_agent_loop(
                 logger.error(f"Agent tool error: {tool_name}({tool_args}) -> {e}")
 
             tool_log.append(log_entry)
-            messages.append(
+            working.append(
                 ToolMessage(content=str(result_str), tool_call_id=tool_call_id)
             )
     else:
         # Hit max iterations — force a final text-only response
-        messages.append(
+        working.append(
             HumanMessage(content=(
                 "[System: Maximum tool iterations reached. "
                 "Please give your final response now without using any more tools.]"
             ))
         )
-        response = await llm.ainvoke(messages)  # plain LLM, no tools bound
+        response = await llm.ainvoke(working)  # plain LLM, no tools bound
 
-    # 5. Log the full tool trace
     if tool_log:
         logger.info(
-            f"🔧 Agent tool trace (user={user_id}, chat={chat_id}):\n"
+            f"🔧 Agent tool trace (model={getattr(llm, 'model_name', '?')}, "
+            f"user={user_id}, chat={chat_id}):\n"
             + json.dumps(tool_log, indent=2, default=str)
         )
 
@@ -151,3 +131,44 @@ async def run_agent_loop(
         final_text = f"I wasn't able to come up with a response {PA}"
 
     return final_text
+
+
+async def run_agent_loop(
+    user_message: str,
+    user_id: int,
+    chat_id: int,
+    first_name: str,
+) -> str:
+    """
+    Run the agentic tool-calling loop for 'other' messages.
+    Returns the final plain-text response string.
+
+    Weather and other tool questions go through here. If the smart preset
+    404s on provider routing, retry the same turn on ~openai/gpt-sol-latest.
+    """
+    now = datetime.now(BERLIN_TZ)
+    weekday = now.strftime("%A")
+
+    tools = create_agent_tools(user_id, chat_id)
+    system_text = AGENT_SYSTEM_PROMPT.format(
+        weekday=weekday,
+        now=now.strftime("%Y-%m-%d %H:%M:%S"),
+        PA=PA,
+        first_name=first_name,
+    )
+    messages = [
+        SystemMessage(content=system_text),
+        HumanMessage(content=user_message),
+    ]
+
+    primary, fallback = _agent_models()
+    try:
+        return await _run_bound_loop(primary, tools, messages, user_id, chat_id)
+    except Exception as e:
+        if fallback is None:
+            raise
+        logger.warning(
+            f"Agent model {getattr(primary, 'model_name', '?')} failed ({e}); "
+            f"retrying with {getattr(fallback, 'model_name', '?')}"
+        )
+        return await _run_bound_loop(fallback, tools, messages, user_id, chat_id)

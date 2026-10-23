@@ -75,7 +75,11 @@ llms = {
 
 # OpenRouter: model-switching without code changes (configure preset at openrouter.ai)
 # require_parameters skips providers that silently drop response_format / tool params.
+# That flag 404s the smart preset on tool calls: after tier filtering, no remaining
+# endpoint advertises every parameter. The fallback alias is one OpenAI route and
+# does not set the flag, so tools still route.
 _OPENROUTER_PROVIDER = {"provider": {"require_parameters": True}}
+_OPENROUTER_FALLBACK_MODEL = "~openai/gpt-sol-latest"
 if ENV_VARS.OPENROUTER_API_KEY:
     llms["openrouter_fast"] = ChatOpenAI(
         model_name="@preset/manon-fast",
@@ -90,6 +94,12 @@ if ENV_VARS.OPENROUTER_API_KEY:
         api_key=ENV_VARS.OPENROUTER_API_KEY,
         temperature=1,
         extra_body=_OPENROUTER_PROVIDER,
+    )
+    llms["openrouter_fallback"] = ChatOpenAI(
+        model_name=_OPENROUTER_FALLBACK_MODEL,
+        base_url="https://openrouter.ai/api/v1",
+        api_key=ENV_VARS.OPENROUTER_API_KEY,
+        temperature=1,
     )
     logger.info(f"✅ OpenRouter LLMs created: {[k for k in llms if k.startswith('openrouter_')]}")
 else:
@@ -250,9 +260,9 @@ chain_configs = {
         "template": grandpa_quote_template,
         "schema": Response,
         "llm": llms.get("openrouter_smart", llms["smart"]),
-        # OpenRouter json_schema + require_parameters often fails for this preset;
-        # without a fallback the morning quote is silently skipped.
-        "fallback_llm": llms["smart"] if "openrouter_smart" in llms else None,
+        # Preset + require_parameters often 404s. Fall back to latest GPT Sol
+        # on OpenRouter; without a fallback the morning quote is silently skipped.
+        "fallback_llm": llms.get("openrouter_fallback") if "openrouter_smart" in llms else None,
     },
 
 }
