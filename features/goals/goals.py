@@ -1,5 +1,5 @@
 from features.goals.helpers import add_user_context_to_goals
-from utils.helpers import BERLIN_TZ, POSTPONE_PENALTY_MULTIPLIER, format_when, logger
+from utils.helpers import BERLIN_TZ, POSTPONE_PENALTY_MULTIPLIER, format_when, logger, parse_datetime_loose
 from utils.session_avatar import PA
 from utils.db import(
     update_goal_data, 
@@ -17,6 +17,29 @@ from datetime import datetime, timedelta
 from jinja2 import Template
 
 logger = logging.getLogger(__name__)
+
+# Set while several goals from one message are prepared together.
+# Announcements are queued here and sent earliest-deadline first.
+DEFERRED_ANNOUNCEMENTS = "_deferred_goal_announcements"
+
+
+def goal_announcement_sort_key(goal_data):
+    """Sort key for chat announcements: earliest deadline first, undated last."""
+    candidates = []
+    if goal_data:
+        for key in ("evaluation_deadline", "deadline"):
+            if goal_data.get(key):
+                candidates.append(goal_data[key])
+        deadlines = goal_data.get("evaluation_deadlines") or goal_data.get("deadlines") or []
+        if isinstance(deadlines, str):
+            candidates.append(deadlines)
+        else:
+            candidates.extend(deadlines)
+    parsed = [dt for dt in (parse_datetime_loose(raw) for raw in candidates) if dt is not None]
+    if not parsed:
+        return (1, datetime.min.replace(tzinfo=BERLIN_TZ))
+    return (0, min(parsed))
+
 
 async def format_datetime_list(datetime_input):
     """
@@ -76,6 +99,16 @@ async def send_goal_proposal(update, context, goal_id, adjust=False):
             if not activated:
                 await context.bot.send_message(chat_id=chat_id, text=error_msg)
                 return
+
+        deferred = None if adjust else context.user_data.get(DEFERRED_ANNOUNCEMENTS)
+        if deferred is not None:
+            goal_data = context.user_data.get("goals", {}).get(goal_id, {})
+            deferred.append({
+                "text": message_text,
+                "keyboard": keyboard,
+                "sort_at": goal_announcement_sort_key(goal_data),
+            })
+            return
 
         await update.message.reply_text(message_text, reply_markup=keyboard, parse_mode="Markdown")
 

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from features.goals.cancel import cancellation_charge, charge_label, pick_charge_row
+from features.goals.goals import goal_announcement_sort_key
 from features.goals.finder import mentioned_goal_ids
 from features.goals.queries import collapse_goal_candidates
 from utils.helpers import format_for_llm, format_when, parse_datetime_loose, upcoming_deadlines
@@ -186,6 +187,27 @@ class PromptRenderTests(unittest.TestCase):
         self.assertIn("paused", statuses)
         self.assertIn("archived_done", statuses)
         self.assertNotIn("pausedarchived_done", statuses)
+
+
+class AnnouncementOrderTests(unittest.TestCase):
+    def test_earliest_deadline_sorts_first_and_undated_last(self):
+        early = {"evaluation_deadline": "2026-11-01T22:22:00+01:00"}
+        middle = {"deadline": "2026-11-15T22:22:00+01:00"}
+        late = {"evaluation_deadlines": ["2026-12-06T22:22:00+01:00", "2026-11-29T22:22:00+01:00"]}
+        undated = {}
+        ordered = sorted(
+            [late, undated, middle, early],
+            key=goal_announcement_sort_key,
+        )
+        self.assertEqual(
+            [item.get("evaluation_deadline") or item.get("deadline") or item.get("evaluation_deadlines") for item in ordered],
+            [
+                "2026-11-01T22:22:00+01:00",
+                "2026-11-15T22:22:00+01:00",
+                ["2026-12-06T22:22:00+01:00", "2026-11-29T22:22:00+01:00"],
+                None,
+            ],
+        )
 
 
 class MentionedGoalIdTests(unittest.TestCase):

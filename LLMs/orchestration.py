@@ -9,7 +9,11 @@ from utils.helpers import BERLIN_TZ, parse_datetime_loose, upcoming_deadlines
 from telegram_helpers.emoji_reactions import safe_set_reaction
 from telegram_helpers.delete_message import delete_message, add_delete_button
 from utils.session_avatar import PA
-from features.goals.goals import send_goal_proposal, handle_goal_completion
+from features.goals.goals import (
+    DEFERRED_ANNOUNCEMENTS,
+    send_goal_proposal,
+    handle_goal_completion,
+)
 from features.goals.helpers import add_user_context_to_goals
 import logging, asyncio
 from utils.db import (
@@ -354,25 +358,48 @@ async def handle_goal_classification(update, context, smarter=False):
         other_actions = [action for action in actions if action.classification != "Set"]
 
         if set_actions:
-            results = await asyncio.gather(
-                *[
-                    start_set_goal(update, context, action.request, smarter)
-                    for action in set_actions
-                ],
-                return_exceptions=True,
-            )
-            for action, result in zip(set_actions, results):
-                if isinstance(result, Exception):
-                    logger.error(f"Failed to set goal from {action.request!r}: {result}")
-                    await update.message.reply_text(
-                        f"Couldn't set this goal:\n{action.request}\n\n{result}"
-                    )
+            defer_announcements = len(set_actions) > 1
+            if defer_announcements:
+                context.user_data[DEFERRED_ANNOUNCEMENTS] = []
+            try:
+                results = await asyncio.gather(
+                    *[
+                        start_set_goal(update, context, action.request, smarter)
+                        for action in set_actions
+                    ],
+                    return_exceptions=True,
+                )
+                for action, result in zip(set_actions, results):
+                    if isinstance(result, Exception):
+                        logger.error(f"Failed to set goal from {action.request!r}: {result}")
+                        await update.message.reply_text(
+                            f"Couldn't set this goal:\n{action.request}\n\n{result}"
+                        )
+                if defer_announcements:
+                    await _send_deferred_goal_announcements(update, context)
+            finally:
+                if defer_announcements:
+                    context.user_data.pop(DEFERRED_ANNOUNCEMENTS, None)
 
         for action in other_actions:
             await dispatch_goal_action(update, context, action)
     except Exception as e:
         await update.message.reply_text(f"Error in handle_goal_classification():\n {e}")
         logger.error(f"\n\n🚨 Error in handle_goal_classification(): {e}\n\n")
+
+
+async def _send_deferred_goal_announcements(update, context):
+    """Send queued goal cards earliest deadline first."""
+    pending = list(context.user_data.get(DEFERRED_ANNOUNCEMENTS) or [])
+    pending.sort(key=lambda item: item["sort_at"])
+    for item in pending:
+        try:
+            await update.message.reply_text(
+                item["text"], reply_markup=item["keyboard"], parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send deferred goal announcement: {e}")
+            await update.message.reply_text(f"Error sending a goal confirmation:\n{e}")
 
 
 async def start_set_goal(update, context, request_text, smarter=False):
