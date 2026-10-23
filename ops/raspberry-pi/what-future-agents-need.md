@@ -11,10 +11,10 @@ This is the short list of things that would make future Raspberry Pi help faster
 
 2. ~~GHCR package access fixed.~~ Done (2026-06): Pi `gh` has `read:packages`; `/home/ben/scripts/ghcr-docker-login.sh` + `ghcr-update-container.sh`; cron at :22 (Manon) and :11 (Obi). See `docs/bot-ghcr-deploy.md`.
 
-3. Private notes file.
-   - Copy `private-notes.example.md` to `private-notes.md`.
-   - Fill in where secrets live, not the secrets themselves.
-   - Add any non-obvious SSH/IP details and backup destination details.
+3. Private notes file. Done for this PC: `ops/raspberry-pi/private-notes.md` (gitignored).
+   - Current public SSH IP, the stale IP that still pings, the LAN address, the login password, and the authorized key path are in that file.
+   - Committed how-to: `README.md` section "Reaching the Pi".
+   - When the public IP changes, update `private-notes.md` and `~\.ssh\config` host `raspberrypi`. Confirm the host key is still `SHA256:cITJ7LDb7/6w8RNugVisFafcRUwLaj6skqCC/1gYYyo`.
 
 4. A project inventory as the Pi grows.
    - For each new project: path, repo, compose file, containers, public URL, volumes, backup method, recovery command.

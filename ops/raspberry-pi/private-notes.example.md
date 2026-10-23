@@ -6,10 +6,13 @@ Do not commit `private-notes.md`.
 
 ## SSH
 
-- Host:
-- User:
-- Alternate IPs:
-- Notes:
+- User: `ben`
+- Current public IP (port 22). Update this when the ISP address changes:
+- Stale public IPs that still ping but no longer accept SSH:
+- LAN IP (home network only):
+- Host key fingerprint (stop if a new address presents a different one):
+- Login password (this private file only):
+- Authorized key path on the machine Cursor is using:
 
 ## Secrets Locations
 

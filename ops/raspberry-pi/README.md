@@ -6,7 +6,9 @@ It is intentionally secret-free. Keep live tokens, passwords, private keys, Clou
 
 ## Current Pi
 
-- SSH target: `ben@raspberrypi`
+- SSH user: `ben`
+- From this PC, off the home network: public IP in `private-notes.md` (ssh config host `raspberrypi`). As of 2026-10-23 that address is `188.97.158.15`.
+- Home LAN only: `192.168.178.127` (`raspberrypi-lan`). The name `raspberrypi` does not resolve here.
 - Host timezone: `Europe/Berlin`
 - Main deploy directory: `/home/ben/manon_deployer`
 - n8n deploy directory: `/home/ben/n8n`
@@ -57,20 +59,36 @@ See `context.md` (n8n section) for credentials inventory, existing workflows, an
 
 Daily notes and vault edits from Cursor use `obsidian-vault/` (Windows git mirror + read-only Diary analyzer). Always git-snapshot before and after vault mutations. See `obsidian-vault/README.md` and `.cursor/skills/obsidian-vault/SKILL.md`.
 
+## Reaching the Pi
+
+`192.168.178.127` and the hostname `raspberrypi` only work on the home Fritz network. From anywhere else, SSH to the public IP recorded in gitignored `private-notes.md`.
+
+That address changes when the ISP lease changes. An old address can still answer ping after port 22 has moved. `188.97.154.147` is one of those: it pings, and SSH times out. The working address on 2026-10-23 is `188.97.158.15`.
+
+Before trusting a new address, the host key must be `SHA256:cITJ7LDb7/6w8RNugVisFafcRUwLaj6skqCC/1gYYyo` (same key as the LAN address). `goals.bentenberge.com` and `n8n.bentenberge.com` are Cloudflare proxies, so they are not the Pi's IP.
+
+This Windows user already has `~\.ssh\id_ed25519` in `ben`'s `authorized_keys`. Point ssh config host `raspberrypi` at the current public IP, then:
+
+```powershell
+ssh -o BatchMode=yes raspberrypi "hostname; date -Is"
+```
+
+The login password, the key path, and the current IP live in `private-notes.md`. Copy `private-notes.example.md` to that file on a new machine. Do not commit it.
+
 ## First Commands For Future Agents
 
-From the repo root on Windows:
+From the repo root on Windows, after `ssh raspberrypi` reaches the public IP:
 
 ```powershell
 .\ops\raspberry-pi\scripts\quick-check.ps1
 .\ops\raspberry-pi\scripts\tail-logs.ps1 -Service manon -Lines 120
 ```
 
-If SSH host keys changed after a rebuild:
+If the host key changed after a rebuild, remove the old line and accept the new key only when you recognize the fingerprint above:
 
 ```powershell
-ssh-keygen -R raspberrypi
-ssh -o StrictHostKeyChecking=accept-new ben@raspberrypi hostname
+ssh-keygen -R 188.97.158.15
+ssh -o StrictHostKeyChecking=accept-new ben@188.97.158.15 hostname
 ```
 
 ## Current Limitations

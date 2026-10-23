@@ -2,6 +2,8 @@
 
 Run these from Windows unless noted otherwise.
 
+`ssh raspberrypi` uses the public IP in `private-notes.md` and `~\.ssh\config`, not the home-network name. See `README.md` section "Reaching the Pi". If port 22 times out, the ISP address has changed.
+
 ## Quick Status
 
 ```powershell
@@ -107,7 +109,7 @@ Or reconnect in n8n UI: **Credentials** → **Google Calendar - n8n & Gemini Ben
 ## Goals API
 
 ```powershell
-ssh ben@188.97.158.15 "curl -fsS http://127.0.0.1:8787/healthz; echo; docker ps -f name=manon_api --format '{{.Names}} {{.Status}}'"
+ssh raspberrypi "curl -fsS http://127.0.0.1:8787/healthz; echo; docker ps -f name=manon_api --format '{{.Names}} {{.Status}}'"
 ```
 
 Public check (no auth): `https://goals.bentenberge.com/healthz` should return `{"ok": true}`.
@@ -115,7 +117,7 @@ Public check (no auth): `https://goals.bentenberge.com/healthz` should return `{
 Logs:
 
 ```powershell
-ssh ben@188.97.158.15 "docker logs --tail 80 manon_api"
+ssh raspberrypi "docker logs --tail 80 manon_api"
 ```
 
 CORS origins live in `GOALS_API_CORS_ORIGINS` in `/home/ben/manon_deployer/.env`.
