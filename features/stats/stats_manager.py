@@ -78,13 +78,25 @@ class StatsManager:
                             goals_failed, score_gained, penalties_incurred, completion_rate,
                             score, pending_goals, finished_goals, failed_goals
                         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                        ON CONFLICT (user_id, chat_id, date) DO UPDATE SET
+                            goals_set = EXCLUDED.goals_set,
+                            goals_finished = EXCLUDED.goals_finished,
+                            goals_failed = EXCLUDED.goals_failed,
+                            score_gained = EXCLUDED.score_gained,
+                            penalties_incurred = EXCLUDED.penalties_incurred,
+                            completion_rate = EXCLUDED.completion_rate,
+                            score = EXCLUDED.score,
+                            pending_goals = EXCLUDED.pending_goals,
+                            finished_goals = EXCLUDED.finished_goals,
+                            failed_goals = EXCLUDED.failed_goals,
+                            snapshot_time = NOW()
                     """, user['user_id'], user['chat_id'], today, 
                         daily_metrics['goals_set'], daily_metrics['goals_finished'],
                         daily_metrics['goals_failed'], daily_metrics['score_gained'],
                         daily_metrics['penalties_incurred'], daily_metrics['completion_rate'],
                         user_totals['score'], user_totals['pending_goals'],
                         user_totals['finished_goals'], user_totals['failed_goals'])
-                    logger.info(f"Inserted stats for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
+                    logger.info(f"Saved stats for user_id: {user['user_id']}, chat_id: {user['chat_id']}")
 
         except Exception as e:
             logger.error(f"Error updating daily stats: {e}", exc_info=True)
