@@ -5,7 +5,7 @@ from openai import OpenAI
 
 from telegram_helpers.get_user_message import get_user_message
 from utils.environment_vars import ENV_VARS
-from utils.helpers import BERLIN_TZ
+from utils.helpers import BERLIN_TZ, parse_datetime_loose, upcoming_deadlines
 from telegram_helpers.emoji_reactions import safe_set_reaction
 from telegram_helpers.delete_message import delete_message, add_delete_button
 from utils.session_avatar import PA
@@ -18,6 +18,7 @@ from utils.db import (
     create_limbo_goal,
     complete_limbo_goal,
     record_reminder,
+    update_goal_data,
 )
 from LLMs.config import chains, shared_state
 from LLMs.structured_parse import (
@@ -510,6 +511,9 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
             debug_message = await update.message.reply_text(f"prepare_goal_proposal: \n{parsed_planning}") 
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 120))
+
+        if recurrence_type == "recurring" and not await _keep_upcoming_deadlines(update, goal_id, parsed_planning):
+            return
         
         await add_user_context_to_goals(
             context,
@@ -522,6 +526,29 @@ async def prepare_goal_proposal(update, context, goal_id, recurrence_type, smart
     except Exception as e:
         await update.message.reply_text(f"Error in prepare_goal_proposal():\n {e}")
         logger.error(f"\n\n🚨 Error in prepare_goal_proposal(): {e}\n\n")
+
+
+async def _keep_upcoming_deadlines(update, goal_id, parsed):
+    """Drop past and unparseable recurring deadlines before the goal is saved.
+
+    Returns False when nothing upcoming remains, after canceling the limbo row.
+    """
+    deadlines = getattr(parsed, "evaluation_deadlines", None)
+    if deadlines is None:
+        return True
+    upcoming = upcoming_deadlines(deadlines)
+    if not upcoming:
+        await update_goal_data(goal_id, status="archived_canceled")
+        await update.message.reply_text(
+            "I didn't set that recurring goal, because none of the dates were still ahead."
+        )
+        return False
+    parsed.evaluation_deadlines = upcoming
+    reminder = getattr(parsed, "reminder_times", None)
+    if isinstance(reminder, str) and parse_datetime_loose(reminder) is None:
+        parsed.schedule_reminder = False
+        parsed.reminder_times = None
+    return True
 
 
 async def compact_goal_pipeline(update, context, goal_id, recurrence_type, smarter=False, request_text=None):
@@ -542,6 +569,9 @@ async def compact_goal_pipeline(update, context, goal_id, recurrence_type, smart
             debug_message = await update.message.reply_text(f"compact_goal_pipeline: \n{parsed_result}")
             await add_delete_button(update, context, debug_message.message_id)
             asyncio.create_task(delete_message(update, context, debug_message.message_id, 200))
+
+        if recurrence_type == "recurring" and not await _keep_upcoming_deadlines(update, goal_id, parsed_result):
+            return
 
         # Store valuation and planning fields in context (same field names as old pipeline)
         await add_user_context_to_goals(context, goal_id, parsed_goal_valuation=parsed_result)

@@ -126,8 +126,8 @@ async def draft_goal_proposal_message(update, context, goal_id, adjust=False, op
         return message_text, keyboard
     
     except Exception as e:
-        await update.message.reply_text(f"Error in draft_goal_proposal_message(): {e}")
         logger.error(f"Error in draft_goal_proposal_message(): {e}")
+        raise
         
 
 async def run_algorithm(context, goal_id, goal_data, deadline_count):

@@ -33,9 +33,41 @@ def parse_datetime_loose(value):
             dt = parse(text)
         except (ValueError, TypeError, OverflowError):
             return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=BERLIN_TZ)
-    return dt.astimezone(BERLIN_TZ)
+    try:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=BERLIN_TZ)
+        return dt.astimezone(BERLIN_TZ)
+    except (ValueError, TypeError, OverflowError):
+        # dateutil accepts offsets of 24h or more, then Python rejects them.
+        return None
+
+
+def upcoming_deadlines(values, now=None) -> list[str]:
+    """Keep parseable deadlines from today onward, sorted and de-duplicated.
+
+    Unparseable values and dates before today are dropped. Returned strings are
+    Berlin-local ISO timestamps.
+    """
+    if not values:
+        return []
+    now = now or datetime.now(tz=BERLIN_TZ)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=BERLIN_TZ)
+    else:
+        now = now.astimezone(BERLIN_TZ)
+    found = []
+    seen = set()
+    for raw in values:
+        dt = parse_datetime_loose(raw)
+        if dt is None or dt.date() < now.date():
+            continue
+        stamp = dt.isoformat()
+        if stamp in seen:
+            continue
+        seen.add(stamp)
+        found.append(dt)
+    found.sort()
+    return [dt.isoformat() for dt in found]
 
 
 def format_when(value, now=None) -> str:

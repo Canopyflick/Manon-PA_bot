@@ -45,6 +45,8 @@ Each action has:
 - Distinct tasks become separate actions. Copy any shared time context onto each one.
   "Tomorrow I want to call the dentist and buy groceries" -> two Set actions, and both requests mention tomorrow.
 - The same task on a regular schedule stays one action. "Meditate every morning this month" -> one Set action.
+- A checklist of dates where each line has its own target is one Set action per line. Keep that date and that target in the request. Do not merge the lines into one recurring goal, and do not drop a line.
+  "Hyperion weekly reading goals: Nov 1 page 260. Nov 8 page 290." -> two Set actions: "On Nov 1, read Hyperion to page 260" and "On Nov 8, read Hyperion to page 290". The word "weekly" does not make this one repeating goal when each date has a different target.
 - A message that is one intention stays one action.
 
 ## Set

@@ -62,7 +62,9 @@ goal_setting_analysis_template = ChatPromptTemplate([
     
     ## Evaluation frequency
     This is about how often the user's goal should be evaluated. Pick either 'one-time' for once, or 'recurring' for more than once.
-    Examples of goals that should be evaluated one time: "I want to X at some point"; "I want to X in December"; "By the end of this week, I want to have finished X".
+    Examples of goals that should be evaluated one time: "I want to X at some point"; "I want to X in December"; "By the end of this week, I want to have finished X"; "On Nov 8, read Hyperion to page 290".
+    If the request names one specific date, pick 'one-time', even when it mentions a weekly plan or a project that continues on other days. Those other days are separate goals.
+    Pick 'recurring' only when the same action should be checked on several dates and this request does not already pin a single date.
     Examples of goals that should be evaluated recurrently: "I want to X every day for a month"; "I want to X at 9am and at 9pm".
     
     ## Timeframe
@@ -317,6 +319,11 @@ recurring_schedule_template = ChatPromptTemplate([
     If there's nothing indicating the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify exact moments or times of day they want to do the thing, adapt your deadlines accordingly.    
     Examples: for the goal "This week, I want to end my workday by 6 latest every day", if today were Sunday, 2024-12-08, the best evaluation deadlines would be "[2024-12-09T18:01:00, 2024-01-10T18:01:00, 2024-01-11T18:01:00, 2024-01-12T18:01:00, 2024-01-13T18:01:00]".
     And for the goal "This week, I want to meditate every morning", the best evaluation deadlines would be "[2024-12-09T12:00:00, 2024-01-10T12:00:00, 2024-01-11T12:00:00, 2024-01-12T12:00:00, 2024-01-13T12:00:00, 2024-01-14T12:00:00, 2024-01-15T12:00:00]".
+    Hard rules:
+    - Each evaluation deadline is one ISO-8601 timestamp with offset +01:00 or +02:00. Never use an offset of 24 hours or more, and never write a sentence.
+    - Every date is on or after today. Never emit a date in the past.
+    - If the user named explicit dates, output only those dates. Do not add earlier weeks, later weeks, or a different weekday.
+    - reminder_times, when set, is one ISO-8601 timestamp, not a phrase like "every Wednesday".
     
     ## Interval
     Pick the closest interval for this case: the time between each sub-goal's deadline.
@@ -399,7 +406,9 @@ compact_one_time_template = ChatPromptTemplate([
     Include any relevant context that the user might still want to reference between now and the day of the deadline. For example, include important details and specifics like URLs.
 
     ## Evaluation deadline: when should the goal be evaluated?
+    Write one ISO-8601 timestamp with offset +01:00 or +02:00. Never use an offset of 24 hours or more.
     ### Date
+    If the user names a specific calendar date, that date is the deadline. Do not move it to today or to a different weekday.
     When the user doesn't state a day or imply a deadline, assume they want to do the goal today (unless unfeasible, for example because it's already very late and the task would take longer than is left in the day, then pick tomorrow).
     ## Time
     If there's no indication of the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify an exact moment or time of day they want to do the thing, adapt your deadline accordingly.
@@ -497,6 +506,11 @@ compact_recurring_template = ChatPromptTemplate([
     If there's nothing indicating the desired time of day for evaluation, use {default_deadline_time} by default. But if the user does specify exact moments or times of day they want to do the thing, adapt your deadlines accordingly.
     Examples: for the goal "This week, I want to end my workday by 6 latest every day", if today were Sunday, 2024-12-08, the best evaluation deadlines would be "[2024-12-09T18:01:00, 2024-01-10T18:01:00, 2024-01-11T18:01:00, 2024-01-12T18:01:00, 2024-01-13T18:01:00]".
     And for the goal "This week, I want to meditate every morning", the best evaluation deadlines would be "[2024-12-09T12:00:00, 2024-01-10T12:00:00, 2024-01-11T12:00:00, 2024-01-12T12:00:00, 2024-01-13T12:00:00, 2024-01-14T12:00:00, 2024-01-15T12:00:00]".
+    Hard rules:
+    - Each evaluation deadline is one ISO-8601 timestamp with offset +01:00 or +02:00. Never use an offset of 24 hours or more, and never write a sentence.
+    - Every date is on or after today. Never emit a date in the past.
+    - If the user named explicit dates, output only those dates. Do not add earlier weeks, later weeks, or a different weekday.
+    - reminder_times, when set, is one ISO-8601 timestamp, not a phrase like "every Wednesday".
 
     ## Interval
     Pick the closest interval for this case: the time between each sub-goal's deadline.

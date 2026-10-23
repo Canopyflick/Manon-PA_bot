@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from features.goals.cancel import cancellation_charge, charge_label, pick_charge_row
 from features.goals.finder import mentioned_goal_ids
 from features.goals.queries import collapse_goal_candidates
-from utils.helpers import format_for_llm, format_when, parse_datetime_loose
+from utils.helpers import format_for_llm, format_when, parse_datetime_loose, upcoming_deadlines
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = datetime(2026, 10, 3, 16, 0, tzinfo=BERLIN)
@@ -45,6 +45,32 @@ class DateFormatTests(unittest.TestCase):
 
     def test_unparseable_value_is_cleaned_not_raised(self):
         self.assertEqual(format_when("[not a date]"), "not a date")
+
+    def test_impossible_timezone_offset_does_not_raise(self):
+        self.assertIsNone(parse_datetime_loose("2026-11-01T22:22:00+2400"))
+        self.assertEqual(
+            format_when("2026-11-01T22:22:00+2400", now=NOW),
+            "2026-11-01T22:22:00+2400",
+        )
+
+    def test_upcoming_deadlines_drop_past_dates_and_bad_offsets(self):
+        kept = upcoming_deadlines(
+            [
+                "2026-07-19T22:22:00+0200",
+                "2026-10-03T22:22:00+0200",
+                "2026-11-01T22:22:00+2400",
+                "2026-11-01T22:22:00+0100",
+                "2026-11-01T22:22:00+0100",
+            ],
+            now=NOW,
+        )
+        self.assertEqual(
+            [parse_datetime_loose(value) for value in kept],
+            [
+                datetime(2026, 10, 3, 22, 22, tzinfo=BERLIN),
+                datetime(2026, 11, 1, 22, 22, tzinfo=BERLIN),
+            ],
+        )
 
     def test_format_for_llm_is_absolute(self):
         self.assertEqual(format_for_llm("2026-10-05T22:22:00+0200"), "Mon 2026-10-05 22:22")
@@ -141,6 +167,7 @@ class PromptRenderTests(unittest.TestCase):
         )
         self.assertIn("Saturday, 2026-10-03 16:00:00", goal)
         self.assertIn("cancel subscription X", goal)
+        self.assertIn("one Set action per line", goal)
         self.assertNotIn("{now}", goal)
         self.assertIn("actions", GoalClassification.model_fields)
 
