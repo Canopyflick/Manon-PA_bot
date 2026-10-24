@@ -3,7 +3,7 @@ import html
 import socket
 
 from utils.environment_vars import ENV_VARS
-from utils.helpers import BERLIN_TZ, format_for_llm, format_when, parse_reminder_times
+from utils.helpers import BERLIN_TZ, format_for_llm, format_when, parse_reminder_times, scalar_deadline
 from features.goals.helpers import add_user_context_to_goals
 from logger.logger import logger
 from utils.session_avatar import PA
@@ -565,8 +565,8 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
             if recurrence_type == "recurring":
                 kwargs["deadlines"] = deadlines
             else:
-                # One-time goals: extract single deadline string from the list
-                kwargs["deadline"] = deadlines[0] if isinstance(deadlines, list) and deadlines else deadlines
+                # One-time goals store one TIMESTAMPTZ. An empty list is NULL, not [].
+                kwargs["deadline"] = scalar_deadline(deadlines)
 
         # Update the goal data in the database
         await update_goal_data(goal_id, initial_update, **kwargs)

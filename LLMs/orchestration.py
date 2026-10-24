@@ -334,6 +334,8 @@ async def process_classification_result(update, context, initial_classification)
 
 async def handle_goal_classification(update, context, smarter=False):
     try:
+        from features.goals.finder import drop_quoted_reply_actions
+
         input_vars = await get_input_variables(update, context)
         goal_classification=None
         if smarter:
@@ -350,6 +352,11 @@ async def handle_goal_classification(update, context, smarter=False):
 
 
         actions = list(parsed_goal_classification.actions or [])[:8]
+        reply = update.message.reply_to_message if update.message else None
+        reply_text = reply.text if reply else None
+        actions = drop_quoted_reply_actions(
+            actions, get_user_message(update, context), reply_text
+        )
         if not actions:
             await update.message.reply_text(f"I couldn't tell what to do with that {PA}")
             return

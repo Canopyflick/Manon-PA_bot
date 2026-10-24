@@ -75,6 +75,9 @@ Never use Cancel for subscriptions, trials, memberships, appointments, orders, o
 ## Pause
 Put an existing tracked goal on hold indefinitely.
 
+## Quoted replies
+The user message may end with a block that starts with "(As a reply to message:". That block is the earlier message being replied to, often your own confirmation. Do not turn that quoted text into an action. Classify only what the user wrote above it. A line such as "Just saving open-ended goal (#123) in the database with status 'prepared'" is not a request to edit or save that goal.
+
 # Answer structure
 Return the list of actions. If a part of the message does not clearly match Report_done, Report_failed, Edit, Cancel, or Pause, classify it as Set.
 """

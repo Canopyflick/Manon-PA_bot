@@ -5,9 +5,9 @@ from zoneinfo import ZoneInfo
 
 from features.goals.cancel import cancellation_charge, charge_label, pick_charge_row
 from features.goals.goals import goal_announcement_sort_key
-from features.goals.finder import mentioned_goal_ids
+from features.goals.finder import drop_quoted_reply_actions, mentioned_goal_ids
 from features.goals.queries import collapse_goal_candidates
-from utils.helpers import format_for_llm, format_when, parse_datetime_loose, upcoming_deadlines
+from utils.helpers import format_for_llm, format_when, parse_datetime_loose, scalar_deadline, upcoming_deadlines
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = datetime(2026, 10, 3, 16, 0, tzinfo=BERLIN)
@@ -169,6 +169,7 @@ class PromptRenderTests(unittest.TestCase):
         self.assertIn("Saturday, 2026-10-03 16:00:00", goal)
         self.assertIn("cancel subscription X", goal)
         self.assertIn("one Set action per line", goal)
+        self.assertIn("Do not turn that quoted text into an action", goal)
         self.assertNotIn("{now}", goal)
         self.assertIn("actions", GoalClassification.model_fields)
 
@@ -208,6 +209,57 @@ class AnnouncementOrderTests(unittest.TestCase):
                 None,
             ],
         )
+
+
+class ScalarDeadlineTests(unittest.TestCase):
+    def test_empty_list_is_null_and_a_single_entry_is_kept(self):
+        self.assertIsNone(scalar_deadline([]))
+        self.assertIsNone(scalar_deadline(None))
+        self.assertIsNone(scalar_deadline(""))
+        self.assertIsNone(scalar_deadline(["  "]))
+        self.assertEqual(
+            scalar_deadline(["2026-10-30T22:22:00+01:00"]),
+            "2026-10-30T22:22:00+01:00",
+        )
+        self.assertEqual(
+            scalar_deadline("2026-10-30T22:22:00+01:00"),
+            "2026-10-30T22:22:00+01:00",
+        )
+
+
+class QuotedReplyTests(unittest.TestCase):
+    def test_confirmation_echo_is_dropped_and_the_new_goal_is_kept(self):
+        reply = (
+            "Just saving open-ended goal (#1213) in database with status 'prepared'\n\n"
+            "If you receive the Leseprobe (sample), send an informal message to "
+            "leserservice@make-magazin.de to cancel your Make Magazin subscription."
+        )
+        user = (
+            "On Friday, send an informal message from bentenberge@proton.me to "
+            "leserservice@make-magazin.de to cancel my Make Magazin subscription "
+            "effective for the next non-Probe issue."
+        )
+        actions = [
+            {
+                "classification": "Edit",
+                "request": "Save open-ended goal (#1213) in the database with status 'prepared'.",
+            },
+            {"classification": "Set", "request": user},
+        ]
+        kept = drop_quoted_reply_actions(actions, user, reply)
+        self.assertEqual([action["classification"] for action in kept], ["Set"])
+
+    def test_reply_that_names_a_change_is_kept(self):
+        reply = "Just saving open-ended goal (#1213) in database with status 'prepared'"
+        user = "make that Friday instead"
+        actions = [
+            {
+                "classification": "Edit",
+                "request": "Change open-ended goal #1213 so the deadline is Friday.",
+            }
+        ]
+        kept = drop_quoted_reply_actions(actions, user, reply)
+        self.assertEqual(len(kept), 1)
 
 
 class MentionedGoalIdTests(unittest.TestCase):

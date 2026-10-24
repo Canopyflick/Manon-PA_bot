@@ -70,6 +70,21 @@ def upcoming_deadlines(values, now=None) -> list[str]:
     return [dt.isoformat() for dt in found]
 
 
+def scalar_deadline(value):
+    """Single TIMESTAMPTZ for a one-time goal.
+
+    Adjustments pass a list of deadline strings. An empty list means no
+    deadline, which the column stores as NULL.
+    """
+    if isinstance(value, list):
+        value = value[0] if value else None
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
 def format_when(value, now=None) -> str:
     """Minimal human-readable datetime for user-facing messages.
 

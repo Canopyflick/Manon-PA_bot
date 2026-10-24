@@ -46,6 +46,52 @@ class FinderResult:
         self.finished = False
 
 
+_WORD = re.compile(r"[a-z0-9]+")
+_FILLER = frozenset(
+    "a an the to of in on for and or my your with from just that this it "
+    "is be was were am are been being".split()
+)
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in _WORD.findall((text or "").lower())
+        if token not in _FILLER and len(token) > 1
+    }
+
+
+def request_restates_reply(request: str, user_text: str, reply_text: str) -> bool:
+    """True when an action restates the quoted message and not the user's words.
+
+    Replying to a goal card is normal, and those edits still share a concrete
+    word with what the user typed. A restatement of Manon's own confirmation
+    does not.
+    """
+    if not reply_text or not request or not (user_text or "").strip():
+        return False
+    request_tokens = _content_tokens(request)
+    if len(request_tokens) < 2:
+        return False
+    if request_tokens & _content_tokens(user_text):
+        return False
+    reply_tokens = _content_tokens(reply_text)
+    return len(request_tokens & reply_tokens) / len(request_tokens) >= 0.5
+
+
+def drop_quoted_reply_actions(actions, user_text, reply_text):
+    if not reply_text:
+        return list(actions or [])
+    kept = []
+    for action in actions or []:
+        request = action.get("request") if isinstance(action, dict) else getattr(action, "request", "")
+        if request_restates_reply(request or "", user_text, reply_text):
+            logger.info("Dropping action copied from the replied-to message: %s", request)
+            continue
+        kept.append(action)
+    return kept
+
+
 def mentioned_goal_ids(*texts) -> list[int]:
     seen = []
     for text in texts:
