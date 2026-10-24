@@ -393,13 +393,10 @@ async def revert_optimistic_goal(update, context):
             await query.answer(reason, show_alert=True)
             return
 
+        status = await fetch_goal_data(goal_id, columns="status", single_value=True)
         reverted_count = await revert_goal_activation(goal_id, user_id, chat_id)
         description = await fetch_goal_data(goal_id, columns="goal_description", single_value=True)
-        updated_message = (
-            f"↩️ *Reverted* Goal #{goal_id}\n"
-            f"> > > _removed {reverted_count} pending goal{'s' if reverted_count != 1 else ''}_ ❌\n\n"
-            f"✍️ {description}"
-        )
+        updated_message = revert_confirmation(goal_id, description, reverted_count, status)
         await query.edit_message_text(updated_message, parse_mode="Markdown")
         await query.answer("Goal reverted.")
 
@@ -409,20 +406,32 @@ async def revert_optimistic_goal(update, context):
         raise
 
 
+def revert_confirmation(goal_id, description, count, status):
+    kind = "pending" if status == "pending" else "open-ended"
+    noun = "goal" if count == 1 else "goals"
+    return (
+        f"↩️ *Reverted* Goal #{goal_id}\n"
+        f"> > > _removed {count} {kind} {noun}_ ❌\n\n"
+        f"✍️ {description}"
+    )
+
+
 async def can_revert_goal(goal_id):
     status = await fetch_goal_data(goal_id, columns="status", single_value=True)
-    if status != "pending":
-        return False, "Goal is no longer pending — revert unavailable."
+    if status not in ("pending", "prepared"):
+        return False, "Goal is no longer active — revert unavailable."
     return True, None
 
 
 async def revert_goal_activation(goal_id, user_id, chat_id):
+    status = await fetch_goal_data(goal_id, columns="status", single_value=True)
     recurrence_type = await fetch_goal_data(goal_id, columns="recurrence_type", single_value=True)
-    if recurrence_type == "recurring":
+    if recurrence_type == "recurring" and status == "pending":
         return await revert_recurring_goals(goal_id, user_id, chat_id)
 
     await update_goal_data(goal_id, status="archived_canceled")
-    await update_user_data(user_id, chat_id, increment_pending_goals=-1)
+    if status == "pending":
+        await update_user_data(user_id, chat_id, increment_pending_goals=-1)
     return 1
 
 

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from features.goals.cancel import cancellation_charge, charge_label, pick_charge_row
-from features.goals.goals import goal_announcement_sort_key
+from features.goals.goals import goal_announcement_sort_key, revert_confirmation
 from features.goals.finder import drop_quoted_reply_actions, mentioned_goal_ids
 from features.goals.queries import collapse_goal_candidates
 from utils.helpers import format_for_llm, format_when, parse_datetime_loose, scalar_deadline, upcoming_deadlines
@@ -260,6 +260,15 @@ class QuotedReplyTests(unittest.TestCase):
         ]
         kept = drop_quoted_reply_actions(actions, user, reply)
         self.assertEqual(len(kept), 1)
+
+
+class RevertConfirmationTests(unittest.TestCase):
+    def test_pending_and_open_ended_wording(self):
+        pending = revert_confirmation(12, "Call mom", 2, "pending")
+        self.assertIn("removed 2 pending goals", pending)
+        open_ended = revert_confirmation(1213, "Learn woodworking", 1, "prepared")
+        self.assertIn("removed 1 open-ended goal", open_ended)
+        self.assertIn("Learn woodworking", open_ended)
 
 
 class MentionedGoalIdTests(unittest.TestCase):

@@ -9,6 +9,7 @@ from logger.logger import logger
 from utils.session_avatar import PA
 import logging, asyncpg, re, pytz, random
 from datetime import time, datetime, timedelta
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 # Legacy check from Heroku times, leaving it here to remember that ssl settings matter for that
 is_running_on_heroku = None
@@ -534,8 +535,15 @@ async def complete_limbo_goal(update, context, goal_id, initial_update=True):
                 # Save open-ended goal as prepared in the database
                 kwargs["status"] = "prepared"
                 await update_goal_data(goal_id, initial_update, **kwargs)
+                keyboard = InlineKeyboardMarkup([[
+                    InlineKeyboardButton(text="↩️ Revert", callback_data=f"revert_{goal_id}")
+                ]])
                 await update.message.reply_text(
-                f"Just saving open-ended goal (#{goal_id}) in database with status 'prepared' {PA}\n\n✍️ _{description}_", parse_mode="Markdown"
+                    f"Just saving open-ended goal (#{goal_id}) in database with status 'prepared' {PA}\n\n"
+                    f"✍️ _{description}_\n\n"
+                    f"_Tap ↩️ Revert if this isn't right_",
+                    reply_markup=keyboard,
+                    parse_mode="Markdown",
                 )
                 return
             kwargs["deadline"] = goal_data.get("evaluation_deadline") if goal_data.get("evaluation_deadline") else None
