@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 EXTERNAL_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 OPEN_STATUSES = ("prepared", "pending", "paused", "limbo")
+ALLOWED_BADGES = ("recurring",)
 
 
 def allowed_origins() -> set[str]:
@@ -105,12 +106,16 @@ def _goal_payload(row) -> dict:
     done = row["status"] == "archived_done"
     completed = row["completion_time"] if done else None
     updated = row["updated_at"]
+    created = row["created_at"]
+    raw_badges = row["badges"] or []
     return {
         "id": row["external_id"],
         "text": row["goal_description"] or "",
         "urgent": bool(row["urgent"]),
         "done": done,
         "completedAt": completed.isoformat() if completed else None,
+        "createdAt": created.isoformat() if created else None,
+        "badges": [badge for badge in raw_badges if badge in ALLOWED_BADGES],
         "sortOrder": row["sort_order"],
         "updatedAt": updated.isoformat() if updated else None,
     }
@@ -126,6 +131,21 @@ def _parse_done_since(raw: str | None) -> datetime | web.Response:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
+
+
+def _parse_badges(value) -> list[str] | None | web.Response:
+    """None keeps the stored badges. A list replaces them."""
+    if value is None:
+        return None
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        return web.json_response({"error": "badges must be a list of badge names"}, status=400)
+    cleaned: list[str] = []
+    for item in value:
+        if item not in ALLOWED_BADGES:
+            return web.json_response({"error": f"Unknown badge: {item}"}, status=400)
+        if item not in cleaned:
+            cleaned.append(item)
+    return cleaned
 
 
 def _parse_completed_at(value, done: bool) -> datetime | None | web.Response:
@@ -167,7 +187,7 @@ async def list_goals(request: web.Request) -> web.Response:
         rows = await conn.fetch(
             """
             SELECT external_id, goal_description, urgent, status,
-                   completion_time, sort_order, updated_at
+                   completion_time, sort_order, updated_at, created_at, badges
             FROM manon_goals
             WHERE user_id = $1 AND chat_id = $2 AND source = $3
               AND (
@@ -211,6 +231,9 @@ async def upsert_goal(request: web.Request) -> web.Response:
     sort_order = body.get("sortOrder", None)
     if sort_order is not None and not isinstance(sort_order, (int, float)):
         return web.json_response({"error": "sortOrder must be a number or null"}, status=400)
+    badges = _parse_badges(body.get("badges"))
+    if isinstance(badges, web.Response):
+        return badges
     status = "archived_done" if body["done"] else "prepared"
     user_id, chat_id = _user(request)
 
@@ -225,11 +248,11 @@ async def upsert_goal(request: web.Request) -> web.Response:
                 INSERT INTO manon_goals (
                     user_id, chat_id, status, timeframe, recurrence_type,
                     goal_description, source, external_id, urgent, sort_order,
-                    completion_time, set_time
+                    completion_time, set_time, badges
                 ) VALUES (
                     $1, $2, $3, 'open-ended', 'one-time',
                     $4, $5, $6, $7, $8,
-                    $9, NOW()
+                    $9, NOW(), COALESCE($10::text[], '{}')
                 )
                 ON CONFLICT (source, external_id) WHERE external_id IS NOT NULL
                 DO UPDATE SET
@@ -238,11 +261,12 @@ async def upsert_goal(request: web.Request) -> web.Response:
                     urgent = EXCLUDED.urgent,
                     sort_order = COALESCE(EXCLUDED.sort_order, manon_goals.sort_order),
                     completion_time = EXCLUDED.completion_time,
-                    timeframe = 'open-ended'
+                    timeframe = 'open-ended',
+                    badges = COALESCE($10::text[], manon_goals.badges)
                 WHERE manon_goals.user_id = EXCLUDED.user_id
                   AND manon_goals.chat_id = EXCLUDED.chat_id
                 RETURNING external_id, goal_description, urgent, status,
-                          completion_time, sort_order, updated_at
+                          completion_time, sort_order, updated_at, created_at, badges
                 """,
                 user_id,
                 chat_id,
@@ -253,6 +277,7 @@ async def upsert_goal(request: web.Request) -> web.Response:
                 urgent,
                 float(sort_order) if sort_order is not None else None,
                 completed,
+                badges,
             )
     if not row:
         return web.json_response({"error": "Goal belongs to another user"}, status=403)
