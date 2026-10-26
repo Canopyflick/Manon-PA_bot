@@ -177,14 +177,16 @@ def _overdue_cards(result):
 
 async def overdue_command(update, context):
     """
-    Sends expired Manon goals, plus open benwerktijd goals, with buttons to report progress.
+    Sends expired Manon goals, plus urgent benwerktijd todos, with buttons to report progress.
     """
     try:
         chat_id = update.message.chat_id
         user_id = update.effective_user.id
 
         cards = _overdue_cards(await fetch_overdue_goals(chat_id, user_id, timeframe="overdue"))
-        work_goals = await fetch_open_source_goals(user_id, chat_id, "benwerktijd")
+        work_goals = await fetch_open_source_goals(
+            user_id, chat_id, "benwerktijd", urgent_only=True
+        )
         cards.extend(format_goal_with_buttons(goal) for goal in work_goals)
 
         if not cards:

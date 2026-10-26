@@ -57,16 +57,23 @@ async def get_pending_goals_by_timeframe(user_id, chat_id, *, start_time=None, e
         return []
 
 
-async def fetch_open_source_goals(user_id, chat_id, source):
-    """Open goals from one app, such as benwerktijd. Urgent ones come first."""
+async def fetch_open_source_goals(user_id, chat_id, source, *, urgent_only=False):
+    """Open goals from one app, such as benwerktijd.
+
+    Manon only surfaces external todos that are flagged urgent. Pass
+    urgent_only=True for any list the user sees. The other app still
+    keeps the full set through the goals API.
+    """
+    urgent_clause = "AND urgent = true" if urgent_only else ""
     try:
         async with Database.acquire() as conn:
             rows = await conn.fetch(
-                """
+                f"""
                 SELECT * FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
                   AND source = $3
                   AND status IN ('prepared', 'pending', 'paused', 'limbo')
+                  {urgent_clause}
                 ORDER BY urgent DESC, sort_order NULLS LAST, goal_id ASC
                 """,
                 user_id,

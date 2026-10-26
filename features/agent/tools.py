@@ -43,7 +43,8 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
     async def get_active_goals() -> str:
         """Get the user's active goals (pending, prepared, paused, limbo).
         Returns goal_id, source, description, status, deadline, recurrence type,
-        and whether the goal is marked urgent."""
+        and whether the goal is marked urgent.
+        Todos from other apps (benwerktijd) are included only when flagged urgent."""
         async with Database.acquire() as conn:
             rows = await conn.fetch("""
                 SELECT goal_id, source, goal_description, status, deadline,
@@ -51,6 +52,7 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
                   AND status IN ('pending', 'prepared', 'paused', 'limbo')
+                  AND (source = 'manon' OR urgent = true)
                 ORDER BY CASE WHEN source = 'manon' THEN 0 ELSE 1 END,
                          deadline ASC NULLS LAST
                 LIMIT 40
@@ -69,25 +71,31 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
 
     @tool
     async def get_overdue_goals() -> str:
-        """Get the user's overdue goals — pending goals whose deadline has passed."""
+        """Get overdue Manon goals, plus urgent open todos from other apps.
+        Pending Manon goals whose deadline has passed, and flagged benwerktijd
+        todos. Non-urgent external todos are excluded."""
         now = datetime.now(BERLIN_TZ)
         async with Database.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT goal_id, goal_description, deadline, goal_value, penalty
+                SELECT goal_id, source, goal_description, deadline, goal_value, penalty
                 FROM manon_goals
                 WHERE user_id = $1 AND chat_id = $2
-                  AND status = 'pending'
-                  AND deadline < $3
-                ORDER BY deadline ASC
-                LIMIT 15
+                  AND (
+                        (source = 'manon' AND status = 'pending' AND deadline < $3)
+                     OR (source <> 'manon' AND urgent = true
+                         AND status IN ('prepared', 'pending', 'paused', 'limbo'))
+                  )
+                ORDER BY deadline ASC NULLS LAST
+                LIMIT 40
             """, user_id, chat_id, now)
         if not rows:
             return "No overdue goals."
         lines = []
         for r in rows:
-            dl = format_for_llm(r["deadline"]) if r["deadline"] else "?"
+            dl = format_for_llm(r["deadline"]) if r["deadline"] else "none"
+            origin = "" if r["source"] == "manon" else f"[{r['source']}] "
             lines.append(
-                f"#{r['goal_id']} {r['goal_description'][:80]} "
+                f"#{r['goal_id']} {origin}{r['goal_description'][:80]} "
                 f"(was due: {dl}, value: {r['goal_value']}, penalty: {r['penalty']})"
             )
         return "\n".join(lines)
@@ -105,6 +113,7 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
                 WHERE user_id = $1 AND chat_id = $2
                   AND deadline >= $3 AND deadline <= $4
                   AND status IN ('pending', 'prepared', 'paused')
+                  AND (source = 'manon' OR urgent = true)
                 ORDER BY deadline ASC
             """, user_id, chat_id, start, end)
         if not rows:
@@ -240,6 +249,9 @@ def create_agent_tools(user_id: int, chat_id: int) -> list:
         f"- The current user_id is {user_id} and chat_id is {chat_id} — "
         "use these to filter queries\n"
         "- Use AT TIME ZONE 'Europe/Berlin' for date operations if needed\n"
+        "- Todos from sources other than 'manon' (benwerktijd and other apps) "
+        "are in scope only when urgent = true. Do not list or act on "
+        "non-urgent external todos\n"
         "- LIMIT results to keep output concise (max 20 rows recommended)\n"
         "- goal_category and deadlines are PostgreSQL arrays\n"
         "- Status flow: limbo → pending (optimistic set) → archived_done/failed/canceled; "
