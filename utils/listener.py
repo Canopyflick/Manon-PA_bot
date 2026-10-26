@@ -10,6 +10,7 @@ from telegram import MessageEntity
 from utils.string_resources import SHY_MESSAGE
 from utils.triggers import handle_preset_triggers
 from utils.audio_utils import transcribe_voice_message
+from utils.telegram_audio import audio_file_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -166,10 +167,14 @@ async def print_edit(update, context):
 
 
 async def analyze_voice_message(update, context):
-    voice = update.message.voice
-    file = await context.bot.get_file(voice.file_id)
+    target = audio_file_from_message(update.message)
+    if target is None:
+        return
+    file_id, suffix = target
+    logger.info("Incoming audio suffix=%s", suffix)
+    file = await context.bot.get_file(file_id)
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tf:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tf:
         await file.download_to_drive(tf.name)
         audio_path = tf.name
 
@@ -177,6 +182,9 @@ async def analyze_voice_message(update, context):
         transcription = await transcribe_voice_message(audio_path)
         logger.info("[Voice Msg] transcribed as: " + transcription)
         tagged_transcription = "[Voice Msg] " + transcription.strip()
+        caption = (update.message.caption or "").strip()
+        if caption:
+            tagged_transcription = f"{tagged_transcription}\n\n{caption}"
         context.user_data["user_message"] = tagged_transcription
         return await analyze_any_message(update, context)
 

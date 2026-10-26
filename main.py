@@ -108,8 +108,14 @@ def register_handlers(application):
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, analyze_any_message))
     # Handler for edited messages
     application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT & ~filters.COMMAND, print_edit))
-    # Handler for audio input
-    application.add_handler(MessageHandler(filters.VOICE, analyze_voice_message))
+    # In-chat voice notes are filters.VOICE. Share → Telegram sends an audio
+    # message or a document (often .ogg), which that filter does not match.
+    shared_audio = filters.Document.AUDIO
+    for audio_ext in ("ogg", "opus", "mp3", "m4a", "wav", "flac", "aac", "mpeg", "mpga"):
+        shared_audio |= filters.Document.FileExtension(audio_ext)
+    application.add_handler(
+        MessageHandler(filters.VOICE | filters.AUDIO | shared_audio, analyze_voice_message)
+    )
 
     # Buttons
     from telegram_helpers.delete_message import delete_message

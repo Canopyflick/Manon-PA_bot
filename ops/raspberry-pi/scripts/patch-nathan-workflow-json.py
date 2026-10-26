@@ -10,10 +10,13 @@ BACKUP = Path(__file__).resolve().parent / "nathan-workflow-backup.json"
 OUTPUT = Path(__file__).resolve().parent / "nathan-workflow-patched.json"
 
 AGENT_TEXT = (
-    "={{ $if(!!$('Telegram Trigger').item.json.message.voice, "
+    "={{ $if(!!($('Telegram Trigger').item.json.message.voice?.file_id || "
+    "$('Telegram Trigger').item.json.message.audio?.file_id || "
+    "String($('Telegram Trigger').item.json.message.document?.mime_type || '').startsWith('audio/') || "
+    "/\\.(ogg|opus|mp3|m4a|wav|flac|aac|mpeg|mpga)$/i.test(String($('Telegram Trigger').item.json.message.document?.file_name || ''))), "
     "$('Set User Message (Voice)').item.json.userMessage, "
     "$if(!!($('Telegram Trigger').item.json.message.photo?.length || "
-    "($('Telegram Trigger').item.json.message.document?.mime_type || '').startsWith('image/')), "
+    "String($('Telegram Trigger').item.json.message.document?.mime_type || '').startsWith('image/')), "
     "$('Set User Message (Photo)').item.json.userMessage, "
     "$('Set User Message (Text)').item.json.userMessage)) }}"
 )
