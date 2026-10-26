@@ -121,6 +121,7 @@ def register_handlers(application):
         reject_goal_proposal,
         revert_optimistic_goal,
         report_goal_progress,
+        mark_auto_failed_goal_done,
     )
     from features.goals.cancel import undo_goal_cancellation
     application.add_handler(CallbackQueryHandler(
@@ -131,6 +132,7 @@ def register_handlers(application):
     application.add_handler(CallbackQueryHandler(reject_goal_proposal, pattern=r"^reject_(\d+)$"))
     application.add_handler(CallbackQueryHandler(revert_optimistic_goal, pattern=r"^revert_(\d+)$"))
     application.add_handler(CallbackQueryHandler(undo_goal_cancellation, pattern=r"^uncancel_(\d+)$"))
+    application.add_handler(CallbackQueryHandler(mark_auto_failed_goal_done, pattern=r"^markdone_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^(finished|failed)_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^postpone_(\d+)_(today|tomorrow)$"))
 

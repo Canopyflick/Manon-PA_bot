@@ -588,7 +588,10 @@ async def handle_goal_failure(update, goal_id, query=None, bot=None, delete_all_
                 f"{'' if delete_all_expired_goals else ' for >39 hours'}. {round(score_decrease, 1)} penalty charged."
                 f" \n\n✍️_{description}_"
             )
-            await bot.send_message(chat_id, text=text, reply_markup=None, parse_mode="Markdown")
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Mark done", callback_data=f"markdone_{goal_id}")]
+            ])
+            await bot.send_message(chat_id, text=text, reply_markup=keyboard, parse_mode="Markdown")
             return text
 
         text = (
@@ -601,6 +604,98 @@ async def handle_goal_failure(update, goal_id, query=None, bot=None, delete_all_
         logger.error(f"couldn't handle_goal_failure for goal {goal_id}:\n{e}'")
         return None
     
+
+async def mark_auto_failed_goal_done(update, context):
+    """Turn an automatic failure back into a completion.
+
+    Used when a goal was archived as failed because it stayed overdue, but it
+    had actually been done and just wasn't reported in time.
+    """
+    query = update.callback_query
+    match = re.match(r"^markdone_(\d+)$", query.data or "")
+    if not match:
+        await query.answer("Invalid action.")
+        return
+
+    goal_id = int(match.group(1))
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    try:
+        async with Database.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT goal_description, goal_value, penalty, status, user_id, chat_id
+                FROM manon_goals
+                WHERE goal_id = $1
+                """,
+                goal_id,
+            )
+        if not row or int(row["user_id"]) != int(user_id) or int(row["chat_id"]) != int(chat_id):
+            await query.answer("This one isn't yours.")
+            return
+        if row["status"] != "archived_failed":
+            await query.answer("Already settled.")
+            return
+
+        async with Database.acquire() as conn:
+            updated = await conn.fetchrow(
+                """
+                UPDATE manon_goals
+                SET status = 'archived_done',
+                    completion_time = $2
+                WHERE goal_id = $1
+                  AND user_id = $3
+                  AND chat_id = $4
+                  AND status = 'archived_failed'
+                RETURNING goal_id
+                """,
+                goal_id,
+                datetime.now(tz=BERLIN_TZ),
+                user_id,
+                chat_id,
+            )
+        if not updated:
+            await query.answer("Already settled.")
+            return
+
+        penalty = float(row["penalty"] or 0)
+        goal_value = float(row["goal_value"] or 0)
+        await update_user_data(
+            user_id,
+            chat_id,
+            increment_score=round(penalty + goal_value, 1),
+            increment_penalties_accrued=round(-penalty, 1),
+            increment_failed_goals=-1,
+            increment_finished_goals=1,
+        )
+        description = row["goal_description"]
+        text = (
+            f"✅ Goal #{goal_id} marked done. Failure reversed: "
+            f"{round(penalty, 1)} penalty refunded, score +{round(goal_value, 1)}."
+            f"\n\n✍️ _{description}_"
+        )
+        await query.answer("🥂")
+        try:
+            await query.edit_message_text(text=text, reply_markup=None, parse_mode="Markdown")
+        except Exception:
+            plain = (
+                f"Goal #{goal_id} marked done. Failure reversed: "
+                f"{round(penalty, 1)} penalty refunded, score +{round(goal_value, 1)}.\n\n"
+                f"{description}"
+            )
+            await query.edit_message_text(text=plain, reply_markup=None)
+        logger.info(
+            f"Reverted auto-failure for goal #{goal_id}: "
+            f"refunded {round(penalty, 1)}, awarded {round(goal_value, 1)}"
+        )
+    except Exception as e:
+        logger.error(f"couldn't mark auto-failed goal #{goal_id} done: {e}")
+        try:
+            await query.answer("Something went wrong.")
+        except Exception:
+            logger.error(f"couldn't answer markdone callback for goal #{goal_id}")
+
 
 async def handle_goal_push(update, goal_id, query):
     try:
