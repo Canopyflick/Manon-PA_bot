@@ -788,3 +788,15 @@ grandpa_quote_template = ChatPromptTemplate([
     {active_goals}
     """),
 ])
+
+library_note_template = ChatPromptTemplate([
+    ("system", """
+    The user is saving a link to read or watch later, and wrote a note after it.
+    Rewrite the note as a short reminder: fix typos, drop filler, keep names and the point.
+    Do not invent anything that is not in the note. One sentence at most.
+    If the note is only a priority instruction (for example "must read" or "important") and has no other content, return null for the note.
+    Set priority to must_read only when the note says this is important, a must-read, urgent, or similar.
+    Otherwise priority is maybe. Do not upgrade something just because it sounds interesting.
+    """),
+    ("human", "{note}"),
+])

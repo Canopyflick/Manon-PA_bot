@@ -796,6 +796,61 @@ async def activate_recurring_goals(goal_id, user_id, chat_id):
     return new_goal_ids
 
 
+async def archive_open_ended_goal(update, context):
+    """Archive a prepared goal from /wassup. Undo uses the existing uncancel button."""
+    query = update.callback_query
+    match = re.match(r"^archivegoal_(\d+)$", query.data or "")
+    if not match:
+        await query.answer("Invalid action.")
+        return
+
+    goal_id = int(match.group(1))
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    try:
+        async with Database.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT goal_description, status, user_id, chat_id
+                FROM manon_goals
+                WHERE goal_id = $1
+                """,
+                goal_id,
+            )
+        if not row or int(row["user_id"]) != int(user_id) or int(row["chat_id"]) != int(chat_id):
+            await query.answer("This one isn't yours.")
+            return
+        if row["status"] != "prepared":
+            await query.answer("This goal isn't open-ended anymore.")
+            return
+
+        await update_goal_data(
+            goal_id,
+            status="archived_canceled",
+            completion_time=datetime.now(tz=BERLIN_TZ),
+        )
+        description = row["goal_description"] or ""
+        text = f"🗄 *Archived* goal #{goal_id}\n\n✍️ _{description}_"
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("↩️ Undo", callback_data=f"uncancel_{goal_id}")]]
+        )
+        await query.answer("Archived.")
+        try:
+            await query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        except Exception:
+            await query.edit_message_text(
+                f"Archived goal #{goal_id}\n\n{description}",
+                reply_markup=keyboard,
+            )
+        logger.info(f"Archived open-ended goal #{goal_id}")
+    except Exception as e:
+        logger.error(f"couldn't archive open-ended goal #{goal_id}: {e}")
+        try:
+            await query.answer("Something went wrong.")
+        except Exception:
+            logger.error(f"couldn't answer archivegoal callback for #{goal_id}")
+
+
 async def accept_recurring_goals(update, context, goal_id, query):
     try:
         goal_data = await fetch_goal_data(

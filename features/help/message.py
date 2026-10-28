@@ -18,6 +18,12 @@ HELP_MESSAGE = (
         '*Info about your goals*\n'
         f'| /today | /tomorrow | /24 | /overdue |\n'
         '/wassup \n\n'
+        '*Library*\n'
+        '📚 a link — save it for later\n'
+        '📚 a link: note — save it with a note\n'
+        '📚 a link:done — mark that one read\n'
+        '/library — must-reads, then maybes\n'
+        '/library 5 — the five most recent important ones\n\n'
         '*Trigger words*\n'
         '| gm | gn | emoji | pomodoro | koffie | stop | cancel | !test | usercontext | clearcontext | resolve | logger<number\\_of\\_lines> | errorlogs | transparant\\_on | transparant\\_off | seintjenatuurlijk | jobs |'
     )

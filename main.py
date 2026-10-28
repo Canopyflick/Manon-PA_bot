@@ -74,8 +74,14 @@ def register_handlers(application):
     from features.help.command import help_command
     from features.stopwatch.command import stopwatch_command
     from features.wassup.command import wassup_command
+    from features.library.handlers import (
+        library_command,
+        handle_library_callback,
+        handle_library_report,
+    )
     from utils.version_command import version_command
     application.add_handler(CommandHandler(["wassup", "hey", "hi"], wassup_command))
+    application.add_handler(CommandHandler("library", library_command))
     application.add_handler(CommandHandler(["start", "begroeting", "begin"], start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stats", stats_command))
@@ -128,6 +134,7 @@ def register_handlers(application):
         revert_optimistic_goal,
         report_goal_progress,
         mark_auto_failed_goal_done,
+        archive_open_ended_goal,
     )
     from features.goals.cancel import undo_goal_cancellation
     application.add_handler(CallbackQueryHandler(
@@ -139,7 +146,13 @@ def register_handlers(application):
     application.add_handler(CallbackQueryHandler(revert_optimistic_goal, pattern=r"^revert_(\d+)$"))
     application.add_handler(CallbackQueryHandler(undo_goal_cancellation, pattern=r"^uncancel_(\d+)$"))
     application.add_handler(CallbackQueryHandler(mark_auto_failed_goal_done, pattern=r"^markdone_(\d+)$"))
+    application.add_handler(CallbackQueryHandler(archive_open_ended_goal, pattern=r"^archivegoal_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^(finished|failed)_(\d+)$"))
+    application.add_handler(CallbackQueryHandler(
+        handle_library_callback,
+        pattern=r"^lib_(read|archive|reopen|promote|demote)_(\d+)$",
+    ))
+    application.add_handler(CallbackQueryHandler(handle_library_report, pattern=r"^lib_report_(\d+)$"))
     application.add_handler(CallbackQueryHandler(report_goal_progress, pattern=r"^postpone_(\d+)_(today|tomorrow)$"))
 
 
@@ -195,6 +208,18 @@ async def setup(application):
             CronTrigger(hour=0, minute=1),  # Run at 00:01
             misfire_grace_time=7200,
             coalesce=True
+        )
+
+        from features.library.handlers import send_weekly_library_pick
+        scheduler.add_job(
+            send_weekly_library_pick,
+            CronTrigger(day_of_week="fri", hour=17, minute=17, timezone=BERLIN_TZ),
+            args=[application.bot],
+            id="weekly_library_pick",
+            name="Weekly library pick",
+            misfire_grace_time=7200,
+            coalesce=True,
+            replace_existing=True,
         )
 
         if not scheduler.running:

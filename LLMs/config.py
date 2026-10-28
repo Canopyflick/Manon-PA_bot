@@ -22,6 +22,7 @@ from LLMs.structured_output_schemas import (
     WassupSchema,
     CompactSchedule,
     CompactPlanning,
+    LibraryNote,
 )
 from LLMs.prompts_templates import (
     dummy_template,
@@ -47,6 +48,7 @@ from LLMs.prompts_templates import (
     compact_one_time_template,
     compact_recurring_template,
     grandpa_quote_template,
+    library_note_template,
 )
 
 from langchain_openai import ChatOpenAI
@@ -263,6 +265,11 @@ chain_configs = {
         # Preset + require_parameters often 404s. Fall back to latest GPT Sol
         # on OpenRouter; without a fallback the morning quote is silently skipped.
         "fallback_llm": llms.get("openrouter_fallback") if "openrouter_smart" in llms else None,
+    },
+    "library_note": {
+        "template": library_note_template,
+        "schema": LibraryNote,
+        "llm": llms["mini"],
     },
 
 }

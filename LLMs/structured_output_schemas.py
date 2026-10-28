@@ -201,5 +201,21 @@ class Response(BaseModel):
 
 class WassupSchema(BaseModel):
     response_text: str
+
+
+class LibraryNote(BaseModel):
+    note: str | None = Field(
+        default=None,
+        description=(
+            "A short cleaned version of the user's note. "
+            "Null when the note is only a priority instruction and has no other content."
+        ),
+    )
+    priority: Literal["must_read", "maybe"] = Field(
+        description=(
+            "must_read only when the note says this is important, a must-read, "
+            "urgent, or similar. Otherwise maybe."
+        ),
+    )
     
 

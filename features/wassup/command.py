@@ -1,6 +1,6 @@
 # features/wassup/command.py
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 from utils.db import Database
 from utils.session_avatar import PA
@@ -38,34 +38,43 @@ async def wassup_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "Try expressing something you'd like to do 'at some point' and I'll save it for later!",
                     parse_mode="Markdown"
                 )
-                return
-            
-            # Pick a random goal
-            random_goal = random.choice(prepared_goals)
-            goal_description = random_goal['goal_description']
-            set_time = random_goal['set_time']
-            
-            # Format the date
-            if isinstance(set_time, str):
-                set_time = datetime.fromisoformat(set_time.replace('Z', '+00:00'))
-            elif set_time.tzinfo is None:
-                set_time = set_time.replace(tzinfo=BERLIN_TZ)
-            
-            formatted_date = set_time.strftime('%A, %d %B %Y')
-            
-            # Send the two messages as requested
-            await update.message.reply_text(
-                f"{PA} On {formatted_date} you expressed the intention to one day✨ do something. You said:",
-                parse_mode="Markdown"
-            )
-            
-            await update.message.reply_text(
-                f"_{goal_description}_",
-                parse_mode="Markdown"
-            )
-            
-            logger.info(f"Reminded user {user_id} about prepared goal: {goal_description[:50]}...")
-            
+            else:
+                # Pick a random goal
+                random_goal = random.choice(prepared_goals)
+                goal_description = random_goal['goal_description']
+                set_time = random_goal['set_time']
+
+                # Format the date
+                if isinstance(set_time, str):
+                    set_time = datetime.fromisoformat(set_time.replace('Z', '+00:00'))
+                elif set_time.tzinfo is None:
+                    set_time = set_time.replace(tzinfo=BERLIN_TZ)
+
+                formatted_date = set_time.strftime('%A, %d %B %Y')
+                goal_id = random_goal['goal_id']
+                keyboard = InlineKeyboardMarkup([[
+                    InlineKeyboardButton("✅ Done", callback_data=f"finished_{goal_id}"),
+                    InlineKeyboardButton("🗄 Archive", callback_data=f"archivegoal_{goal_id}"),
+                ]])
+
+                await update.message.reply_text(
+                    f"{PA} On {formatted_date} you expressed the intention to one day✨ do something. You said:",
+                    parse_mode="Markdown"
+                )
+                try:
+                    await update.message.reply_text(
+                        f"_{goal_description}_",
+                        reply_markup=keyboard,
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    await update.message.reply_text(goal_description, reply_markup=keyboard)
+
+                logger.info(f"Reminded user {user_id} about prepared goal: {goal_description[:50]}...")
+
+        from features.library.handlers import send_random_library_item
+        await send_random_library_item(context.bot, user_id, chat_id)
+
     except Exception as e:
         logger.error(f"Error in wassup_command: {e}")
         await update.message.reply_text(

@@ -43,6 +43,12 @@ async def analyze_any_message(update, context):
         if await handle_preset_triggers(update, context, user_message):
             return
 
+        # A message that is only a URL (optionally followed by a colon and a note)
+        # is filed in the library and does not go through classification.
+        from features.library.handlers import handle_library_message
+        if await handle_library_message(update, context, user_message):
+            return
+
         # Determine the type of message (returns categorization tuple of bools)
         bot_response_wanted, regular_message, bot_reply_message, bot_mention_message = await check_reply_or_mention(update, context)
 
