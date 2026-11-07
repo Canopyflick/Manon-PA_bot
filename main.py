@@ -56,6 +56,18 @@ async def initialize_environment(app):
 def get_bot_token() -> str:
     return ENV_VARS.TELEGRAM_API_KEY
 
+async def reply_when_handler_crashes(update, context):
+    """A command that crashes should still get a reply in the chat."""
+    logger.error("Unhandled handler error: %s", context.error, exc_info=context.error)
+    message = update.effective_message if update else None
+    if message is None:
+        return
+    try:
+        await message.reply_text("I hit an error handling that and couldn't finish. Try again.")
+    except Exception:
+        logger.exception("Could not send handler error reply")
+
+
 # Register bot commands and handlers
 def register_handlers(application):
     from leftovers.commands import (
@@ -106,6 +118,26 @@ def register_handlers(application):
     application.add_handler(CommandHandler("smarter", smarter_command))
     application.add_handler(CommandHandler("pro", pro_command))
     application.add_handler(CommandHandler("translate", translate_command))
+
+    # Same commands again when the text has no bot_command entity (Matrix / Element).
+    application.add_handler(MessageHandler(
+        filters.Regex(r"(?i)^/(?:overdue|expired)(?:@\w+)?(?:\s|$)"),
+        overdue_command,
+    ))
+    application.add_handler(MessageHandler(
+        filters.Regex(r"(?i)^/(?:today|vandaag)(?:@\w+)?(?:\s|$)"),
+        today_command,
+    ))
+    application.add_handler(MessageHandler(
+        filters.Regex(r"(?i)^/(?:24|24hs)(?:@\w+)?(?:\s|$)"),
+        twenty_four_hours_command,
+    ))
+    application.add_handler(MessageHandler(
+        filters.Regex(r"(?i)^/(?:tomorrow|morgen)(?:@\w+)?(?:\s|$)"),
+        tomorrow_command,
+    ))
+
+    application.add_error_handler(reply_when_handler_crashes)
     
     from utils.listener import analyze_any_message, print_edit, analyze_voice_message
     # For any message starting with a digit or colon

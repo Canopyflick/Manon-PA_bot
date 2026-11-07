@@ -112,57 +112,72 @@ async def translate_command(update: Update, context: CallbackContext):
         await process_other_language(update, context, source_text, language=language, translate_command=True)
         
 
+async def _reply_plain(message, text):
+    """Status replies stay plain text so a Markdown parse error cannot swallow them."""
+    return await message.reply_text(text)
+
+
 async def today_command(update, context):
     """
     Sends all goals in chat with deadlines remaining on this day (until tomorrow morning), for user that requested this with /today
     """
+    message = update.effective_message
+    chat = update.effective_chat
+    user = update.effective_user
+    if message is None or chat is None or user is None:
+        logger.error("/today had nothing to reply to")
+        return
+    chat_id = chat.id
+    user_id = user.id
     try:
-        chat_id = update.message.chat_id
-        user_id = update.effective_user.id
-        
         # Send upcoming goals
         upcoming_goals_message, _ = await send_goals_today(update, context, chat_id, user_id, timeframe=7)
         if upcoming_goals_message:
             await add_delete_button(update, context, upcoming_goals_message.message_id, delay=4)
             asyncio.create_task(delete_message(update, context, upcoming_goals_message.message_id, 1200))
+        else:
+            await _reply_plain(message, "I couldn't load today's goals. Try again.")
         
         # Fetch overdue goals
         overdue_goals_result = await fetch_overdue_goals(chat_id, user_id, timeframe="overdue_today")
-        if overdue_goals_result[0]:
-            overdue_today = overdue_goals_result[0]
-            for goal in overdue_today:
+        overdue_payload = overdue_goals_result[0] if overdue_goals_result else None
+        if isinstance(overdue_payload, str):
+            await _reply_plain(message, overdue_payload)
+        elif overdue_payload:
+            sent_any = False
+            for goal in overdue_payload:
                 if not isinstance(goal, dict) or "text" not in goal or "buttons" not in goal:
                     continue
-                goal_report_prompt = await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=goal["text"],
-                    reply_markup=goal["buttons"],
-                    parse_mode="Markdown"
-                )
+                goal_report_prompt = await _send_goal_card(message, goal)
                 asyncio.create_task(delete_message(update, context, goal_report_prompt.message_id, 1200))
+                sent_any = True
+            if not sent_any:
+                await _reply_plain(message, f"You're all caught up today, nothing overdue {PA}")
         else:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"_You're all caught up_ today, _nothing overdue_ {PA}",
-                parse_mode="Markdown"
-            )
+            await _reply_plain(message, f"You're all caught up today, nothing overdue {PA}")
             
     except Exception as e:
         logger.error(f"Error in today_command: {e}")
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="An error occurred while processing your request. Please try again later.",
-            parse_mode="Markdown"
-        )
+        await _reply_plain(message, "I couldn't load today's goals. Try again.")
 
 
 async def twenty_four_hours_command(update, context):
     """
     Replies with all goals that have deadlines between now + 24 hours for the user that sent /24
     """
-    chat_id = update.message.chat_id
-    user_id = update.effective_user.id
-    await send_goals_today(update, context, chat_id, user_id, timeframe="24hs")
+    message = update.effective_message
+    chat = update.effective_chat
+    user = update.effective_user
+    if message is None or chat is None or user is None:
+        logger.error("/24 had nothing to reply to")
+        return
+    try:
+        sent, _ = await send_goals_today(update, context, chat.id, user.id, timeframe="24hs")
+        if sent is None:
+            await _reply_plain(message, "I couldn't load the next 24 hours. Try again.")
+    except Exception as e:
+        logger.error(f"Error in twenty_four_hours_command: {e}")
+        await _reply_plain(message, "I couldn't load the next 24 hours. Try again.")
     
 
 def _overdue_cards(result):
@@ -175,43 +190,64 @@ def _overdue_cards(result):
     ]
 
 
+async def _send_goal_card(message, goal):
+    try:
+        return await message.reply_text(
+            goal["text"],
+            reply_markup=goal["buttons"],
+            parse_mode="Markdown",
+        )
+    except Exception as send_error:
+        logger.warning("Goal card Markdown failed, sending plain text: %s", send_error)
+        return await message.reply_text(
+            goal["text"].replace("*", ""),
+            reply_markup=goal["buttons"],
+        )
+
+
 async def overdue_command(update, context):
     """
     Sends expired Manon goals, plus urgent benwerktijd todos, with buttons to report progress.
+    Always replies, including when nothing is overdue.
     """
+    message = update.effective_message
+    chat = update.effective_chat
+    user = update.effective_user
+    if message is None or chat is None or user is None:
+        logger.error("/overdue had nothing to reply to")
+        return
+    chat_id = chat.id
+    user_id = user.id
+    logger.info("/overdue user_id=%s chat_id=%s", user_id, chat_id)
     try:
-        chat_id = update.message.chat_id
-        user_id = update.effective_user.id
-
-        cards = _overdue_cards(await fetch_overdue_goals(chat_id, user_id, timeframe="overdue"))
-        work_goals = await fetch_open_source_goals(
-            user_id, chat_id, "benwerktijd", urgent_only=True
+        overdue_result, work_goals = await asyncio.wait_for(
+            asyncio.gather(
+                fetch_overdue_goals(chat_id, user_id, timeframe="overdue"),
+                fetch_open_source_goals(user_id, chat_id, "benwerktijd", urgent_only=True),
+            ),
+            timeout=25,
         )
+        fetch_note = overdue_result[0] if isinstance(overdue_result[0], str) else None
+        cards = [] if fetch_note else _overdue_cards(overdue_result)
         cards.extend(format_goal_with_buttons(goal) for goal in work_goals)
 
+        if fetch_note:
+            await _reply_plain(message, fetch_note)
         if not cards:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text="0 overdue goals ✨",
-                parse_mode="Markdown"
-            )
+            if not fetch_note:
+                logger.info("/overdue reply chat_id=%s: 0 overdue goals", chat_id)
+                await _reply_plain(message, "0 overdue goals ✨")
             return
 
         for goal in cards:
-            goal_report_prompt = await context.bot.send_message(
-                chat_id=chat_id,
-                text=goal["text"],
-                reply_markup=goal["buttons"],
-                parse_mode="Markdown"
-            )
+            goal_report_prompt = await _send_goal_card(message, goal)
             asyncio.create_task(delete_message(update, context, goal_report_prompt.message_id, 1200))
-            
+
+    except asyncio.TimeoutError:
+        logger.error("/overdue timed out user_id=%s chat_id=%s", user_id, chat_id)
+        await _reply_plain(message, "I couldn't check overdue goals in time. Try again in a moment.")
     except Exception as e:
-        logger.error(f"Error in today_command: {e}")
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="An error occurred while processing your request in overdue_command()",
-            parse_mode="Markdown"
-        )
+        logger.error(f"Error in overdue_command: {e}")
+        await _reply_plain(message, "I couldn't load overdue goals. Try again in a moment.")
         
 

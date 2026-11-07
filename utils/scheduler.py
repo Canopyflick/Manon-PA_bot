@@ -71,15 +71,17 @@ async def send_goals_today(update, context, chat_id, user_id, timeframe):
         update_message += stakes_message
  
         try:
-            update_message = await context.bot.send_message(chat_id, update_message, parse_mode="Markdown")
-            
-            logger.info(f"goals overview message sent successfully in chat {chat_id} for {first_name}({user_id}).")
-            
-            return update_message, goals_count # for the today-command
-        
+            sent = await context.bot.send_message(chat_id, update_message, parse_mode="Markdown")
         except Exception as e:
-            logger.error(f"Error sending message to chat_id {chat_id}: {e}")
-            return None, 0
+            logger.error(f"Markdown goals overview failed for chat_id {chat_id}: {e}")
+            try:
+                sent = await context.bot.send_message(chat_id, update_message)
+            except Exception as retry_error:
+                logger.error(f"Plain goals overview failed for chat_id {chat_id}: {retry_error}")
+                return None, 0
+
+        logger.info(f"goals overview message sent successfully in chat {chat_id} for {first_name}({user_id}).")
+        return sent, goals_count
             
     except Exception as e:
         logger.error(f"Error sending goals message: {e}")
