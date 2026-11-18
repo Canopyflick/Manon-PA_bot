@@ -169,6 +169,8 @@ class PromptRenderTests(unittest.TestCase):
         self.assertIn("Saturday, 2026-10-03 16:00:00", goal)
         self.assertIn("cancel subscription X", goal)
         self.assertIn("one Set action per line", goal)
+        self.assertIn("One errand, several steps", goal)
+        self.assertIn("ask the seller if he'll take a lower price", goal)
         self.assertIn("Do not turn that quoted text into an action", goal)
         self.assertNotIn("{now}", goal)
         self.assertIn("actions", GoalClassification.model_fields)

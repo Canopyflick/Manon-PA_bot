@@ -19,14 +19,18 @@ class GoalAction(BaseModel):
     request: str = Field(
         description=(
             "Self-contained restatement of this one action. Keep time references "
-            "and concrete details such as names and URLs."
+            "and concrete details such as names and URLs. If several steps are "
+            "one errand, include every step here instead of emitting another action."
         )
     )
 
 
 class GoalClassification(BaseModel):
     actions: List[GoalAction] = Field(
-        description="One entry per distinct intention in the message, at most 8."
+        description=(
+            "One entry per distinct task, at most 8. Steps of the same errand "
+            "are one entry."
+        )
     )
 
 # Goal setting #1

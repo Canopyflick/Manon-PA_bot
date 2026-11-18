@@ -42,8 +42,11 @@ Each action has:
 - request: a self-contained restatement of only that action. Keep its time references ("tomorrow", "before Friday", clock times) and concrete details (names, URLs, amounts). A later step schedules from this text alone, so do not drop timing or specifics.
 
 ## Splitting
-- Distinct tasks become separate actions. Copy any shared time context onto each one.
-  "Tomorrow I want to call the dentist and buy groceries" -> two Set actions, and both requests mention tomorrow.
+Split only when the user is taking on separate tasks. Copy any shared time context onto each action.
+- Separate tasks: "Tomorrow I want to call the dentist and buy groceries" -> two Set actions, and both requests mention tomorrow. These are different errands.
+- One errand, several steps: keep it as one Set action. Clauses about the same object, person, place, or listing, done in the same sitting, are one intention. The word "and" does not split them.
+  "Friday in three weeks, check the bike listing to see if it's still for sale and ask the seller if he'll take a lower price" -> one Set action. The request includes both the check and the price question, and it keeps "Friday in three weeks".
+  "Email the landlord to confirm the viewing and ask about the deposit" -> one Set action.
 - The same task on a regular schedule stays one action. "Meditate every morning this month" -> one Set action.
 - A checklist of dates where each line has its own target is one Set action per line. Keep that date and that target in the request. Do not merge the lines into one recurring goal, and do not drop a line.
   "Hyperion weekly reading goals: Nov 1 page 260. Nov 8 page 290." -> two Set actions: "On Nov 1, read Hyperion to page 260" and "On Nov 8, read Hyperion to page 290". The word "weekly" does not make this one repeating goal when each date has a different target.
