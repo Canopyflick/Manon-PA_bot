@@ -33,9 +33,9 @@ async def home_command(update, context):
     if not is_user_ben(update):
         await update.message.reply_text(RESTRICTED)
         return
-    period = _period(update, context)
+    period = _period(update, context) or "today"
     if period not in ("today", "week", "month"):
-        await update.message.reply_text("Try /home today, /home week, or /home month.")
+        await update.message.reply_text("Try /home, /home week, or /home month.")
         return
     payload = await fetch_readings(period)
     if payload is None:
