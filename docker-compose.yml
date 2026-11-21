@@ -9,6 +9,9 @@ services:
     depends_on:
       - postgres
     restart: on-failure:5
+    networks:
+      - default
+      - smart-home
 
   manon_api:
     image: ghcr.io/canopyflick/manon-pa-bot:latest
@@ -37,3 +40,8 @@ services:
 
 volumes:
   pgdata:
+
+networks:
+  smart-home:
+    external: true
+    name: smart-home_default

@@ -119,6 +119,10 @@ def register_handlers(application):
     application.add_handler(CommandHandler("pro", pro_command))
     application.add_handler(CommandHandler("translate", translate_command))
 
+    from features.home.command import door_command, sensors_command
+    application.add_handler(CommandHandler("door", door_command))
+    application.add_handler(CommandHandler("sensors", sensors_command))
+
     # Same commands again when the text has no bot_command entity (Matrix / Element).
     application.add_handler(MessageHandler(
         filters.Regex(r"(?i)^/(?:overdue|expired)(?:@\w+)?(?:\s|$)"),
@@ -135,6 +139,14 @@ def register_handlers(application):
     application.add_handler(MessageHandler(
         filters.Regex(r"(?i)^/(?:tomorrow|morgen)(?:@\w+)?(?:\s|$)"),
         tomorrow_command,
+    ))
+    application.add_handler(MessageHandler(
+        filters.Regex(r"(?i)^/door(?:@\w+)?(?:\s|$)"),
+        door_command,
+    ))
+    application.add_handler(MessageHandler(
+        filters.Regex(r"(?i)^/sensors(?:@\w+)?(?:\s|$)"),
+        sensors_command,
     ))
 
     application.add_error_handler(reply_when_handler_crashes)
