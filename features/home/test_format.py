@@ -1,6 +1,7 @@
 from datetime import date
 
 from features.home.format import format_door, format_sensors
+from features.home.story import format_story
 
 
 def test_door_shows_the_three_newest_oldest_first():
@@ -44,3 +45,84 @@ def test_sensors_include_the_light_as_on_or_off():
             "Light: off",
         ]
     )
+
+
+def test_a_quiet_day_names_the_two_openings_and_a_steady_room():
+    text = format_story(
+        {
+            "period": "today",
+            "since": "2026-11-21T00:00:00+0100",
+            "door": {
+                "opens": 2,
+                "opens_at": [
+                    "2026-11-21T10:16:04.609+0100",
+                    "2026-11-21T12:14:00.000+0100",
+                ],
+                "busiest_day": "2026-11-21",
+                "busiest_count": 2,
+                "log_starts": "2026-11-21T10:11:34.907+0100",
+            },
+            "thermometer": {
+                "min_temperature": 17.1,
+                "max_temperature": 17.6,
+                "min_humidity": 48,
+                "max_humidity": 52,
+                "min_temperature_on": "2026-11-21",
+                "max_temperature_on": "2026-11-21",
+            },
+            "airguard": {"max_co2": 640, "max_co2_on": "2026-11-21"},
+        }
+    )
+    assert text == (
+        "Today. The front door opened twice, at 10:16 and 12:14. "
+        "Indoors held steady around 17.6°C. The air peaked at 640 ppm."
+    )
+
+
+def test_a_busy_stuffy_week_names_the_days():
+    text = format_story(
+        {
+            "period": "week",
+            "since": "2026-11-16T00:00:00+0100",
+            "door": {
+                "opens": 8,
+                "opens_at": [],
+                "busiest_day": "2026-11-18",
+                "busiest_count": 5,
+                "log_starts": "2026-11-16T08:00:00.000+0100",
+            },
+            "thermometer": {
+                "min_temperature": 16.0,
+                "max_temperature": 19.5,
+                "min_humidity": 40,
+                "max_humidity": 55,
+                "min_temperature_on": "2026-11-16",
+                "max_temperature_on": "2026-11-18",
+            },
+            "airguard": {"max_co2": 1250, "max_co2_on": "2026-11-17"},
+        }
+    )
+    assert text == (
+        "This week. The front door opened 8 times, most of them on Wednesday. "
+        "The coldest was 16.0°C on Monday and the warmest 19.5°C on Wednesday. "
+        "Humidity ran from 40% to 55%. The air peaked at 1250 ppm on Tuesday and got stuffy."
+    )
+
+
+def test_a_month_says_when_the_door_log_actually_starts():
+    text = format_story(
+        {
+            "period": "month",
+            "since": "2026-11-01T00:00:00+0100",
+            "door": {
+                "opens": 0,
+                "opens_at": [],
+                "busiest_day": None,
+                "busiest_count": 0,
+                "log_starts": "2026-11-21T10:11:34.907+0100",
+            },
+            "thermometer": None,
+            "airguard": None,
+        }
+    )
+    assert text == "This month. The door log starts on 21 Nov. The front door stayed shut."
