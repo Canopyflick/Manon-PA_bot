@@ -13,7 +13,7 @@ def test_door_shows_how_long_each_close_had_been_open():
         ],
         today=date(2026, 11, 21),
     )
-    assert text == "Front door\n10:17 closed (1m 4s)\n10:53 open\n10:53 closed (7s)"
+    assert text == "Front door\n10:53 closed (7s)\n10:53 open\n10:17 closed (1m 4s)"
 
 
 def test_an_older_door_reading_keeps_its_date():

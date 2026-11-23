@@ -7,7 +7,7 @@ def format_door(events: list[dict], today: date) -> str:
     if not events:
         return "No door readings yet."
     lines = ["Front door"]
-    for event in reversed(events):
+    for event in events:
         when = _when(event.get("local"), today)
         door = event.get("door")
         label = door if door in ("open", "closed") else event.get("what") or "unknown"
