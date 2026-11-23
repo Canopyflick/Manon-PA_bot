@@ -4,16 +4,16 @@ from features.home.format import format_door, format_sensors
 from features.home.story import format_story
 
 
-def test_door_shows_the_three_newest_oldest_first():
+def test_door_shows_how_long_each_close_had_been_open():
     text = format_door(
         [
-            {"local": "2026-11-21T10:53:28.173+0100", "door": "closed", "what": "closed"},
+            {"local": "2026-11-21T10:53:28.173+0100", "door": "closed", "what": "closed", "open_seconds": 7},
             {"local": "2026-11-21T10:53:21.325+0100", "door": "open", "what": "opened"},
-            {"local": "2026-11-21T10:17:08.090+0100", "door": "closed", "what": "closed"},
+            {"local": "2026-11-21T10:17:08.090+0100", "door": "closed", "what": "closed", "open_seconds": 64},
         ],
         today=date(2026, 11, 21),
     )
-    assert text == "Front door\n10:17 closed\n10:53 open\n10:53 closed"
+    assert text == "Front door\n10:17 closed (1m 4s)\n10:53 open\n10:53 closed (7s)"
 
 
 def test_an_older_door_reading_keeps_its_date():

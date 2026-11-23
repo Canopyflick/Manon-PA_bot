@@ -11,7 +11,8 @@ def format_door(events: list[dict], today: date) -> str:
         when = _when(event.get("local"), today)
         door = event.get("door")
         label = door if door in ("open", "closed") else event.get("what") or "unknown"
-        lines.append(f"{when} {label}")
+        span = _open_span(event.get("open_seconds")) if door == "closed" else ""
+        lines.append(f"{when} {label}{span}")
     return "\n".join(lines)
 
 
@@ -72,6 +73,19 @@ def _air(reading: dict) -> str:
     if climate != "unknown":
         text += f", {climate}"
     return text
+
+
+def _open_span(seconds: object) -> str:
+    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or seconds < 0:
+        return ""
+    total = int(seconds)
+    if total < 60:
+        return f" ({total}s)"
+    minutes, secs = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f" ({hours}h {minutes}m)" if minutes else f" ({hours}h)"
+    return f" ({minutes}m {secs}s)" if secs else f" ({minutes}m)"
 
 
 def _when(value: object, today: date) -> str:
