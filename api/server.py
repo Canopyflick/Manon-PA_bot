@@ -1,5 +1,6 @@
 """Goals API. External apps upsert rows in manon_goals; Manon reads the same table."""
 
+import json
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 EXTERNAL_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 OPEN_STATUSES = ("prepared", "pending", "paused", "limbo")
 ALLOWED_BADGES = ("recurring",)
+MAX_SUBTASKS = 40
+MAX_SUBTASK_TEXT = 500
 
 
 def allowed_origins() -> set[str]:
@@ -118,6 +121,7 @@ def _goal_payload(row) -> dict:
         "completedAt": completed.isoformat() if completed else None,
         "createdAt": created.isoformat() if created else None,
         "badges": [badge for badge in raw_badges if badge in ALLOWED_BADGES],
+        "subtasks": _read_subtasks(row["subtasks"]),
         "sortOrder": row["sort_order"],
         "updatedAt": updated.isoformat() if updated else None,
     }
@@ -147,6 +151,67 @@ def _parse_badges(value) -> list[str] | None | web.Response:
             return web.json_response({"error": f"Unknown badge: {item}"}, status=400)
         if item not in cleaned:
             cleaned.append(item)
+    return cleaned
+
+
+def _read_subtasks(value) -> list[dict]:
+    """Lenient read. A bad stored list must not fail the whole goals response."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(value, list):
+        return []
+    cleaned: list[dict] = []
+    seen: set[str] = set()
+    for item in value:
+        if len(cleaned) >= MAX_SUBTASKS or not isinstance(item, dict):
+            continue
+        sub_id = item.get("id")
+        text = item.get("text")
+        done = item.get("done")
+        if not isinstance(sub_id, str) or not EXTERNAL_ID.match(sub_id) or sub_id in seen:
+            continue
+        if not isinstance(text, str) or not isinstance(done, bool):
+            continue
+        stripped = text.strip()
+        if not stripped or len(stripped) > MAX_SUBTASK_TEXT:
+            continue
+        seen.add(sub_id)
+        cleaned.append({"id": sub_id, "text": stripped, "done": done})
+    return cleaned
+
+
+def _parse_subtasks(value) -> list[dict] | None | web.Response:
+    """None keeps the stored list. A list replaces it."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        return web.json_response({"error": "subtasks must be a list"}, status=400)
+    if len(value) > MAX_SUBTASKS:
+        return web.json_response({"error": f"at most {MAX_SUBTASKS} subtasks"}, status=400)
+    cleaned: list[dict] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            return web.json_response({"error": "each subtask must be an object"}, status=400)
+        sub_id = item.get("id")
+        text = item.get("text")
+        done = item.get("done")
+        if not isinstance(sub_id, str) or not EXTERNAL_ID.match(sub_id):
+            return web.json_response({"error": "subtask id is invalid"}, status=400)
+        if sub_id in seen:
+            return web.json_response({"error": "subtask ids must be unique"}, status=400)
+        if not isinstance(text, str) or not text.strip() or len(text.strip()) > MAX_SUBTASK_TEXT:
+            return web.json_response(
+                {"error": f"subtask text is required (max {MAX_SUBTASK_TEXT} characters)"},
+                status=400,
+            )
+        if not isinstance(done, bool):
+            return web.json_response({"error": "subtask done must be a boolean"}, status=400)
+        seen.add(sub_id)
+        cleaned.append({"id": sub_id, "text": text.strip(), "done": done})
     return cleaned
 
 
@@ -201,7 +266,7 @@ async def list_goals(request: web.Request) -> web.Response:
         rows = await conn.fetch(
             """
             SELECT external_id, goal_description, urgent, urgent_on, status,
-                   completion_time, sort_order, updated_at, created_at, badges
+                   completion_time, sort_order, updated_at, created_at, badges, subtasks
             FROM manon_goals
             WHERE user_id = $1 AND chat_id = $2 AND source = $3
               AND (
@@ -248,6 +313,13 @@ async def upsert_goal(request: web.Request) -> web.Response:
     badges = _parse_badges(body.get("badges"))
     if isinstance(badges, web.Response):
         return badges
+    has_subtasks = "subtasks" in body
+    subtasks = None
+    if has_subtasks:
+        parsed_subtasks = _parse_subtasks(body.get("subtasks"))
+        if isinstance(parsed_subtasks, web.Response):
+            return parsed_subtasks
+        subtasks = parsed_subtasks
     has_urgent_on = "urgentOn" in body
     urgent_on = None
     if has_urgent_on:
@@ -269,12 +341,13 @@ async def upsert_goal(request: web.Request) -> web.Response:
                 INSERT INTO manon_goals (
                     user_id, chat_id, status, timeframe, recurrence_type,
                     goal_description, source, external_id, urgent, sort_order,
-                    completion_time, set_time, badges, urgent_on
+                    completion_time, set_time, badges, urgent_on, subtasks
                 ) VALUES (
                     $1, $2, $3, 'open-ended', 'one-time',
                     $4, $5, $6, $7, $8,
                     $9, NOW(), COALESCE($10::text[], '{}'),
-                    CASE WHEN $11::bool THEN $12::date ELSE NULL END
+                    CASE WHEN $11::bool THEN $12::date ELSE NULL END,
+                    CASE WHEN $13::bool THEN $14::jsonb ELSE '[]'::jsonb END
                 )
                 ON CONFLICT (source, external_id) WHERE external_id IS NOT NULL
                 DO UPDATE SET
@@ -285,11 +358,12 @@ async def upsert_goal(request: web.Request) -> web.Response:
                     completion_time = EXCLUDED.completion_time,
                     timeframe = 'open-ended',
                     badges = COALESCE($10::text[], manon_goals.badges),
-                    urgent_on = CASE WHEN $11::bool THEN $12::date ELSE manon_goals.urgent_on END
+                    urgent_on = CASE WHEN $11::bool THEN $12::date ELSE manon_goals.urgent_on END,
+                    subtasks = CASE WHEN $13::bool THEN $14::jsonb ELSE manon_goals.subtasks END
                 WHERE manon_goals.user_id = EXCLUDED.user_id
                   AND manon_goals.chat_id = EXCLUDED.chat_id
                 RETURNING external_id, goal_description, urgent, urgent_on, status,
-                          completion_time, sort_order, updated_at, created_at, badges
+                          completion_time, sort_order, updated_at, created_at, badges, subtasks
                 """,
                 user_id,
                 chat_id,
@@ -303,6 +377,8 @@ async def upsert_goal(request: web.Request) -> web.Response:
                 badges,
                 has_urgent_on,
                 urgent_on,
+                has_subtasks,
+                json.dumps(subtasks if subtasks is not None else []),
             )
     if not row:
         return web.json_response({"error": "Goal belongs to another user"}, status=403)
