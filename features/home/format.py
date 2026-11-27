@@ -28,7 +28,7 @@ def format_sensors(payload: dict) -> str:
             f"Thermometer: {_climate(thermo.get('temperature'), thermo.get('humidity'))}",
             f"AirGuard: {_air(air)}",
             f"Motion: {_motion(motion.get('occupancy'))}",
-            f"Light: {_light(payload.get('light'))}",
+            _lights(payload),
         ]
     )
 
@@ -47,6 +47,19 @@ def _motion(value: object) -> str:
     if value is False:
         return "clear"
     return "unknown"
+
+
+def _lights(payload: dict) -> str:
+    lights = payload.get("lights")
+    if isinstance(lights, list):
+        known = [item for item in lights if isinstance(item, dict) and isinstance(item.get("on"), bool)]
+        if not known:
+            return "Lights: unknown"
+        on = [item["name"] for item in known if item.get("on") is True and isinstance(item.get("name"), str)]
+        if not on:
+            return "Lights: all off"
+        return "Lights: " + ", ".join(on)
+    return f"Light: {_light(payload.get('light'))}"
 
 
 def _light(value: object) -> str:

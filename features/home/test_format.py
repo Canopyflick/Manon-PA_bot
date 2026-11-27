@@ -24,10 +24,15 @@ def test_an_older_door_reading_keeps_its_date():
     assert text == "Front door\n20 Nov 22:05 open"
 
 
-def test_sensors_include_the_light_as_on_or_off():
+def test_sensors_name_only_the_lights_that_are_on():
     text = format_sensors(
         {
             "light": "off",
+            "lights": [
+                {"name": "Strip", "on": False},
+                {"name": "Study", "on": True},
+                {"name": "Hall", "on": False},
+            ],
             "sensors": {
                 "front_door": {"contact": False},
                 "thermometer": {"temperature": 18.1, "humidity": 51.2},
@@ -42,9 +47,19 @@ def test_sensors_include_the_light_as_on_or_off():
             "Thermometer: 18.1°C, 51%",
             "AirGuard: 900 ppm, 19.5°C, 44%",
             "Motion: clear",
-            "Light: off",
+            "Lights: Study",
         ]
     )
+    off = format_sensors(
+        {
+            "lights": [
+                {"name": "Strip", "on": False},
+                {"name": "Study", "on": False},
+            ],
+            "sensors": {},
+        }
+    )
+    assert off.endswith("Lights: all off")
 
 
 def test_a_quiet_day_names_the_two_openings_and_a_steady_room():
@@ -70,12 +85,12 @@ def test_a_quiet_day_names_the_two_openings_and_a_steady_room():
                 "min_temperature_on": "2026-11-21",
                 "max_temperature_on": "2026-11-21",
             },
-            "airguard": {"max_co2": 640, "max_co2_on": "2026-11-21"},
+            "airguard": {"max_co2": 640, "max_co2_on": "2026-11-21", "max_co2_at": "2026-11-21T14:20:00.000+0100"},
         }
     )
     assert text == (
         "Today. The front door opened twice, at 10:16 and 12:14. "
-        "Indoors held steady around 17.6°C. The air peaked at 640 ppm."
+        "Indoors held steady around 17.6°C. The air peaked at 640 ppm at 14:20."
     )
 
 
@@ -99,13 +114,13 @@ def test_a_busy_stuffy_week_names_the_days():
                 "min_temperature_on": "2026-11-16",
                 "max_temperature_on": "2026-11-18",
             },
-            "airguard": {"max_co2": 1250, "max_co2_on": "2026-11-17"},
+            "airguard": {"max_co2": 1250, "max_co2_on": "2026-11-17", "max_co2_at": "2026-11-17T09:00:00+0100"},
         }
     )
     assert text == (
         "This week. The front door opened 8 times, most of them on Wednesday. "
         "The coldest was 16.0°C on Monday and the warmest 19.5°C on Wednesday. "
-        "Humidity ran from 40% to 55%. The air peaked at 1250 ppm on Tuesday and got stuffy."
+        "Humidity ran from 40% to 55%. The air peaked at 1250 ppm on Tuesday at 09:00 and got stuffy."
     )
 
 

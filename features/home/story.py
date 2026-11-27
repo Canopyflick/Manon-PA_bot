@@ -84,10 +84,17 @@ def _air(summary: dict, period: str) -> str:
     if not isinstance(peak, (int, float)):
         return ""
     sentence = f"The air peaked at {peak:.0f} ppm"
+    clock = _clock(reading.get("max_co2_at"))
     if period in ("week", "month"):
         day = _weekday(reading.get("max_co2_on"))
-        if day:
+        if day and clock:
+            sentence += f" on {day} at {clock}"
+        elif day:
             sentence += f" on {day}"
+        elif clock:
+            sentence += f" at {clock}"
+    elif clock:
+        sentence += f" at {clock}"
     if peak >= 1000:
         sentence += " and got stuffy"
     return sentence + "."
@@ -102,6 +109,12 @@ def _coverage(summary: dict) -> str:
     if started[:10] <= since[:10]:
         return ""
     return f"The door log starts on {_day_month(started[:10])}."
+
+
+def _clock(value: object) -> str:
+    if isinstance(value, str) and len(value) >= 16:
+        return value[11:16]
+    return ""
 
 
 def _open_labels(values: object, period: str) -> list[str]:

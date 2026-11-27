@@ -16,7 +16,7 @@ HELP_MESSAGE = (
         'ℹ️ /version - Bot version info\n'
         '⚓ /btc\\_alert - View/set BTC price alert anchor\n'
         '🚪 /door - Last 7 front door readings\n'
-        '🌡️ /sensors - Current readings, and whether the light is on\n'
+        '🌡️ /sensors - Current readings, and which lights are on\n'
         "🏠 /home - Today's house story. Also /home week and /home month\n\n"
         '*Info about your goals*\n'
         f'| /today | /tomorrow | /24 | /overdue |\n'
