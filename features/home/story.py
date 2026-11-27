@@ -11,6 +11,7 @@ def format_story(summary: dict) -> str:
     sentences = [
         _coverage(summary),
         _door(summary, period),
+        _fridge(summary, period),
         _temperature(summary, period),
         _humidity(summary),
         _air(summary, period),
@@ -42,6 +43,44 @@ def _door(summary: dict, period: str) -> str:
         else:
             sentence += f", most of them on {day}"
     return sentence + "."
+
+
+def _fridge(summary: dict, period: str) -> str:
+    fridge = summary.get("fridge") if isinstance(summary.get("fridge"), dict) else None
+    if fridge is None:
+        return ""
+    opens = fridge.get("opens") if isinstance(fridge.get("opens"), int) else 0
+    if opens == 0 and not fridge.get("log_starts"):
+        return ""
+    lead = _since(summary, fridge)
+    if opens == 0:
+        return f"{lead}The fridge stayed shut."
+    if opens <= 2:
+        times = _open_labels(fridge.get("opens_at"), period)
+        if opens == 1 and times:
+            return f"{lead}The fridge was opened once, at {times[0]}."
+        if opens == 2 and len(times) == 2:
+            return f"{lead}The fridge was opened twice, at {times[0]} and {times[1]}."
+    sentence = f"{lead}The fridge was opened {opens} times"
+    busiest = fridge.get("busiest_day")
+    count = fridge.get("busiest_count")
+    if period in ("week", "month") and isinstance(busiest, str) and isinstance(count, int) and count > 0:
+        day = _weekday(busiest)
+        if count == opens:
+            sentence += f", all on {day}"
+        else:
+            sentence += f", most of them on {day}"
+    return sentence + "."
+
+
+def _since(summary: dict, device: dict) -> str:
+    started = device.get("log_starts")
+    since = summary.get("since")
+    if not isinstance(started, str) or not isinstance(since, str) or len(started) < 10 or len(since) < 10:
+        return ""
+    if started[:10] <= since[:10]:
+        return ""
+    return f"Since {_day_month(started[:10])}, "
 
 
 def _temperature(summary: dict, period: str) -> str:
