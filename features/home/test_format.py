@@ -114,6 +114,23 @@ def test_the_fridge_is_counted_apart_from_the_front_door():
     )
     assert "The front door stayed shut." in text
     assert "The fridge was opened twice, at 08:10 and 13:05." in text
+    week = format_story(
+        {
+            "period": "week",
+            "since": "2026-11-21T00:00:00+0100",
+            "door": {"opens": 0, "opens_at": [], "log_starts": "2026-11-21T10:11:34.907+0100"},
+            "fridge": {
+                "opens": 16,
+                "opens_at": [],
+                "busiest_day": "2026-11-27",
+                "busiest_count": 16,
+                "log_starts": "2026-11-27T08:10:00.000+0100",
+            },
+            "thermometer": None,
+            "airguard": None,
+        }
+    )
+    assert "Since 27 Nov, the fridge was opened 16 times, all on Friday." in week
 
 
 def test_a_busy_stuffy_week_names_the_days():

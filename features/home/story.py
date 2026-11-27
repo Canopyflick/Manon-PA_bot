@@ -54,23 +54,29 @@ def _fridge(summary: dict, period: str) -> str:
         return ""
     lead = _since(summary, fridge)
     if opens == 0:
-        return f"{lead}The fridge stayed shut."
-    if opens <= 2:
+        body = "The fridge stayed shut."
+    elif opens <= 2:
         times = _open_labels(fridge.get("opens_at"), period)
         if opens == 1 and times:
-            return f"{lead}The fridge was opened once, at {times[0]}."
-        if opens == 2 and len(times) == 2:
-            return f"{lead}The fridge was opened twice, at {times[0]} and {times[1]}."
-    sentence = f"{lead}The fridge was opened {opens} times"
-    busiest = fridge.get("busiest_day")
-    count = fridge.get("busiest_count")
-    if period in ("week", "month") and isinstance(busiest, str) and isinstance(count, int) and count > 0:
-        day = _weekday(busiest)
-        if count == opens:
-            sentence += f", all on {day}"
+            body = f"The fridge was opened once, at {times[0]}."
+        elif opens == 2 and len(times) == 2:
+            body = f"The fridge was opened twice, at {times[0]} and {times[1]}."
         else:
-            sentence += f", most of them on {day}"
-    return sentence + "."
+            body = f"The fridge was opened {opens} times."
+    else:
+        body = f"The fridge was opened {opens} times"
+        busiest = fridge.get("busiest_day")
+        count = fridge.get("busiest_count")
+        if period in ("week", "month") and isinstance(busiest, str) and isinstance(count, int) and count > 0:
+            day = _weekday(busiest)
+            if count == opens:
+                body += f", all on {day}"
+            else:
+                body += f", most of them on {day}"
+        body += "."
+    if lead:
+        body = body[0].lower() + body[1:]
+    return lead + body
 
 
 def _since(summary: dict, device: dict) -> str:
